@@ -23,6 +23,7 @@ const HIERARCHY = {
   "create_reconcile": ["read_reconcile"],
   
   "admin": ["*"], // Special keyword for all permissions
+  "member_approval": [], // Permission to approve/decline join requests
 };
 
 /**
@@ -79,7 +80,7 @@ export function hasPermission(userPermissions, requiredPermission) {
 export function getAllPermissions() {
   return [
     "dashboard_view",
-    "read_member", "create_member", "update_member", "delete_member",
+    "read_member", "create_member", "update_member", "delete_member", "member_approval",
     "read_remittance", "create_remittance", "update_remittance", "delete_remittance", "approve_remittance", "reverse_remittance",
     "read_ledger", "read_coop_ledger",
     "read_report",

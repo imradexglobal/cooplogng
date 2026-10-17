@@ -1,9 +1,10 @@
 import { queryRows } from '../sqliteService.js';
 import { fetchAllMembers, fetchEnterprises } from '../dataService.js';
 import { formatDate } from '../../utils/formatters.js';
+import { selectMemberFields, memberFieldHeader, memberFieldValue } from './memberFields.js';
 
 export async function getMemberListData(cooperativeId, user, filters = {}) {
-    const { status, selectedFields } = filters;
+    const { status } = filters;
     const isAdmin = user.role === 'admin' || (user.permissions || '').includes('admin');
     const members = await fetchAllMembers(cooperativeId, user.username, isAdmin);
 
@@ -11,106 +12,127 @@ export async function getMemberListData(cooperativeId, user, filters = {}) {
     if (status && status !== 'All') {
         filtered = members.filter(m => m.status === status);
     }
+    filtered = [...filtered].sort((a, b) => (parseInt(a.registration_no, 10) || 0) - (parseInt(b.registration_no, 10) || 0));
+
+    // Headers and cell values come from the same ordered field list, so the
+    // columns can never drift out of alignment with each other.
+    const fields = selectMemberFields(filters.selectedFields);
+    const headers = ['S/N', ...fields.map(memberFieldHeader)];
 
     const data = filtered.map((m, idx) => {
         const row = { 'S/N': idx + 1 };
-        if (selectedFields.includes('short_name')) {
-            const last = m.last_name || '';
-            const fInit = String(m.first_name || '').charAt(0);
-            const mInit = String(m.middle_name || '').charAt(0);
-            row['Short Name'] = `${last} ${fInit}${fInit ? '.' : ''}${mInit}${mInit ? '.' : ''}`.trim();
-        }
-        if (selectedFields.includes('full_name')) row['Full Name'] = `${m.last_name || ''} ${m.first_name || ''} ${m.middle_name || ''}`.trim();
-        if (selectedFields.includes('registration_no')) row['Reg No'] = m.registration_no ? String(m.registration_no).padStart(4, '0') : '';
-        if (selectedFields.includes('mobile')) row['Mobile'] = m.mobile || '';
-        if (selectedFields.includes('sex')) row['Sex'] = m.sex || '';
-        if (selectedFields.includes('status')) row['Status'] = m.status || '';
-        if (selectedFields.includes('date_joined')) {
-            row['Date Joined'] = formatDate(m.date_joined);
-        }
-        if (selectedFields.includes('address')) row['Address'] = m.address || '';
-        if (selectedFields.includes('account_manager')) row['Account Manager'] = m.account_manager || '';
+        fields.forEach(f => { row[memberFieldHeader(f)] = memberFieldValue(f, m); });
         return row;
-    });
-
-    const headers = ['S/N'];
-
-    if (selectedFields.includes('short_name')) headers.push('Short Name');
-    else if (selectedFields.includes('full_name')) headers.push('Full Name');
-
-    const remainingFields = {
-        registration_no: 'Reg No',
-        mobile: 'Mobile',
-        sex: 'Sex',
-        status: 'Status',
-        date_joined: 'Date Joined',
-        address: 'Address',
-        account_manager: 'Account Manager'
-    };
-
-    Object.keys(remainingFields).forEach(key => {
-        if (selectedFields.includes(key)) {
-            headers.push(remainingFields[key]);
-        }
     });
 
     return { data, headers };
 }
 
-export async function getPaymentAdviseData(cooperativeId) {
+export async function getPaymentAdviseData(cooperativeId, user = null, filters = {}) {
+    const status = filters.status || 'All';
+    const enterpriseFilter = filters.enterprise || '';
+    const isAdmin = !user || user.role === 'admin' || (user.permissions || '').includes('admin');
+
     const enterprises = await fetchEnterprises(cooperativeId, true);
-    const loans = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'loan').sort((a, b) => a.account_name.localeCompare(b.account_name));
-    const savings = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'savings').sort((a, b) => a.account_name.localeCompare(b.account_name));
-    const others = enterprises.filter(e => !loans.includes(e) && !savings.includes(e)).sort((a, b) => a.account_name.localeCompare(b.account_name));
-    const orderedEnts = [...loans, ...savings, ...others];
+    const byName = (a, b) => String(a.account_name || '').localeCompare(String(b.account_name || ''));
+    const loans = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'loan').sort(byName);
+    const savings = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'savings').sort(byName);
+    const others = enterprises.filter(e => !loans.includes(e) && !savings.includes(e)).sort(byName);
+    let orderedEnts = [...loans, ...savings, ...others];
+    if (enterpriseFilter) orderedEnts = orderedEnts.filter(e => String(e.id) === String(enterpriseFilter));
 
-    const useSpecialId = localStorage.getItem('useSpecialIdInReports') === 'true';
-    const headers = ["S/N", useSpecialId ? "Member ID" : "Reg No", ...orderedEnts.map(e => e.account_name), "Total"];
-
-    const sql = `
-        SELECT pa.member_id as id, m.registration_no, m.special_id, pa.enterprise_id, SUM(pa.amount) as total
-        FROM payment_advise pa
-        JOIN members m ON m.id = pa.member_id
-        WHERE pa.cooperative_id = ?
-          AND pa.is_deleted = 0 AND m.is_deleted = 0
-          AND CAST(pa.amount AS REAL) != 0
-        GROUP BY pa.member_id, pa.enterprise_id
-    `;
-    const rows = await queryRows(sql, [cooperativeId]);
-    const byMember = {};
-    const regMap = {};
-    const specialIdMap = {};
-    rows.forEach(r => {
-        if (!byMember[r.id]) byMember[r.id] = {};
-        byMember[r.id][r.enterprise_id] = r.total;
-        regMap[r.id] = r.registration_no;
-        specialIdMap[r.id] = r.special_id;
+    // The roster is read in JS rather than through a members join: the local
+    // executor drops any member field that collides with a remittance column
+    // (`is_deleted` among them), so SQL-side member filters never applied and
+    // soft-deleted members leaked into this report. Filtering here also scopes
+    // non-admin users to their own account managers.
+    const roster = await fetchAllMembers(cooperativeId, isAdmin ? null : (user?.username ?? null), isAdmin);
+    const memberById = new Map();
+    roster.forEach(m => {
+        if (m.is_deleted) return;
+        if (status !== 'All' && String(m.status || '') !== status) return;
+        memberById.set(String(m.id), m);
     });
 
-    const data = [];
-    const entTotals = new Array(orderedEnts.length).fill(0);
-    const sortedIds = Object.keys(byMember).sort((a, b) => (regMap[a] || 0) - (regMap[b] || 0));
+    const rows = await queryRows(`
+        SELECT member_id as id, enterprise_id, SUM(amount) as total
+        FROM payment_advise
+        WHERE cooperative_id = ? AND is_deleted = 0
+        GROUP BY member_id, enterprise_id
+    `, [String(cooperativeId)]);
 
-    sortedIds.forEach((mid, idx) => {
-        const memberId = useSpecialId ? (specialIdMap[mid] || String(regMap[mid] || '').padStart(4, '0')) : String(regMap[mid] || '').padStart(4, '0');
-        const row = [idx + 1, memberId];
+    const entIds = new Set(orderedEnts.map(e => String(e.id)));
+    const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
+    const byMember = new Map();
+    rows.forEach(r => {
+        const mid = String(r.id);
+        if (!memberById.has(mid)) return;
+        const entId = String(r.enterprise_id);
+        if (!entIds.has(entId)) return;
+        const amt = round2(r.total);
+        if (amt === 0) return;
+        if (!byMember.has(mid)) byMember.set(mid, new Map());
+        byMember.get(mid).set(entId, amt);
+    });
+
+    // Accounts nobody advises on only widen the matrix — drop them.
+    const usedEntIds = new Set();
+    byMember.forEach(ents => ents.forEach((_, entId) => usedEntIds.add(entId)));
+    const activeEnts = orderedEnts.filter(e => usedEntIds.has(String(e.id)));
+
+    const fullName = m => [m.last_name, m.first_name, m.middle_name].filter(Boolean).join(' ') || String(m.name || '');
+    const regKey = m => {
+        const n = parseFloat(m.registration_no);
+        return isNaN(n) ? Number.MAX_SAFE_INTEGER : n;
+    };
+    const members = [...byMember.keys()]
+        .map(mid => memberById.get(mid))
+        .sort((a, b) => (regKey(a) - regKey(b))
+            || String(a.registration_no || '').localeCompare(String(b.registration_no || ''))
+            || fullName(a).localeCompare(fullName(b)));
+
+    const useSpecialId = localStorage.getItem('useSpecialIdInReports') === 'true';
+    const headers = [
+        'S/N',
+        useSpecialId ? 'Member ID' : 'Reg No',
+        'Member Name',
+        'Status',
+        ...activeEnts.map(e => e.account_name),
+        'Total'
+    ];
+
+    const data = [];
+    const entTotals = new Array(activeEnts.length).fill(0);
+    let grandTotal = 0;
+
+    members.forEach((m, idx) => {
+        const regNo = m.registration_no != null ? String(m.registration_no) : '';
+        const memberId = useSpecialId
+            ? (m.special_id || regNo.padStart(4, '0'))
+            : regNo.padStart(4, '0');
+        const row = [idx + 1, memberId, fullName(m), m.status || 'Active'];
+        const advices = byMember.get(String(m.id)) || new Map();
         let rowTotal = 0;
-        orderedEnts.forEach((ent, eIdx) => {
-            const val = byMember[mid][ent.id] || 0;
+
+        activeEnts.forEach((ent, eIdx) => {
+            const val = round2(advices.get(String(ent.id)) || 0);
             row.push(val);
-            rowTotal += val;
-            entTotals[eIdx] += val;
+            rowTotal = round2(rowTotal + val);
+            entTotals[eIdx] = round2(entTotals[eIdx] + val);
         });
+
         row.push(rowTotal);
+        grandTotal = round2(grandTotal + rowTotal);
         data.push(row);
     });
 
     if (data.length > 0) {
-        const totalRow = ["TOTAL", "", ...entTotals, entTotals.reduce((a, b) => a + b, 0)];
-        data.push(totalRow);
+        data.push(['TOTAL', '', '', '', ...entTotals, grandTotal]);
     }
 
-    return { data, headers };
+    const title = `Payment Advice as at ${formatDate(new Date())}`;
+    // footerCount keeps the TOTAL row pinned below the preview row limit.
+    return { data, headers, title, footerCount: data.length > 0 ? 1 : 0 };
 }
 
 export async function getMemberPerformanceAgingData(cooperativeId) {
@@ -193,6 +215,115 @@ export async function getMemberPerformanceAgingData(cooperativeId) {
 
     const headers = ['S/N', useSpecialId ? 'Member ID' : 'Reg No', 'Member Name', 'Status', 'Loan Account', 'Current (<30)', '30-60 Days', '60-90 Days', 'Over 90 Days', 'Total Outstanding'];
     return { data, headers, title: 'Loan Aging Analysis Report' };
+}
+
+export async function getMemberMonthlyTransactionSummaryData(cooperativeId, user, fyLabel, transactionFilter = 'cr') {
+    const isAdmin = user.role === 'admin' || (user.permissions || '').includes('admin');
+    const baseYear = fyLabel.includes('/') ? parseInt(fyLabel.split('/')[0]) : parseInt(fyLabel);
+
+    const coop = await queryRows("SELECT coop_first_month FROM cooperatives WHERE id=?", [cooperativeId]);
+    let startMonth = 1;
+    if (coop[0]?.coop_first_month) {
+        const parts = String(coop[0].coop_first_month).split('-');
+        startMonth = parseInt(parts[1]);
+    }
+
+    const startDate = new Date(baseYear, startMonth - 1, 1);
+    const months = [];
+    let cur = new Date(startDate);
+    for (let i = 0; i < 12; i++) {
+        months.push({ year: cur.getFullYear(), month: cur.getMonth() + 1 });
+        cur.setMonth(cur.getMonth() + 1);
+    }
+
+    const periodStartMs = new Date(baseYear, startMonth - 1, 1).getTime();
+    const periodEndMs = new Date(baseYear, startMonth - 1, 1);
+    periodEndMs.setMonth(periodEndMs.getMonth() + 12);
+    periodEndMs.setDate(periodEndMs.getDate() - 1);
+    periodEndMs.setHours(23, 59, 59, 999);
+
+    const moLabels = months.map(m => new Date(m.year, m.month - 1, 1).toLocaleString('default', { month: 'short' }));
+    const useSpecialId = localStorage.getItem('useSpecialIdInReports') === 'true';
+    const headers = ['S/N', useSpecialId ? 'Member ID' : 'Reg No', ...moLabels, 'Total'];
+
+    // Member status cannot be read through the remittance join: the local SQL
+    // executor merges joined tables into one flat object and drops any member
+    // field that collides with a remittance column, which `status` does. The
+    // active roster is therefore built from the members table directly, which
+    // also scopes rows to the current cooperative and the user's account
+    // managers.
+    const roster = await fetchAllMembers(cooperativeId, isAdmin ? null : user.username, isAdmin);
+    const activeMembers = roster
+        .filter(m => !m.is_deleted && String(m.status || '').toLowerCase() === 'active')
+        .sort((a, b) => (a.registration_no || 0) - (b.registration_no || 0));
+
+    const memberById = {};
+    activeMembers.forEach(m => { memberById[String(m.id)] = m; });
+
+    // The executor supports no CTEs, no date()/CAST() in WHERE and strips
+    // aliases, so the query stays deliberately plain and every filter that
+    // needs real date or numeric semantics is applied in JS below.
+    const rows = await queryRows(
+        `SELECT member_id, remittance_date, bank_name, amount
+         FROM remittance_detail
+         JOIN remittance ON remittance.id = remittance_detail.remittance_id
+         WHERE remittance_detail.cooperative_id = ?
+           AND remittance.status = 'Approved'
+           AND remittance_detail.is_deleted = 0`,
+        [String(cooperativeId)]
+    );
+
+    const byMember = {};
+    rows.forEach(r => {
+        const key = String(r.member_id);
+        if (!(key in memberById)) return;
+
+        if (String(r.bank_name || '').trim().toLowerCase() === 'internal transfer') return;
+
+        const d = new Date(String(r.remittance_date || '').trim());
+        if (isNaN(d.getTime())) return;
+        if (d.getTime() < periodStartMs || d.getTime() > periodEndMs) return;
+
+        const amt = parseFloat(r.amount) || 0;
+        if (transactionFilter === 'cr' && !(amt > 0)) return;
+        if (transactionFilter === 'dr' && !(amt < 0)) return;
+
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!byMember[key]) byMember[key] = {};
+        byMember[key][monthKey] = (byMember[key][monthKey] || 0) + amt;
+    });
+
+    const data = [];
+    const monthTotals = new Array(12).fill(0);
+    let grandTotal = 0;
+
+    activeMembers.forEach((m, idx) => {
+        const regNo = m.registration_no != null ? String(m.registration_no) : '';
+        const memberId = useSpecialId ? (m.special_id || regNo.padStart(4, '0')) : regNo.padStart(4, '0');
+        const row = [idx + 1, memberId];
+        let rowTotal = 0;
+        const monthsForMember = byMember[String(m.id)] || {};
+
+        months.forEach((mo, i) => {
+            const monthKey = `${mo.year}-${String(mo.month).padStart(2, '0')}`;
+            const val = monthsForMember[monthKey] || 0;
+            row.push(val);
+            rowTotal += val;
+            monthTotals[i] += val;
+        });
+
+        row.push(rowTotal);
+        grandTotal += rowTotal;
+        data.push(row);
+    });
+
+    if (data.length > 0) {
+        const totalRow = ['TOTAL', '', ...monthTotals, grandTotal];
+        data.push(totalRow);
+    }
+
+    const title = `Member Monthly Transaction Summary - ${fyLabel} Financial Year`;
+    return { data, headers, title };
 }
 
 export async function getGeneralNetworthData(cooperativeId, user, dateTo) {

@@ -2,7 +2,8 @@ import {
     searchTerm, statusFilter, managerFilter,
     setSearchTerm, setStatusFilter, setManagerFilter, setSortExplicit,
     getAllMembers, getFilteredMembers, applyFilters,
-    isSelectionMode, selectedIds, setSelectionMode, deselectAll, usersList
+    isSelectionMode, selectedIds, setSelectionMode, deselectAll, usersList,
+    setSecondaryView, secondaryView
 } from './membersState.js'
 import { renderMembersTable } from './membersTable.js'
 import { renderMembersStats } from './membersStats.js'
@@ -17,19 +18,58 @@ let searchTimeout = null
 /**
  * Handles DOM updates specifically for filters
  */
-function updateFilteredViews(container) {
+async function updateFilteredViews(container) {
     applyFilters()
-    
+
+    // Resolve cooperativeId from closest ancestor with data-coop-id (stat card click passes inner .members-page which lacks it)
+    const coopEl = container.closest('[data-coop-id]') || container
+    const coopId = coopEl.dataset.coopId
+
+    // Resolve user info from the same ancestor — dataset attributes are set on the outer container,
+    // not on the inner .members-page element that is sometimes passed (e.g. from stat-card click handler).
+    const userEl = container.closest('[data-coop-id]') || container
+    const dsUsername = userEl.dataset.username
+    const dsPermissions = userEl.dataset.userPermissions
+    const dsRole = userEl.dataset.userRole
+    const dsIsAdminPre = userEl.dataset.isAdmin === 'true'
+
     // Update Stats
     const statsContainer = container.querySelector('#members-stats-mount')
     if (statsContainer) {
-        statsContainer.innerHTML = renderMembersStats(getFilteredMembers())
+        try {
+            const { countPendingMembershipRequests } = await import('../../services/data/membershipRequests.js')
+            const pendingCount = await countPendingMembershipRequests(coopId ?? undefined)
+            statsContainer.innerHTML = renderMembersStats(getFilteredMembers(), pendingCount)
+        } catch (e) {
+            statsContainer.innerHTML = renderMembersStats(getFilteredMembers(), 0)
+        }
         // Re-attach progressive listeners (no-op until Phase 4)
         import('./membersStats.js').then(m => m.attachStatsListeners?.(container)).catch(() => {})
     }
-    
-    // Update Table
-    renderMembersTable(container)
+
+    // Update Table or Join Requests view
+    if (secondaryView === 'join-requests') {
+        try {
+            const { renderMembersJoinRequests } = await import('./membersJoinRequests.js')
+            const dsIsAdmin = dsIsAdminPre
+                || dsRole === 'admin'
+                || hasPermission(dsPermissions, 'admin')
+                || hasPermission(dsPermissions, 'member_approval')
+                || (dsUsername || '').toLowerCase() === 'admin'
+            await renderMembersJoinRequests(container, {
+                cooperativeId: coopId,
+                username: dsUsername,
+                role: dsRole,
+                permissions: dsPermissions,
+                isAdmin: dsIsAdmin,
+                userDoc: { id: dsUsername }
+            })
+        } catch (e) {
+            console.warn('[Members] Join requests view failed:', e?.message)
+        }
+    } else {
+        renderMembersTable(container)
+    }
 
     // Update reset button visibility
     const resetBtn = container.querySelector('#search-reset-btn')
@@ -59,9 +99,15 @@ function updateSelectionBar(container) {
         return
     }
 
-    const isAdmin = hasPermission(container.dataset.userPermissions, 'admin')
-    const canDelete = isAdmin || hasPermission(container.dataset.userPermissions, 'delete_member')
-    const canUpdate = isAdmin || hasPermission(container.dataset.userPermissions, 'update_member')
+    // Resolve user info from ancestor (dataset attrs may live on outer container)
+    const userEl = container.closest('[data-coop-id]') || container
+    const isAdmin = userEl.dataset.isAdmin === 'true'
+        || userEl.dataset.userRole === 'admin'
+        || hasPermission(userEl.dataset.userPermissions, 'admin')
+        || hasPermission(userEl.dataset.userPermissions, 'member_approval')
+        || (userEl.dataset.username || '').toLowerCase() === 'admin'
+    const canDelete = isAdmin || hasPermission(userEl.dataset.userPermissions, 'delete_member')
+    const canUpdate = isAdmin || hasPermission(userEl.dataset.userPermissions, 'update_member')
 
     bar.style.display = 'flex'
     bar.innerHTML = `
@@ -216,10 +262,17 @@ function updateSelectionBar(container) {
             setSelectionMode(false)
             window.dispatchEvent(new CustomEvent('refresh-members'))
             const { loadMembersData } = await import('./membersState.js')
+            const dsIsAdmin1 = container.dataset.isAdmin === 'true'
+                || container.dataset.userRole === 'admin'
+                || hasPermission(container.dataset.userPermissions, 'admin')
+                || hasPermission(container.dataset.userPermissions, 'member_approval')
+                || (container.dataset.username || '').toLowerCase() === 'admin'
             await loadMembersData({ 
                 cooperativeId: coopId, 
                 username: username, 
-                permissions: container.dataset.userPermissions 
+                permissions: container.dataset.userPermissions,
+                role: container.dataset.userRole,
+                isAdmin: dsIsAdmin1
             })
             updateFilteredViews(container)
         }
@@ -254,10 +307,17 @@ function updateSelectionBar(container) {
             
             setSelectionMode(false)
             const { loadMembersData } = await import('./membersState.js')
+            const dsIsAdmin2 = container.dataset.isAdmin === 'true'
+                || container.dataset.userRole === 'admin'
+                || hasPermission(container.dataset.userPermissions, 'admin')
+                || hasPermission(container.dataset.userPermissions, 'member_approval')
+                || (container.dataset.username || '').toLowerCase() === 'admin'
             await loadMembersData({ 
                 cooperativeId: coopId, 
                 username: username, 
-                permissions: container.dataset.userPermissions 
+                permissions: container.dataset.userPermissions,
+                role: container.dataset.userRole,
+                isAdmin: dsIsAdmin2
             })
             updateFilteredViews(container)
         }
@@ -265,13 +325,32 @@ function updateSelectionBar(container) {
 }
 
 export function renderMembersFilters(container, user) {
-    const isAdmin = hasPermission(user.permissions, 'admin') || user.username?.toLowerCase() === 'admin'
+    const isAdmin = user.isAdmin
+        || user.role === 'admin'
+        || hasPermission(user.permissions, 'admin')
+        || hasPermission(user.permissions, 'member_approval')
+        || user.username?.toLowerCase() === 'admin'
     const canUpdate = isAdmin || hasPermission(user.permissions, 'update_member')
     
     // Store user info for listeners
     container.dataset.username = user.username
     container.dataset.coopId = user.cooperativeId
     container.dataset.userPermissions = user.permissions
+    container.dataset.userRole = user.role || ''
+    container.dataset.isAdmin = String(isAdmin)
+
+    // Also copy dataset attributes to the inner .members-page element so that callers
+    // who query document.querySelector('.members-page') and pass it still work.
+    try {
+        const innerPage = container.querySelector('.members-page')
+        if (innerPage) {
+            innerPage.dataset.username = user.username
+            innerPage.dataset.coopId = user.cooperativeId
+            innerPage.dataset.userPermissions = user.permissions
+            innerPage.dataset.userRole = user.role || ''
+            innerPage.dataset.isAdmin = String(isAdmin)
+        }
+    } catch (_) { /* no-op */ }
 
     // Extract unique managers with safety check (sorted A–Z for scanability)
     const allMembers = getAllMembers()
@@ -632,6 +711,12 @@ export function attachFiltersListeners(container, user) {
             if (!page) return
             const stat = e.detail?.stat
             try {
+                if (stat === 'join-requests') {
+                    setSecondaryView('join-requests')
+                    updateFilteredViews(page)
+                    return
+                }
+                setSecondaryView('members')
                 let nextStatus = null
                 if (stat === 'total') {
                     nextStatus = 'All Status'

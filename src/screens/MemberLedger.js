@@ -57,6 +57,13 @@ function roundUpTo100(val) {
   return Math.ceil(val / 100) * 100
 }
 
+function loanStatusClass(status) {
+  if (status === 'Active') return 'status-badge status-green'
+  if (status === 'Overdue') return 'status-badge status-red'
+  if (status === 'Pending' || status === 'Declined') return 'status-badge status-amber'
+  return 'status-badge status-gray'
+}
+
 export async function renderMemberLedger(container, user) {
   const currentYear = new Date().getFullYear().toString()
   const isAdmin = user.isAdmin || hasPermission(user.permissions, 'admin') || user.username?.toLowerCase() === 'admin'
@@ -96,12 +103,30 @@ export async function renderMemberLedger(container, user) {
   container.innerHTML = `
     <style>
       .lmv { display: none; }
-      .lmc { background: var(--bg-card); border-radius: var(--radius-md); padding: 0.6rem; margin-bottom: 0.5rem; border: 1px solid var(--border-light); }
+      .lmc { background: var(--bg-card); border-radius: var(--radius-md); padding: 0.6rem 0.7rem; margin-bottom: 0.5rem; border: 1px solid var(--border-light); }
       .lch { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border-light); }
+      .lch-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; min-width: 0; }
+      .ltype { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 999px; white-space: nowrap; }
+      .ltype.t-credit { background: var(--success-bg); color: var(--success); }
+      .ltype.t-debit { background: var(--danger-bg); color: var(--danger); }
+      .ltype.t-neutral { background: var(--bg-secondary); color: var(--text-secondary); }
+      .ldate { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+      .ldesc { font-size: 0.82rem; line-height: 1.35; color: var(--text-primary); margin-bottom: 0.35rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .lmeta { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.66rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem; }
+      .lmeta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .lname { display: block; font-size: 0.88rem; font-weight: 700; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .lsub { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.45rem; }
       .lcg { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-      .ls { display: flex; flex-direction: column; gap: 0.1rem; }
+      .lcg-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; }
+      .ls { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
       .ls .sl { font-size: 0.6rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-      .ls .sv { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+      .ls .sv { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+      /* Paging affordances */
+      .lcount { text-align: center; font-size: 0.7rem; color: var(--text-muted); padding: 0.6rem 0 0.25rem; }
+      .lsentinel { height: 1px; }
+      .lmore { display: block; width: 100%; min-height: 44px; margin-top: 0.6rem; padding: 0.6rem 1rem; border: 1px solid var(--border-medium); border-radius: var(--radius-md); background: var(--bg-card); color: var(--accent-primary); font-size: 0.82rem; font-weight: 700; cursor: pointer; }
+      .lmore:active { background: var(--bg-secondary); }
 
       /* Outer layout — contains its own scroll so sticky header truly freezes */
       .ledger-outer {
@@ -126,22 +151,31 @@ export async function renderMemberLedger(container, user) {
         flex: 1;
         overflow-y: auto;
         overflow-x: hidden;
+        overscroll-behavior: contain;
         padding: 1rem 3rem 2rem;
       }
 
       .scards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1rem; }
-      .scard { background: var(--bg-card); padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); }
+      .scard { background: var(--bg-card); padding: 0.75rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); min-width: 0; }
       .scard .lbl { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0.25rem; letter-spacing: 0.04em; }
-      .scard .val { font-size: 1.1rem; font-weight: 800; color: var(--text-primary); }
+      .scard .val { font-size: clamp(0.95rem, 2.4vw, 1.1rem); font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
       .lhdr { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
       .lhdr h2 { margin: 0; font-size: 1.2rem; font-weight: 800; white-space: nowrap; }
-      .lhdr .sub { font-size: 0.75rem; color: var(--text-muted); margin: 0; }
+      .lhdr .sub { font-size: 0.85rem; color: var(--text-muted); margin: 0; }
       .lhdr .hdr-right { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 
       .lfil { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
       .lfil .fg { display: flex; align-items: center; gap: 0.25rem; }
       .lfil .fg label { font-size: 0.6rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; white-space: nowrap; min-width: 2rem; }
+
+      /* Quick range presets (tap once to fill From/To) */
+      .lfil-presets { display: flex; align-items: center; gap: 0.4rem; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
+      .lfil-presets::-webkit-scrollbar { display: none; }
+      .lpreset { flex: 0 0 auto; min-height: 34px; padding: 0.35rem 0.8rem; border: 1px solid var(--border-medium); border-radius: 999px; background: var(--bg-card); color: var(--text-secondary); font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+      .lpreset:hover { background: var(--bg-hover, var(--bg-secondary)); }
+      .lpreset.active { background: var(--accent-primary); border-color: var(--accent-primary); color: #ffffff; }
+      .lpreset:focus-visible, .ltab:focus-visible, .lmore:focus-visible, .ghost-button:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
       /* Dates always-inline container */
       .lfil-dates { display: flex; flex-direction: row; gap: 0.4rem; align-items: flex-end; flex-wrap: nowrap; }
@@ -157,12 +191,13 @@ export async function renderMemberLedger(container, user) {
       .mdrop { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); z-index: 100; max-height: 200px; overflow-y: auto; margin-top: 2px; }
       .mdrop.open { display: block; }
       .mdrop .di { padding: 0.3rem 0.5rem; cursor: pointer; font-size: 0.75rem; color: var(--text-primary); border-bottom: 1px solid var(--border-light); transition: background 0.1s; }
-      .mdrop .di:hover, .mdrop .di.hl { background: var(--bg-hover); }
+      .mdrop .di:hover, .mdrop .di.hl { background: var(--bg-hover, var(--bg-secondary)); }
       .mdrop .di.all { font-weight: 700; color: var(--accent-primary); border-bottom: 2px solid var(--border-medium); }
 
       .sfils { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; }
       .sfils label { font-size: 0.6rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: flex; align-items: center; gap: 0.25rem; }
       .sfils select { padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-medium); background: var(--bg-input); color: var(--text-primary); font-size: 0.75rem; }
+      .lzero-btn { min-height: 32px; }
 
       .lmodal-overlay { display: none; position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
       .lmodal-overlay.open { display: flex; }
@@ -183,7 +218,7 @@ export async function renderMemberLedger(container, user) {
       .tc table th { padding: 0.4rem 0.5rem; font-size: 0.68rem; white-space: nowrap; background: var(--bg-secondary); }
       .tc table td { padding: 0.35rem 0.5rem; }
       .tc table tr { cursor: pointer; transition: background 0.1s; }
-      .tc table tbody tr:hover { background: var(--bg-hover); }
+      .tc table tbody tr:hover { background: var(--bg-hover, var(--bg-secondary)); }
 
       /* Tab styles */
       .ltabs { display: flex; gap: 0.35rem; margin-bottom: 0; background: var(--bg-input, #f1f5f9); padding: 0.3rem; border-radius: var(--radius-md); }
@@ -205,19 +240,45 @@ export async function renderMemberLedger(container, user) {
         .lfil-dates .fg { flex: 1; }
         .lfil-dates .fg label { font-size: 0.55rem; }
         .dwrap { min-width: auto; width: 100%; }
+        /* 16px input text prevents iOS focus-zoom (labels stay small) */
+        .dwrap .ddisp { min-height: 42px; padding: 0.45rem 0.5rem; font-size: 16px; }
         /* Stats: always 2 columns on mobile — never 3+1 */
         .scards { grid-template-columns: 1fr 1fr !important; }
+        .scard { padding: 0.6rem 0.7rem; }
+        .scard .val { font-size: clamp(0.95rem, 4.4vw, 1.1rem); }
         /* Hide member selector in header (it's in top bar on mobile) */
         .lhdr-member-desktop { display: none !important; }
-        /* Hide page title in sticky header on mobile (shown in top bar) */
-        .lhdr > div:first-child { display: none; }
+        /* Hide page title in sticky header on mobile (shown in top bar),
+           but keep the subtitle — member name + running total — visible */
+        .lhdr > div:first-child { flex: none; width: 100%; min-width: 0; }
+        .lhdr > div:first-child h2 { display: none; }
+        .lhdr > div:first-child .sub { font-size: 0.72rem; line-height: 1.35; }
         .lhdr { flex-direction: column; align-items: flex-start; margin-bottom: 0.5rem; }
         .lhdr .hdr-right { margin-left: 0; width: 100%; }
-        .lfil { margin-bottom: 0; }
-        /* Tab names shortened */
+        .lfil { margin-bottom: 0; width: 100%; }
+        /* Presets: finger-sized, scroll off the right edge */
+        .lfil-presets { margin-right: -0.75rem; padding-right: 0.75rem; padding-bottom: 0.4rem; }
+        .lpreset { min-height: 40px; font-size: 0.8rem; padding: 0.4rem 0.9rem; }
+        /* Filter selects + toggles: >=40px hit area, 16px text */
+        .sfils select, #loan-status-filter { min-height: 40px; font-size: 16px !important; padding: 0.4rem 0.6rem; }
+        .sfils label { font-size: 0.62rem; }
+        .lzero-btn { min-height: 40px; font-size: 0.78rem !important; padding: 0 0.85rem !important; }
+        /* Card amounts shrink so 7-figure sums stay inside the card */
+        .lmc-tx .sv, .lmc-loan .sv { font-size: 0.78rem; }
+        .lmc-tx .lmeta { font-size: 0.64rem; }
+        /* Tab names shortened + bigger hit area */
         .ltab .tab-label-full { display: none; }
         .ltab .tab-label-short { display: inline; }
-        .ltab { font-size: 0.78rem; padding: 0.4rem 0.4rem; }
+        .ltab { font-size: 0.8rem; padding: 0.6rem 0.4rem; min-height: 42px; }
+        /* Loan detail becomes a bottom sheet */
+        .lmodal-overlay { align-items: flex-end; }
+        .lmodal { width: 100%; max-width: none; max-height: 88vh; max-height: 88dvh; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding-bottom: env(safe-area-inset-bottom); }
+        .lmodal::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--border-medium); margin: 0.5rem auto 0; }
+        .lmodal-hdr { padding-top: 0.5rem; }
+        .lmodal-body .s-row { flex-wrap: wrap; gap: 0.15rem 0.5rem; font-size: 0.9rem; padding: 0.4rem 0; }
+        .lmodal-body .s-row > span:last-child { margin-left: auto; text-align: right; }
+        .lmodal-actions { flex-direction: column; }
+        .lmodal-actions .primary-button, .lmodal-actions .secondary-button { width: 100%; min-height: 44px; }
       }
       @media (min-width: 1000px) {
         .ltab .tab-label-full { display: inline; }
@@ -232,7 +293,7 @@ export async function renderMemberLedger(container, user) {
       <div class="lhdr" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.6rem;">
         <div style="flex: 1; min-width: 200px;">
           <h2 style="margin: 0; font-size: 1.3rem; font-weight: 800;">${isGlobalView() ? 'Cooperative Ledger' : 'Member Ledger'} <span id="ledger-member-ids" style="font-weight: 800; color: var(--accent-primary);"></span></h2>
-          <p class="sub" id="ledger-subtitle" style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);"></p>
+          <p class="sub" id="ledger-subtitle" style="margin: 0.25rem 0 0 0; color: var(--text-muted);"></p>
         </div>
 
         <div class="lfil" style="margin-bottom: 0; justify-content: flex-end; flex-wrap: wrap;">
@@ -264,6 +325,15 @@ export async function renderMemberLedger(container, user) {
         </div>
       </div>
 
+      <!-- Quick range presets: one tap fills From/To -->
+      <div class="lfil-presets" id="ledger-presets" role="group" aria-label="Quick date ranges">
+        <button type="button" class="lpreset" data-range="month">This Month</button>
+        <button type="button" class="lpreset" data-range="30d">Last 30 Days</button>
+        <button type="button" class="lpreset" data-range="6m">Last 6 Months</button>
+        <button type="button" class="lpreset" data-range="year">This Year</button>
+        <button type="button" class="lpreset" data-range="all">All Time</button>
+      </div>
+
       <!-- Tab switcher -->
       <div class="ltabs">
         <button class="ltab" data-tab="tab-transactions">
@@ -289,7 +359,7 @@ export async function renderMemberLedger(container, user) {
     </div><!-- /.ledger-outer -->
 
     <div class="lmodal-overlay" id="loan-detail-overlay">
-      <div class="lmodal">
+      <div class="lmodal" role="dialog" aria-modal="true" aria-labelledby="loan-detail-title">
         <div class="lmodal-hdr">
           <h3 id="loan-detail-title">Loan Details</h3>
           <button class="ghost-button" id="loan-detail-close" style="font-size: 1.2rem; padding: 0.2rem 0.5rem;">&times;</button>
@@ -300,6 +370,139 @@ export async function renderMemberLedger(container, user) {
   `
 
   const contentContainer = document.getElementById('ledger-content')
+
+  // --- Viewport tree + paging state ------------------------------------
+  // Only one DOM tree is built (desktop table *or* mobile cards), so the
+  // page re-renders whenever the 999px breakpoint is crossed (rotation,
+  // split view, window resize).
+  const PAGE_SIZE = 50
+  let visibleLimit = PAGE_SIZE
+  let pageKey = ''
+  let totalRows = 0
+  let loadingMore = false
+
+  const isMobileViewport = () => window.matchMedia('(max-width: 999px)').matches
+
+  if (window.__ledgerMq && window.__ledgerMqHandler) {
+    window.__ledgerMq.removeEventListener('change', window.__ledgerMqHandler)
+  }
+  window.__ledgerMq = window.matchMedia('(max-width: 999px)')
+  window.__ledgerMqHandler = () => {
+    // Ignore stale handlers left over from a previous ledger mount.
+    if (document.getElementById('ledger-content') !== contentContainer) return
+    renderActiveTab()
+  }
+  window.__ledgerMq.addEventListener('change', window.__ledgerMqHandler)
+
+  function paginate(list) {
+    totalRows = list.length
+    return list.slice(0, visibleLimit)
+  }
+
+  function loadMoreRows() {
+    if (loadingMore || visibleLimit >= totalRows) return
+    loadingMore = true
+    visibleLimit += PAGE_SIZE
+    Promise.resolve(renderActiveTab())
+      .finally(() => { loadingMore = false })
+      .catch(() => {})
+  }
+
+  function pagingFooter(shown, total) {
+    if (total === 0) return ''
+    const remaining = total - shown
+    return `
+      <div class="lcount">Showing ${shown} of ${total} ${total === 1 ? 'entry' : 'entries'}</div>
+      ${remaining > 0 ? `
+        <button type="button" class="lmore" id="ledger-load-more">Show more (${remaining} remaining)</button>
+        <div class="lsentinel" id="ledger-sentinel"></div>` : ''}`
+  }
+
+  function bindPaging() {
+    const btn = document.getElementById('ledger-load-more')
+    if (btn) btn.addEventListener('click', loadMoreRows)
+
+    // Drop the previous render's observer so they don't pile up.
+    if (window.__ledgerPagingIO) {
+      try { window.__ledgerPagingIO.disconnect() } catch {}
+      window.__ledgerPagingIO = null
+    }
+
+    const sentinel = document.getElementById('ledger-sentinel')
+    const scrollBody = container.querySelector('.ledger-scroll-body')
+    if (!sentinel || !scrollBody || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some(en => en.isIntersecting)) {
+        io.disconnect()
+        loadMoreRows()
+      }
+    }, { root: scrollBody, rootMargin: '150px' })
+    io.observe(sentinel)
+    window.__ledgerPagingIO = io
+  }
+
+  // --- Quick range presets ---------------------------------------------
+  function computePresetRange(id) {
+    const now = new Date()
+    const today = formatDateForInput(now)
+    if (id === 'month') return { from: formatDateForInput(new Date(now.getFullYear(), now.getMonth(), 1)), to: today }
+    if (id === '30d') { const d = new Date(now); d.setDate(d.getDate() - 29); return { from: formatDateForInput(d), to: today } }
+    if (id === '6m') { const d = new Date(now); d.setMonth(d.getMonth() - 6); return { from: formatDateForInput(d), to: today } }
+    if (id === 'year') return { from: formatDateForInput(new Date(now.getFullYear(), 0, 1)), to: today }
+    return { from: '', to: '' }
+  }
+
+  function renderPresets() {
+    const from = filters.dateFrom || ''
+    const to = filters.dateTo || ''
+    container.querySelectorAll('.lpreset').forEach(btn => {
+      const r = computePresetRange(btn.dataset.range)
+      const isActive = r.from === from && r.to === to
+      btn.classList.toggle('active', isActive)
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false')
+    })
+  }
+
+  container.querySelectorAll('.lpreset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const range = computePresetRange(btn.dataset.range)
+      filters.dateFrom = range.from
+      filters.dateTo = range.to
+      const fromInput = document.getElementById('ledger-date-from')
+      const toInput = document.getElementById('ledger-date-to')
+      if (fromInput) fromInput.value = range.from
+      if (toInput) toInput.value = range.to
+      const fromDisp = container.querySelector('.ddisp[data-for="ledger-date-from"]')
+      const toDisp = container.querySelector('.ddisp[data-for="ledger-date-to"]')
+      if (fromDisp) fromDisp.value = range.from ? formatDate(range.from) : ''
+      if (toDisp) toDisp.value = range.to ? formatDate(range.to) : ''
+      renderPresets()
+      renderActiveTab()
+    })
+  })
+  renderPresets()
+
+  // --- Loan rows/cards -> detail sheet ----------------------------------
+  if (window.__ledgerLoanClickHandler) document.removeEventListener('click', window.__ledgerLoanClickHandler)
+  if (window.__ledgerLoanKeyHandler) document.removeEventListener('keydown', window.__ledgerLoanKeyHandler)
+  window.__ledgerLoanClickHandler = (e) => {
+    const el = e.target.closest?.('[data-loan-id]')
+    if (!el || !contentContainer.contains(el)) return
+    openLoanDetailModal(el.dataset.loanId)
+  }
+  window.__ledgerLoanKeyHandler = (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    const el = e.target.closest?.('[data-loan-id]')
+    if (!el || !contentContainer.contains(el)) return
+    e.preventDefault()
+    openLoanDetailModal(el.dataset.loanId)
+  }
+  document.addEventListener('click', window.__ledgerLoanClickHandler)
+  document.addEventListener('keydown', window.__ledgerLoanKeyHandler)
+
+  document.getElementById('loan-detail-overlay').addEventListener('click', (e) => {
+    if (e.target.id === 'loan-detail-overlay') e.currentTarget.classList.remove('open')
+  })
 
   let activeTabFromRoute = 'tab-summary'
   if (user.routeParts && user.routeParts.length > 0) {
@@ -342,6 +545,7 @@ export async function renderMemberLedger(container, user) {
       updateDisplay()
       window.__ledgerFilters.dateFrom = document.getElementById('ledger-date-from').value
       window.__ledgerFilters.dateTo = document.getElementById('ledger-date-to').value
+      renderPresets()
       renderActiveTab()
     })
 
@@ -416,8 +620,14 @@ export async function renderMemberLedger(container, user) {
       html += filtered.map(m => {
         const name = `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown'
         const regNo = m.member_registration_no || m.registration_no || ''
+        const specialId = m.special_id || ''
+        const mobile = m.mobile || ''
         const selected = filters.memberId === m.id ? 'hl' : ''
-        return `<div class="di ${selected}" data-member-id="${m.id}" data-member-name="${escapeHtml(name)}">${escapeHtml(name)} ${regNo ? `<span style="color: var(--text-muted); font-size: 0.65rem;">(${escapeHtml(regNo)})</span>` : ''}</div>`
+        const extraParts = []
+        if (specialId) extraParts.push(`ID: ${escapeHtml(specialId)}`)
+        if (regNo) extraParts.push(`Reg: ${escapeHtml(regNo)}`)
+        if (mobile) extraParts.push(`Mobile: ${escapeHtml(mobile)}`)
+        return `<div class="di ${selected}" data-member-id="${m.id}" data-member-name="${escapeHtml(name)}">${escapeHtml(name)} ${extraParts.length ? `<span style="color: var(--text-muted); font-size: 0.65rem;">(${extraParts.join(' • ')})</span>` : ''}</div>`
       }).join('')
     }
     return html
@@ -486,7 +696,7 @@ export async function renderMemberLedger(container, user) {
     const html = buildMemberDropdownHtml(members, query)
     // Style items to look good in the floating dropdown
     mobileDropdown.innerHTML = `<style>
-      #ledger-member-dropdown-mobile .di { padding: 0.35rem 0.6rem; cursor: pointer; font-size: 0.75rem; color: var(--text-primary); border-bottom: 1px solid var(--border-light); }
+      #ledger-member-dropdown-mobile .di { display: flex; align-items: center; min-height: 42px; padding: 0.45rem 0.65rem; cursor: pointer; font-size: 0.85rem; color: var(--text-primary); border-bottom: 1px solid var(--border-light); }
       #ledger-member-dropdown-mobile .di:hover, #ledger-member-dropdown-mobile .di.hl { background: var(--bg-secondary); }
       #ledger-member-dropdown-mobile .di.all { font-weight: 700; color: var(--accent-primary); }
     </style>${html}`
@@ -536,13 +746,35 @@ export async function renderMemberLedger(container, user) {
 
   async function renderActiveTab() {
     updateLedgerTitleIds()
+
+    // A change in any filter means a new result set -> reset paging.
+    // "Show more" keeps the same key, so it keeps its scroll position and
+    // skips the full-screen spinner.
+    const key = [
+      window._activeLedgerTab,
+      filters.dateFrom || '',
+      filters.dateTo || '',
+      filters.memberId || '',
+      window._activeLedgerTab === 'tab-summary'
+        ? `${window.__summaryFilters.month}|${window.__summaryFilters.year}|${window.__ledgerShowZeroes ? 1 : 0}`
+        : '',
+      window._activeLedgerTab === 'tab-loans' ? (window._loanStatusFilter || 'Active') : ''
+    ].join('|')
+    const isSameContext = key === pageKey
+    if (!isSameContext) {
+      pageKey = key
+      visibleLimit = PAGE_SIZE
+    }
+
     const subtitleEl = document.getElementById('ledger-subtitle')
-    if (subtitleEl) {
+    if (subtitleEl && !isSameContext) {
       const viewLabel = isGlobalView() ? 'Cooperative-wide' : `Member: <strong style="color: var(--accent-primary);">${escapeHtml(filters.memberName)}</strong>`
       subtitleEl.innerHTML = `${viewLabel} | Loading...`
     }
 
-    contentContainer.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 1rem;"><div style="width:40px;height:40px;border:4px solid var(--border-medium);border-top-color:var(--accent-primary);border-radius:50%;animation:spin 1s linear infinite;"></div><div style="margin-top:1rem;color:var(--text-primary);font-weight:600;">Loading workspace...</div><div style="color:var(--text-muted);font-size:0.8rem;margin-top:0.25rem;">Please wait while we prepare your workspace</div><style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style></div>'
+    if (!isSameContext || !contentContainer.innerHTML.trim()) {
+      contentContainer.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 1rem;"><div style="width:40px;height:40px;border:4px solid var(--border-medium);border-top-color:var(--accent-primary);border-radius:50%;animation:spin 1s linear infinite;"></div><div style="margin-top:1rem;color:var(--text-primary);font-weight:600;">Loading workspace...</div><div style="color:var(--text-muted);font-size:0.8rem;margin-top:0.25rem;">Please wait while we prepare your workspace</div><style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style></div>'
+    }
 
     try {
       if (window._activeLedgerTab === 'tab-transactions') {
@@ -606,17 +838,22 @@ export async function renderMemberLedger(container, user) {
     let totalDebit = 0
     let totalCredit = 0
 
-    let desktopRows = ''
-    let mobileRows = ''
-
-    filtered.forEach(r => {
+    // Totals and the running balance always cover the FULL result set;
+    // only the visible page is rendered below.
+    const rows = filtered.map(r => {
       const amt = r.amount || 0
       if (amt < 0) totalDebit += Math.abs(amt)
       else totalCredit += amt
-
       runningBalance += amt
+      return { r, amt, balance: runningBalance }
+    })
 
-      desktopRows += `
+    updateSubtitle(runningBalance)
+
+    const page = paginate(rows)
+    const mobile = isMobileViewport()
+
+    const desktopRow = ({ r, amt, balance }) => `
         <tr>
           <td>${formatDate(r.remittance_date)}</td>
           <td>${shortRef(r.id)}</td>
@@ -625,28 +862,36 @@ export async function renderMemberLedger(container, user) {
           <td>${escapeHtml(r.bank_name || '')}</td>
           <td class="text-right text-red">${amt < 0 ? formatCurrency(Math.abs(amt)) : ''}</td>
           <td class="text-right text-green">${amt >= 0 ? formatCurrency(amt) : ''}</td>
-          <td class="text-right ${runningBalance < 0 ? 'text-red' : ''}">${formatCurrency(runningBalance)}</td>
-        </tr>
-      `
+          <td class="text-right ${balance < 0 ? 'text-red' : ''}">${formatCurrency(balance)}</td>
+        </tr>`
 
-      mobileRows += `
-        <div class="lmc"><div class="lch">${formatDate(r.remittance_date)}</div>
-        <div class="lcg" style="grid-template-columns:1fr 1fr 1fr">
-          <div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${amt < 0 ? formatCurrency(Math.abs(amt)) : '-'}</span></div>
-          <div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${amt > 0 ? formatCurrency(amt) : '-'}</span></div>
-          <div class="ls"><span class="sl">Balance</span><span class="sv ${runningBalance < 0 ? 'text-red' : ''}">${formatCurrency(runningBalance)}</span></div>
-        </div></div>`
-    })
+    const mobileCard = ({ r, amt, balance }) => `
+        <div class="lmc lmc-tx">
+          <div class="lch lch-row">
+            <span class="ltype ${amt < 0 ? 't-debit' : 't-credit'}">${escapeHtml(r.transaction_type || (amt < 0 ? 'Debit' : 'Credit'))}</span>
+            <span class="ldate">${formatDate(r.remittance_date)}</span>
+          </div>
+          ${r.description ? `<div class="ldesc">${escapeHtml(r.description)}</div>` : ''}
+          <div class="lmeta">
+            <span>${shortRef(r.id)}</span>
+            ${r.bank_name ? `<span>${escapeHtml(r.bank_name)}</span>` : ''}
+          </div>
+          <div class="lcg lcg-3">
+            <div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${amt < 0 ? formatCurrency(Math.abs(amt)) : '—'}</span></div>
+            <div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${amt > 0 ? formatCurrency(amt) : '—'}</span></div>
+            <div class="ls"><span class="sl">Balance</span><span class="sv ${balance < 0 ? 'text-red' : ''}">${formatCurrency(balance)}</span></div>
+          </div>
+        </div>`
 
-    updateSubtitle(runningBalance)
+    const emptyState = mobile
+      ? '<div class="card" style="width: 100%; padding: 1rem; color: var(--text-muted); text-align: center; border: 1px solid var(--border-light); background: var(--bg-card); font-size: 0.85rem;">No transactions found for this period.</div>'
+      : '<tr><td colspan="8" style="text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">No transactions found for this period.</td></tr>'
 
-    contentContainer.innerHTML = `
-      <div class="scards">
-        <div class="scard"><div class="lbl">Opening Balance</div><div class="val ${openingBalance < 0 ? 'text-red' : ''}">${formatCurrency(openingBalance)}</div></div>
-        <div class="scard"><div class="lbl">Total Debit</div><div class="val text-red">${formatCurrency(totalDebit)}</div></div>
-        <div class="scard"><div class="lbl">Total Credit</div><div class="val text-green">${formatCurrency(totalCredit)}</div></div>
-        <div class="scard"><div class="lbl">Closing Balance</div><div class="val ${runningBalance < 0 ? 'text-red' : ''}">${formatCurrency(runningBalance)}</div></div>
-      </div>
+    const listHtml = page.length === 0
+      ? emptyState
+      : page.map(mobile ? mobileCard : desktopRow).join('')
+
+    const tableHtml = `
       <div class="ldv">
         <div class="tc">
           <table class="styled-table">
@@ -664,22 +909,35 @@ export async function renderMemberLedger(container, user) {
             </thead>
             <tbody>
               <tr>
-                <td colspan="7" style="background: var(--bg-hover); font-weight: bold; font-size: 0.75rem;">OPENING BALANCE</td>
-                <td class="text-right ${openingBalance < 0 ? 'text-red' : ''}" style="background: var(--bg-hover); font-weight: bold;">${formatCurrency(openingBalance)}</td>
+                <td colspan="7" style="background: var(--bg-hover, var(--bg-secondary)); font-weight: bold; font-size: 0.75rem;">OPENING BALANCE</td>
+                <td class="text-right ${openingBalance < 0 ? 'text-red' : ''}" style="background: var(--bg-hover, var(--bg-secondary)); font-weight: bold;">${formatCurrency(openingBalance)}</td>
               </tr>
-              ${desktopRows || '<tr><td colspan="8" style="text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">No transactions found for this period.</td></tr>'}
+              ${listHtml}
             </tbody>
           </table>
         </div>
-      </div>
+      </div>`
+
+    const cardsHtml = `
       <div class="lmv">
-        <div class="lmc" style="background: var(--bg-hover);"><div class="lch">OPENING BALANCE</div>
+        <div class="lmc" style="background: var(--bg-hover, var(--bg-secondary));"><div class="lch">OPENING BALANCE</div>
         <div class="lcg">
           <div class="ls"><span class="sl">Balance</span><span class="sv ${openingBalance < 0 ? 'text-red' : ''}">${formatCurrency(openingBalance)}</span></div>
         </div></div>
-        ${mobileRows || '<div class="card" style="width: 100%; padding: 1rem; color: var(--text-muted); text-align: center; border: 1px solid var(--border-light); background: var(--bg-card); font-size: 0.85rem;">No transactions found for this period.</div>'}
+        ${listHtml}
+      </div>`
+
+    contentContainer.innerHTML = `
+      <div class="scards">
+        <div class="scard"><div class="lbl">Opening Balance</div><div class="val ${openingBalance < 0 ? 'text-red' : ''}">${formatCurrency(openingBalance)}</div></div>
+        <div class="scard"><div class="lbl">Total Debit</div><div class="val text-red">${formatCurrency(totalDebit)}</div></div>
+        <div class="scard"><div class="lbl">Total Credit</div><div class="val text-green">${formatCurrency(totalCredit)}</div></div>
+        <div class="scard"><div class="lbl">Closing Balance</div><div class="val ${runningBalance < 0 ? 'text-red' : ''}">${formatCurrency(runningBalance)}</div></div>
       </div>
+      ${mobile ? cardsHtml : tableHtml}
+      ${pagingFooter(page.length, rows.length)}
     `
+    bindPaging()
   }
 
   async function renderSummaryTab() {
@@ -850,7 +1108,7 @@ export async function renderMemberLedger(container, user) {
           <label>Year <select id="summary-year-select" style="margin-left: 0.25rem;">${yearOptions}</select></label>
           <span style="font-size: 0.68rem; color: var(--text-muted);"><span style="display:inline-block;width:0.6rem;height:0.6rem;border-radius:2px;background:#15803d;vertical-align:middle;"></span> paid <span style="display:inline-block;width:0.6rem;height:0.6rem;border-radius:2px;background:#b91c1c;vertical-align:middle;margin-left:0.35rem;"></span> none</span>
         </div>
-        <button id="summary-toggle-zeroes-btn" class="ghost-button" style="font-size: 0.7rem; height: 1.7rem; padding: 0 0.5rem; border-radius: var(--radius-sm);">${localShowZeroes ? 'Hide Zeroes' : 'Unhide Zeroes'}</button>
+        <button id="summary-toggle-zeroes-btn" class="ghost-button lzero-btn" style="font-size: 0.7rem; padding: 0 0.6rem; border-radius: var(--radius-sm);">${localShowZeroes ? 'Hide Zeroes' : 'Unhide Zeroes'}</button>
       </div>`
     const bindSummaryControls = () => {
       document.getElementById('summary-toggle-zeroes-btn')?.addEventListener('click', () => {
@@ -875,11 +1133,10 @@ export async function renderMemberLedger(container, user) {
       return
     }
 
-    let desktopHtml = `<div class="ldv"><div class="tc"><table class="styled-table"><thead><tr><th>Enterprise</th><th class="text-right">Opening (BBF)</th><th class="text-right">Debit (DR)</th><th class="text-right">Credit (CR)</th><th class="text-right">Closing</th></tr></thead><tbody>`
-    let mobileHtml = `<div class="lmv">`
+    const page = paginate(entries)
+    const mobile = isMobileViewport()
 
-    entries.forEach((entry) => {
-      desktopHtml += `
+    const desktopRow = (entry) => `
         <tr>
           <td>${entry.isRestricted ? '🔒 ' : ''}${escapeHtml(entry.name)}</td>
           <td class="text-right ${entry.bbf < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.bbf)}</td>
@@ -888,25 +1145,28 @@ export async function renderMemberLedger(container, user) {
           <td class="text-right ${entry.closing < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.closing)}</td>
         </tr>`
 
-      mobileHtml += `
-        <div class="lmc"><div class="lch">${entry.isRestricted ? '🔒 ' : ''}${escapeHtml(entry.name)}</div>
+    const mobileCard = (entry) => `
+        <div class="lmc"><div class="lch"><span class="lname">${entry.isRestricted ? '🔒 ' : ''}${escapeHtml(entry.name)}</span></div>
         <div class="lcg">
           <div class="ls"><span class="sl">Opening</span><span class="sv ${entry.bbf < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.bbf)}</span></div>
           <div class="ls"><span class="sl">Closing</span><span class="sv ${entry.closing < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.closing)}</span></div>
           <div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${entry.isRestricted ? '***' : formatCurrency(entry.dr)}</span></div>
           <div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${entry.isRestricted ? '***' : formatCurrency(entry.cr)}</span></div>
         </div></div>`
-    })
 
-    desktopHtml += `</tbody></table></div></div>`
-    mobileHtml += `</div>`
+    const listHtml = page.map(mobile ? mobileCard : desktopRow).join('')
+
+    const bodyHtml = mobile
+      ? `<div class="lmv">${listHtml}</div>`
+      : `<div class="ldv"><div class="tc"><table class="styled-table"><thead><tr><th>Enterprise</th><th class="text-right">Opening (BBF)</th><th class="text-right">Debit (DR)</th><th class="text-right">Credit (CR)</th><th class="text-right">Closing</th></tr></thead><tbody>${listHtml}</tbody></table></div></div>`
 
     contentContainer.innerHTML = `
       ${summaryFilterBar}
-      ${desktopHtml}
-      ${mobileHtml}
+      ${bodyHtml}
+      ${pagingFooter(page.length, entries.length)}
     `
     bindSummaryControls()
+    bindPaging()
   }
 
   async function openLoanDetailModal(loanId) {
@@ -920,7 +1180,7 @@ export async function renderMemberLedger(container, user) {
 
     try {
       const loans = await fetchMemberLoans(user.cooperativeId, null)
-      const loan = loans.find(l => l.id === loanId)
+      const loan = loans.find(l => String(l.id) === String(loanId))
       if (!loan) {
         body.innerHTML = '<div class="alert" style="margin: 0.5rem;">Loan record not found.</div>'
         return
@@ -929,7 +1189,7 @@ export async function renderMemberLedger(container, user) {
       title.textContent = `Loan Details - ${escapeHtml(loan.enterprise_name || 'Unknown')}`
 
       const allRemits = await fetchRemittances(user.cooperativeId, user)
-      const loanRemits = allRemits.filter(r => r.loan_id === loanId && !r.is_deleted)
+      const loanRemits = allRemits.filter(r => String(r.loan_id) === String(loanId) && !r.is_deleted)
 
       const charges = []
       for (const rem of loanRemits) {
@@ -952,12 +1212,11 @@ export async function renderMemberLedger(container, user) {
 
       const status = loan.status || 'Unknown'
       const isPending = status === 'Pending'
-      const isActive = status === 'Active'
 
       let html = `
         <div class="section">
           <div class="s-title">Basic Info</div>
-          <div class="s-row"><span>Status</span><span><span class="status-badge status-${status.toLowerCase()}">${escapeHtml(status.toUpperCase())}</span></span></div>
+          <div class="s-row"><span>Status</span><span><span class="${loanStatusClass(status)}">${escapeHtml(status.toUpperCase())}</span></span></div>
           <div class="s-row"><span>Enterprise</span><span style="font-weight:600">${escapeHtml(loan.enterprise_name || '')}</span></div>
           <div class="s-row"><span>Member</span><span>${escapeHtml(loan.member_name || 'Unknown')} (${escapeHtml(loan.member_registration_no || '')})</span></div>
           <div class="s-row"><span>Principal</span><span style="font-weight:700">${formatCurrency(principal)}</span></div>
@@ -999,7 +1258,6 @@ export async function renderMemberLedger(container, user) {
         html += `<div class="section"><div class="s-title">Guarantors</div><div style="font-size:0.8rem;color:var(--text-muted);padding:0.25rem 0;">No guarantors.</div></div>`
       }
 
-      const canAct = isAdmin && (isPending || isActive)
       html += `<div class="lmodal-actions">`
 
       if (isPending && isAdmin) {
@@ -1090,23 +1348,18 @@ export async function renderMemberLedger(container, user) {
         <div class="card" style="width:100%;padding:1rem;color:var(--text-muted);text-align:center;border:1px solid var(--border-light);background:var(--bg-card);font-size:0.85rem;">No loan records matching the filters.</div>`
       contentContainer.querySelector('#loan-status-filter').addEventListener('change', (e) => {
         window._loanStatusFilter = e.target.value
-        renderLoansTab()
+        renderActiveTab()
       })
       return
     }
 
-    let desktopRows = ''
-    let mobileRows = ''
+    const page = paginate(loans)
+    const mobile = isMobileViewport()
 
-    loans.forEach(l => {
+    const desktopRow = (l) => {
       const status = l.status || 'Active'
-      let statusClass = 'status-badge '
-      if (status === 'Active') statusClass += 'status-green'
-      else if (status === 'Overdue') statusClass += 'status-red'
-      else if (status === 'Pending' || status === 'Declined') statusClass += 'status-amber'
-      else statusClass += 'status-gray'
-
-      desktopRows += `
+      const statusClass = loanStatusClass(status)
+      return `
         <tr data-loan-id="${l.id}">
           <td>${formatDate(l.issued_date)}</td>
           <td>
@@ -1121,47 +1374,66 @@ export async function renderMemberLedger(container, user) {
           <td>${formatDate(l.due_date)}</td>
           <td style="text-align:center;"><span class="${statusClass}">${escapeHtml(status.toUpperCase())}</span></td>
         </tr>`
+    }
 
-      mobileRows += `
-        <div class="lmc" data-loan-id="${l.id}" style="cursor: pointer;"><div class="lch">${escapeHtml(l.enterprise_name || '')} — ${escapeHtml(l.member_name || 'Unknown')}</div>
-        <div class="lcg" style="grid-template-columns:1fr 1fr 1fr">
-          <div class="ls"><span class="sl">Date</span><span class="sv">${formatDate(l.issued_date)}</span></div>
-          <div class="ls"><span class="sl">Principal</span><span class="sv">${formatCurrency(l.principal_amount)}</span></div>
-          <div class="ls"><span class="sl">Status</span><span class="sv"><span class="${statusClass}">${escapeHtml(status.toUpperCase())}</span></span></div>
-        </div></div>`
-    })
+    const mobileCard = (l) => {
+      const status = l.status || 'Active'
+      const statusClass = loanStatusClass(status)
+      return `
+        <div class="lmc lmc-loan" data-loan-id="${l.id}" role="button" tabindex="0" style="cursor:pointer;">
+          <div class="lch lch-row">
+            <span class="lname">${escapeHtml(l.enterprise_name || 'Loan')}</span>
+            <span class="${statusClass}">${escapeHtml(status.toUpperCase())}</span>
+          </div>
+          <div class="lsub">${escapeHtml(l.member_name || 'Unknown')}${l.member_registration_no ? ` · ${escapeHtml(l.member_registration_no)}` : ''}</div>
+          <div class="lmeta">
+            <span>Issued ${formatDate(l.issued_date)}</span>
+            <span>${l.duration_months ? `${l.duration_months} mo` : '—'}</span>
+          </div>
+          <div class="lcg lcg-3">
+            <div class="ls"><span class="sl">Principal</span><span class="sv">${formatCurrency(l.principal_amount)}</span></div>
+            <div class="ls"><span class="sl text-red">Outstanding</span><span class="sv text-red">${formatCurrency(l.outstanding_balance || 0)}</span></div>
+            <div class="ls"><span class="sl">Due Date</span><span class="sv">${formatDate(l.due_date)}</span></div>
+          </div>
+        </div>`
+    }
+
+    const listHtml = page.map(mobile ? mobileCard : desktopRow).join('')
+
+    const bodyHtml = mobile
+      ? `<div class="lmv">${listHtml}</div>`
+      : `<div class="ldv">
+          <div class="tc">
+            <table class="styled-table">
+              <thead>
+                <tr>
+                  <th>Loan Date</th>
+                  <th>Type / Enterprise</th>
+                  <th class="text-right">Principal</th>
+                  <th class="text-right">Admin Fees</th>
+                  <th class="text-right">Outstanding</th>
+                  <th>Start Date</th>
+                  <th style="text-align:center;">Duration</th>
+                  <th>End Date</th>
+                  <th style="text-align:center;">Status</th>
+                </tr>
+              </thead>
+              <tbody>${listHtml}</tbody>
+            </table>
+          </div>
+        </div>`
 
     contentContainer.innerHTML = `
       <style>.status-badge{padding:0.2rem 0.4rem;border-radius:3px;font-size:0.65rem;font-weight:700;}.status-green{background:#dcfce7;color:#166534;}.status-red{background:#fee2e2;color:#991b1b;}.status-amber{background:#fef3c7;color:#92400e;}.status-gray{background:#f3f4f6;color:#374151;}</style>
       ${filterHtml}
-      <div class="ldv">
-        <div class="tc">
-          <table class="styled-table">
-            <thead>
-              <tr>
-                <th>Loan Date</th>
-                <th>Type / Enterprise</th>
-                <th class="text-right">Principal</th>
-                <th class="text-right">Admin Fees</th>
-                <th class="text-right">Outstanding</th>
-                <th>Start Date</th>
-                <th style="text-align:center;">Duration</th>
-                <th>End Date</th>
-                <th style="text-align:center;">Status</th>
-              </tr>
-            </thead>
-            <tbody>${desktopRows}</tbody>
-          </table>
-        </div>
-      </div>
-      <div class="lmv">
-        ${mobileRows}
-      </div>`
+      ${bodyHtml}
+      ${pagingFooter(page.length, loans.length)}`
 
     contentContainer.querySelector('#loan-status-filter').addEventListener('change', (e) => {
       window._loanStatusFilter = e.target.value
-      renderLoansTab()
+      renderActiveTab()
     })
+    bindPaging()
   }
 
   renderActiveTab()

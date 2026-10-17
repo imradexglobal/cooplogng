@@ -1,4 +1,4 @@
-import { generateId, hashPassword, generateRandom6Digit } from '../../utils/formatters.js'
+import { generateId, hashPassword, generateRandom6Digit, isSha256Hex } from '../../utils/formatters.js'
 import { normalizePhone, normalizeSpecialId, specialIdKey, normalizeEmail, normalizeRegNo, regNoKey } from '../../utils/normalize.js'
 import {
     getAllForCoop, getDocById_Global, queryOne, queryRows,
@@ -131,8 +131,9 @@ export async function findDuplicateMembers(cooperativeId) {
 export async function addMember(data, createdBy) {
     const now = new Date().toISOString()
     const id = generateId(String(data.cooperative_id))
-    const pwd = data.password_hash || generateRandom4Digit()
-    const password_hash = await hashPassword(pwd)
+    const rawPwd = data.password_hash || generateRandom4Digit()
+    const pwd = isSha256Hex(rawPwd) ? rawPwd : rawPwd
+    const password_hash = isSha256Hex(rawPwd) ? rawPwd : await hashPassword(rawPwd)
 
     let nextReg = 1
     try {
@@ -191,8 +192,8 @@ export async function addMember(data, createdBy) {
         image_path: data.image_path || null,
         signature_path: data.signature_path || null,
         password_hash,
-        subscriptionStatus: 0,
-        expiry_date: null,
+        subscriptionStatus: data.subscriptionStatus !== undefined ? data.subscriptionStatus : 0,
+        expiry_date: data.expiry_date !== undefined ? data.expiry_date : null,
         force_password_change: true,
         created_at: now,
         created_by: createdBy || 'system',
@@ -217,7 +218,7 @@ export async function addMember(data, createdBy) {
         }))
     }
     await saveDoc('members', doc)
-    return { generatedPassword: pwd }
+    return { generatedPassword: pwd, memberId: id }
 }
 
 export async function updateMember(id, data, modifiedBy) {
@@ -261,7 +262,7 @@ export async function updateMember(id, data, modifiedBy) {
     }
     delete doc.password_hash
     if (data.password_hash) {
-        doc.password_hash = await hashPassword(data.password_hash)
+        doc.password_hash = isSha256Hex(data.password_hash) ? data.password_hash : await hashPassword(data.password_hash)
     } else if (existing.password_hash) {
         doc.password_hash = existing.password_hash
     }

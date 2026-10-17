@@ -1,7 +1,7 @@
 import { generateId } from '../../utils/formatters.js';
 
 // --- Loan Request Prefill ---
-const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId) => {
+const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId, user) => {
     console.log("[DIAG] applyLoanRequestPrefillInternal: editingData=", editingData);
     const loanAmount = -Math.abs(editingData.amount || 0);
     const principalAmount = Math.abs(loanAmount);
@@ -20,7 +20,7 @@ const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId) 
       // Map old enterprise fields to charges (always positive magnitudes)
       if (enterprise.interest_rate !== undefined && enterprise.interest_rate !== null && enterprise.interest_rate !== '') {
         defaultCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Interest',
           value: Math.abs(parseFloat(enterprise.interest_rate) || 0),
           type: enterprise.interest_is_percent ? 'percentage' : 'fixed'
@@ -28,7 +28,7 @@ const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId) 
       }
       if (enterprise.form_fee !== undefined && enterprise.form_fee !== null && enterprise.form_fee !== '') {
         defaultCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Form Fee',
           value: Math.abs(parseFloat(enterprise.form_fee) || 0),
           type: enterprise.form_fee_is_percent ? 'percentage' : 'fixed'
@@ -36,7 +36,7 @@ const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId) 
       }
       if (enterprise.admin_charge !== undefined && enterprise.admin_charge !== null && enterprise.admin_charge !== '') {
         defaultCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Admin Charge',
           value: Math.abs(parseFloat(enterprise.admin_charge) || 0),
           type: enterprise.admin_charge_is_percent ? 'percentage' : 'fixed'
@@ -53,7 +53,7 @@ const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId) 
       description: editingData.description || 'Loan Request',
       remittance_date: issueDateStr,
       details: [{
-        id: generateId(),
+        id: generateId(String(user.cooperativeId)),
         enterprise_id: enterpriseId,
         item: enterpriseId,
         amount: loanAmount,
@@ -67,7 +67,7 @@ const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId) 
             notes: 'Loan Request'
           },
           guarantors: (editingData.guarantors || []).map(g => ({
-            id: g.id || generateId(),
+            id: g.id || generateId(String(user.cooperativeId)),
             member_id: g.member_id,
             name: g.name,
             file_no: g.file_no || '',
@@ -83,7 +83,7 @@ const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId) 
 };
 
 // --- Withdrawal Request Prefill ---
-const applyWithdrawalRequestPrefillInternal = (withdrawalData, enterpriseData, memberId) => {
+const applyWithdrawalRequestPrefillInternal = (withdrawalData, enterpriseData, memberId, user) => {
     console.log("[DIAG] applyWithdrawalRequestPrefillInternal: withdrawalData=", withdrawalData);
     const withdrawalAmount = -Math.abs(withdrawalData.amount || 0);
     const enterpriseId = withdrawalData.enterpriseId || withdrawalData.enterprise_id;
@@ -103,7 +103,7 @@ const applyWithdrawalRequestPrefillInternal = (withdrawalData, enterpriseData, m
       description: accountType === 'loan' ? 'Loan Withdrawal' : 'Withdrawal Request',
       remittance_date: issueDateStr,
       details: [{
-        id: generateId(),
+        id: generateId(String(user.cooperativeId)),
         enterprise_id: enterpriseId,
         item: enterpriseId,
         amount: withdrawalAmount,
@@ -117,7 +117,7 @@ const applyWithdrawalRequestPrefillInternal = (withdrawalData, enterpriseData, m
             notes: 'Loan Withdrawal'
           },
           guarantors: (withdrawalData.guarantors || []).map(g => ({
-            id: g.id || generateId(),
+            id: g.id || generateId(String(user.cooperativeId)),
             member_id: g.member_id,
             name: g.name,
             file_no: g.file_no || '',

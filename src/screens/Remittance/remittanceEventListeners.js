@@ -113,7 +113,9 @@ export function attachEventListeners(container, deps) {
             memSuggestions.innerHTML = filtered.map(m => `
               <div class="suggestion-item" data-id="${m.id}" style="padding: 0.6rem 0.75rem; font-size: 0.825rem; cursor: pointer; border-bottom: 1px solid var(--border-light);">
                 <div style="font-weight: 600; color: var(--text-primary);">${escapeHtml(m.name)}</div>
-                <div style="font-size: 0.7rem; color: var(--text-muted);">${m.registration_no || m.mobile || 'No ID'}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">
+                  ${m.special_id ? `ID: ${escapeHtml(m.special_id)}` : ''} ${m.special_id && (m.registration_no || m.mobile) ? ' • ' : ''} ${m.registration_no ? `Reg: ${m.registration_no}` : ''} ${(m.special_id || m.registration_no) && m.mobile ? ' • ' : ''} ${m.mobile ? `Mobile: ${m.mobile}` : ''}
+                </div>
               </div>
             `).join('');
           }
@@ -474,7 +476,7 @@ export function attachEventListeners(container, deps) {
         if (!showAllZeros && opening === 0 && advise === 0 && inputAmt === 0 && !hasLoanInfo && !e.compulsory_due) return;
 
         rowsHtml += `
-          <tr class="detail-item-row" data-entid="${e.id}" data-id="${existingDetail?.id || generateId()}" data-loaninfo='${JSON.stringify(existingDetail?.loan_info || {})}' data-row-index="${idx}">
+          <tr class="detail-item-row" data-entid="${e.id}" data-id="${existingDetail?.id || generateId(String(user.cooperativeId))}" data-loaninfo='${JSON.stringify(existingDetail?.loan_info || {})}' data-row-index="${idx}">
             <td style="padding: 0.4rem 0.6rem; text-align: left; ${isLoanCondition || hasLoanInfo ? 'color: var(--accent-primary); font-weight: 600; text-decoration: underline;' : ''}">
               <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                 <span style="display: flex; align-items: center; gap: 0.35rem;">

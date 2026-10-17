@@ -129,32 +129,52 @@ function docForceFlagSet(foundDoc) {
     return foundDoc && foundDoc.force_password_change === true;
 }
 
+// A successful login reads the same cooperative doc twice (extracted-check,
+// then display name). Cache the most recent read briefly so the second call is
+// free. The security-sensitive extracted check itself NEVER serves from cache —
+// it always does a fresh network read and only refreshes the cache.
+const _coopDocReadCache = new Map(); // coop id -> { exists, data, fetchedAt }
+const COOP_DOC_READ_TTL_MS = 60_000;
+
+async function _readCooperativeDoc(db, cooperativeId) {
+  const key = String(cooperativeId);
+  const snap = await getDoc(doc(db, 'cooperatives', key));
+  const entry = { exists: snap.exists(), data: snap.exists() ? snap.data() : null, fetchedAt: Date.now() };
+  try { _coopDocReadCache.set(key, entry); } catch { /* best-effort */ }
+  return entry;
+}
+
+function _cachedCooperativeDoc(cooperativeId) {
+  const hit = _coopDocReadCache.get(String(cooperativeId));
+  return hit && Date.now() - hit.fetchedAt < COOP_DOC_READ_TTL_MS ? hit : null;
+}
+
 /** Resolve a cooperative's display name (best-effort; falls back to the id). */
 async function fetchCooperativeName(db, cooperativeId) {
-    try {
-        const snap = await getDoc(doc(db, 'cooperatives', String(cooperativeId)));
-        if (snap.exists()) {
-            const data = snap.data();
-            return data.full_name || data.short_name || String(cooperativeId);
-        }
-    } catch (e) {
-        console.warn('[authService] Cooperative name lookup failed:', e?.message || e);
+  try {
+    const entry = _cachedCooperativeDoc(cooperativeId) || await _readCooperativeDoc(db, cooperativeId);
+    if (entry.exists) {
+      const data = entry.data;
+      return data.full_name || data.short_name || String(cooperativeId);
     }
-    return String(cooperativeId);
+  } catch (e) {
+    console.warn('[authService] Cooperative name lookup failed:', e?.message || e);
+  }
+  return String(cooperativeId);
 }
 
 /** Check if a cooperative's database has been extracted (logins blocked). */
 async function isCooperativeExtracted(db, cooperativeId) {
-    try {
-        const snap = await getDoc(doc(db, 'cooperatives', String(cooperativeId)));
-        if (snap.exists()) {
-            const data = snap.data();
-            return data.is_extracted === true;
-        }
-    } catch (e) {
-        console.warn('[authService] Cooperative extracted check failed:', e?.message || e);
+  try {
+    // Always a fresh network read (never the cache): this gates logins.
+    const entry = await _readCooperativeDoc(db, cooperativeId);
+    if (entry.exists) {
+      return entry.data.is_extracted === true;
     }
-    return false;
+  } catch (e) {
+    console.warn('[authService] Cooperative extracted check failed:', e?.message || e);
+  }
+  return false;
 }
 
 export async function discoverLoginCooperatives(username) {
@@ -255,20 +275,76 @@ export async function discoverLoginCooperativesByEmail(email) {
   return cooperatives.sort((left, right) => left.name.localeCompare(right.name));
 }
 
+// Shared cooperative directory: the login search and the public join page both
+// need the full cooperatives list. Previously each one fetched the ENTIRE
+// unbounded collection from Firestore on every keystroke (400 ms debounce) /
+// every screen render. Cache it briefly (memory + localStorage, best-effort)
+// and serve subsequent requests locally — the client-side filtering and the
+// returned shapes are unchanged, and a failed refresh still throws exactly as
+// the old direct getDocs did.
+const DIRECTORY_CACHE_KEY = 'cooplog-coop-directory';
+const DIRECTORY_TTL_MS = 300_000; // 5 minutes
+let _directoryMemCache = null; // { ts, list }
+let _directoryInFlight = null;
+
+function _loadCachedDirectory() {
+  if (_directoryMemCache && Date.now() - _directoryMemCache.ts <= DIRECTORY_TTL_MS) {
+    return _directoryMemCache.list;
+  }
+  try {
+    const raw = localStorage.getItem(DIRECTORY_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.list) && Number.isFinite(parsed.ts) && Date.now() - parsed.ts <= DIRECTORY_TTL_MS) {
+        _directoryMemCache = { ts: parsed.ts, list: parsed.list };
+        return parsed.list;
+      }
+    }
+  } catch { /* storage unavailable */ }
+  return null;
+}
+
+function _saveCachedDirectory(list) {
+  _directoryMemCache = { ts: Date.now(), list };
+  try {
+    localStorage.setItem(DIRECTORY_CACHE_KEY, JSON.stringify(_directoryMemCache));
+  } catch { /* quota exceeded – memory cache still serves this session */ }
+}
+
+/**
+ * Full cooperatives list (raw fields + id), from cache when fresh, otherwise
+ * one network read shared by concurrent callers.
+ */
+export async function getAllCooperativesCached() {
+  const cached = _loadCachedDirectory();
+  if (cached) return cached;
+  if (!_directoryInFlight) {
+    const run = (async () => {
+      const db = getDb();
+      const snap = await getDocs(collection(db, 'cooperatives'));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _saveCachedDirectory(list);
+      return list;
+    })();
+    _directoryInFlight = run;
+    const done = () => { if (_directoryInFlight === run) _directoryInFlight = null; };
+    run.then(done, done);
+  }
+  return _directoryInFlight;
+}
+
 export async function searchAllCooperatives(searchTerm) {
-  const db = getDb()
-  const cooperativesSnap = await getDocs(collection(db, 'cooperatives'))
+  const cooperativesSnap = await getAllCooperativesCached();
   const term = String(searchTerm || '').toLowerCase()
-  
-  return cooperativesSnap.docs
-    .filter(doc => {
-      const data = doc.data()
+
+  return cooperativesSnap
+    .filter(data => {
       const name = String(data.full_name || data.short_name || '').toLowerCase()
       return name.includes(term)
     })
-    .map(doc => ({
-      id: doc.id,
-      name: doc.data().full_name || doc.data().short_name || doc.id
+    .map(data => ({
+      id: data.id,
+      name: data.full_name || data.short_name || data.id
     }))
     .sort((left, right) => left.name.localeCompare(right.name))
 }
@@ -418,7 +494,7 @@ export async function validateGoogleLogin(email, cooperativeId) {
     // Google flow has no typed password: force on explicit flag or non-hash storage.
     // Grandfathered legacy-complex hashes pass without a change.
     if (docForceFlagSet(foundDoc) || isLegacyOrWeakHash(stored)) {
-      return { forceChange: true, userDoc: foundDoc, collection: collectionName };
+      return { forceChange: true, userDoc: foundDoc, collection: collectionName, subscriptionStatus: foundDoc.subscriptionStatus, subscriptionExpiry: foundDoc.expiry_date };
     }
 
     const role = collectionName === 'members' ? 'member' : (foundDoc.role || 'user');
@@ -457,7 +533,9 @@ export async function validateGoogleLogin(email, cooperativeId) {
       cooperativeId: foundDoc.cooperative_id,
       cooperativeName: await fetchCooperativeName(db, foundDoc.cooperative_id),
       userDoc: foundDoc,
-      collection: collectionName
+      collection: collectionName,
+      subscriptionStatus: foundDoc.subscriptionStatus,
+      subscriptionExpiry: foundDoc.expiry_date
     }
   }
   return null;
@@ -758,7 +836,7 @@ export async function validateLogin(username, password, cooperativeId) {
       // (e.g. "Adex@1234") pass, plain-text non-legacy and old <6-digit
       // PINs (e.g. '1234') must change. Explicit flag always forces.
       if (needsForceChangeAfterMatch(stored, normalizedPassword, docForceFlagSet(foundDoc))) {
-        return { forceChange: true, userDoc: foundDoc, collection: collectionName };
+        return { forceChange: true, userDoc: foundDoc, collection: collectionName, subscriptionStatus: foundDoc.subscriptionStatus, subscriptionExpiry: foundDoc.expiry_date };
       }
 
       const role = collectionName === 'members' ? 'member' : (foundDoc.role || 'user');
@@ -797,7 +875,9 @@ export async function validateLogin(username, password, cooperativeId) {
         cooperativeId: foundDoc.cooperative_id,
         cooperativeName: await fetchCooperativeName(db, foundDoc.cooperative_id),
         userDoc: foundDoc,
-        collection: collectionName
+        collection: collectionName,
+        subscriptionStatus: foundDoc.subscriptionStatus,
+        subscriptionExpiry: foundDoc.expiry_date
       }
     }
   }

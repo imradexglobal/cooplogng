@@ -2,8 +2,9 @@ import { buildAccountBalance, fetchEnterprises, fetchRemittances, fetchAllMember
 import { buildWeeklyActivity, reconstructBalances, areaChartSVG, weekPctChange, compactCurr, CHART_WEEKS } from '../components/weeklyChart.js'
 import { showWorkspaceSpinner } from '../components/workspaceSpinner.js'
 import { hasPermission } from '../services/permissionService.js'
-import { formatCurrency, escapeHtml, escapeAttribute } from '../utils/formatters.js'
-import { getPendingQueue, queryRows } from '../services/sqliteService.js'
+import { formatCurrency, escapeHtml, escapeAttribute, formatDate, getInitials } from '../utils/formatters.js'
+import { normalizePhone } from '../utils/normalize.js'
+import { getPendingQueue, queryRows, getAllForCoop, loadDoc } from '../services/sqliteService.js'
 import { showToast } from '../services/toastService.js'
 import { showWithdrawalWizard } from '../components/WithdrawalWizard.js'
 
@@ -226,6 +227,8 @@ export async function renderAccountBalance(container, user) {
             loansAll,
             syncQueue,
             memberAdviceRows,
+            coopRows,
+            memberRow,
         ] = await Promise.all([
             fetchEnterprises(user.cooperativeId, true),
             fetchBanks(user.cooperativeId),
@@ -233,7 +236,11 @@ export async function renderAccountBalance(container, user) {
             queryRows(loansSql, [coopId]).catch(e => { console.warn('Error fetching loans for stats:', e); return []; }),
             getPendingQueue(user.cooperativeId),
             (memberAdviceId ? fetchMemberPaymentAdvise(memberAdviceId).catch(() => []) : Promise.resolve([])),
+            getAllForCoop(coopId, 'cooperatives').catch(() => []),
+            (isMember && user.memberId && user.memberId !== '0000000000' ? loadDoc('members', user.memberId, coopId).catch(() => null) : Promise.resolve(null)),
         ]);
+
+        const coopRow = Array.isArray(coopRows) ? (coopRows[0] || null) : null;
 
         let { accountBalance } = await buildAccountBalance(user.cooperativeId, queryUser, null, { remittances: sharedRemittances, enterprises: enterpriseRows })
         visibleBalance = accountBalance
@@ -536,6 +543,8 @@ export async function renderAccountBalance(container, user) {
                     String(b.account_number || ''), String(b.branch_name || ''), String(b.swift_code || '')]),
             weekly.buckets.map(b => [String(b.label), ...Object.keys(b.sums || {}).sort().map(k => _sigMoney(b.sums[k]))]),
             weekJoins,
+            [coopRow?.full_name || '', coopRow?.short_name || '', coopRow?.contact_number || '', coopRow?.email || '', coopRow?.address || '', coopRow?.logo_path ? '1' : '0'],
+            [memberRow?.registration_no || '', memberRow?.date_joined || '', memberRow?.status || '', memberRow?.mobile || ''],
         ])
         if (!isFirstPaint && _sig === _lastDashboardSig) return
         _lastDashboardSig = _sig

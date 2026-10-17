@@ -2,6 +2,32 @@ import { getAllForCoop, saveDoc, enqueueWrite } from '../../services/sqliteServi
 import { compressImage } from '../../utils/imageUtils.js';
 import { showToast } from '../../services/toastService.js';
 import { getInitials, wrapDateInput } from '../../utils/formatters.js';
+import { getDb, collection, getDocs, query, where } from '../../firebase.js';
+
+async function checkCoopNameUniqueness(fullName, shortName, excludeId) {
+    const db = getDb()
+    
+    const fullNameSnap = await getDocs(
+        query(collection(db, 'cooperatives'), where('full_name', '==', fullName), where('is_deleted', '!=', 1))
+    )
+    if (!fullNameSnap.empty) {
+        const existing = fullNameSnap.docs.find(d => d.id !== excludeId)
+        if (existing) {
+            throw new Error('A cooperative with this full name already exists.')
+        }
+    }
+    
+    const shortNameUpper = shortName.toUpperCase()
+    const shortNameSnap = await getDocs(
+        query(collection(db, 'cooperatives'), where('short_name', '==', shortNameUpper), where('is_deleted', '!=', 1))
+    )
+    if (!shortNameSnap.empty) {
+        const existing = shortNameSnap.docs.find(d => d.id !== excludeId)
+        if (existing) {
+            throw new Error('A cooperative with this short name/acronym already exists.')
+        }
+    }
+}
 
 export function renderCooperativeSection(area) {
   area.innerHTML = `
@@ -66,7 +92,7 @@ export async function setupCooperativeListeners(user, cooperativeId, container) 
         document.getElementById('coop-contact-number').value = coop.contact_number || '';
         document.getElementById('coop-email').value = coop.email || '';
         document.getElementById('coop-address').value = coop.address || '';
-        document.getElementById('coop-first-month').value = coop.coop_first_month || '';
+        document.getElementById('coop-first-month').value = coop.coop_first_month ? String(coop.coop_first_month).split('T')[0] : '';
 
         updateLogoPreview(coop.logo_path, coop.short_name);
       }
@@ -117,10 +143,15 @@ export async function setupCooperativeListeners(user, cooperativeId, container) 
         throw new Error('Cooperative not found');
       }
 
+      // Check uniqueness of full_name and short_name (excluding current coop)
+      const newFullName = document.getElementById('coop-full-name').value.trim()
+      const newShortName = document.getElementById('coop-short-name').value.trim().toUpperCase()
+      await checkCoopNameUniqueness(newFullName, newShortName, currentCoop.id)
+
       const payload = {
         ...currentCoop, // Keep all existing fields (subscription_key, expiry_date, created_at, created_by, etc.)
-        full_name: document.getElementById('coop-full-name').value.trim(),
-        short_name: document.getElementById('coop-short-name').value.trim(),
+        full_name: newFullName,
+        short_name: newShortName,
         contact_number: document.getElementById('coop-contact-number').value.trim(),
         email: document.getElementById('coop-email').value.trim(),
         address: document.getElementById('coop-address').value.trim(),

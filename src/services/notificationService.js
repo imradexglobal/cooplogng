@@ -4,6 +4,7 @@ import { saveDoc, loadDoc, queryRows, runSql } from './sqliteService.js'
 /**
  * Notification Service
  * Handles creation and management of in-app alerts.
+ * Recipients can be member IDs, usernames (e.g., 'admin', coopShortName), or 'all'.
  */
 
 /**

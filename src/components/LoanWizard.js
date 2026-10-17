@@ -6,7 +6,8 @@ import { showToast } from '../services/toastService.js'
 export async function showLoanRequestModal() {
   const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') ||
     hasPermission(state.welcomeUser.permissions, 'read_member') ||
-    state.welcomeUser.username.toLowerCase() === 'admin';
+    state.welcomeUser.username.toLowerCase() === 'admin' ||
+    state.welcomeUser.username.toLowerCase() === state.welcomeUser.coopShortName?.toLowerCase()
 
   state.modal.isOpen = true;
   state.modal.title = "Withdrawal Request";
@@ -544,14 +545,18 @@ export async function setupLoanRequestListeners() {
       const matches = allMembers.filter(m => {
         const nameMatch = (m.name || '').toLowerCase().includes(text);
         const regMatch = String(m.registration_no || m.file_no || '').toLowerCase().includes(text);
-        return nameMatch || regMatch;
+        const specialIdMatch = String(m.special_id || '').toLowerCase().includes(text);
+        const mobileMatch = String(m.mobile || '').toLowerCase().includes(text);
+        return nameMatch || regMatch || specialIdMatch || mobileMatch;
       }).slice(0, 10);
 
       if (matches.length > 0) {
         memberSuggestions.innerHTML = matches.map(m => `
           <div class="m-suggestion" data-id="${m.id}" data-name="${escapeHtml(m.name)}" style="padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border-light);">
             <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">${escapeHtml(m.name)}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">File/Reg: ${m.file_no || m.registration_no || 'N/A'}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">
+              ${m.special_id ? `ID: ${escapeHtml(m.special_id)}` : ''} ${m.special_id && (m.registration_no || m.file_no) ? ' • ' : ''} ${m.registration_no || m.file_no ? `Reg: ${m.registration_no || m.file_no}` : ''} ${(m.special_id || m.registration_no || m.file_no) && m.mobile ? ' • ' : ''} ${m.mobile ? `Mobile: ${m.mobile}` : ''}
+            </div>
           </div>
         `).join('');
         memberSuggestions.style.display = 'block';

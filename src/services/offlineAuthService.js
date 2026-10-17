@@ -253,7 +253,10 @@ export async function repairWelcomeUser(welcomeUser) {
         if (welcomeUser.cooperativeId && (!welcomeUser.cooperativeName || welcomeUser.cooperativeName === welcomeUser.cooperativeId)) {
             const coop = await getDocById_Global('cooperatives', String(welcomeUser.cooperativeId)).catch(() => null)
             const name = coop?.full_name || coop?.short_name
-            if (name) welcomeUser.cooperativeName = name
+            if (name) {
+                welcomeUser.cooperativeName = name
+                welcomeUser.coopShortName = coop?.short_name || ''
+            }
         }
     } catch {
         // repair is best-effort; a partial session is better than no session

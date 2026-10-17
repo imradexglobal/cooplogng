@@ -2,7 +2,8 @@ export const TABLES = [
     'cooperatives', 'users', 'sync_queue', 'sync_state', 'loans',
     'loan_guarantors', 'members', 'bank', 'enterprise', 'remittance',
     'transaction_types', 'remittance_detail', 'notifications',
-    'payment_advise', 'bank_reconciliation_summary', 'feedback', 'app_settings'
+    'payment_advise', 'bank_reconciliation_summary', 'feedback', 'app_settings',
+    'membership_request'
 ]
 
 export const TABLE_COLUMNS = {
@@ -22,5 +23,6 @@ export const TABLE_COLUMNS = {
     payment_advise: ['id', 'cooperative_id', 'member_id', 'enterprise_id', 'amount', 'created_by', 'created_at', 'modified_by', 'modified_at', 'is_synced', 'is_deleted', 'sync_at', 'deleted_at'],
     bank_reconciliation_summary: ['id', 'cooperative_id', 'bank_name', 'period_month', 'period_start', 'period_end', 'bank_total_cr', 'bank_total_dr', 'system_total_cr', 'system_total_dr', 'status', 'created_at', 'created_by', 'modified_by', 'is_synced', 'is_deleted', 'sync_at'],
     feedback: ['id', 'cooperative_id', 'member_id', 'subject', 'message', 'rating', 'created_at', 'created_by', 'modified_at', 'modified_by', 'is_deleted', 'is_synced', 'sync_at'],
-    app_settings: ['key', 'value']
+    app_settings: ['key', 'value'],
+    membership_request: ['id', 'cooperative_id', 'last_name', 'first_name', 'middle_name', 'mobile', 'address', 'image_path', 'status', 'reviewed_by', 'reviewed_at', 'member_id', 'decline_reason', 'created_at', 'created_by', 'modified_at', 'modified_by', 'is_deleted', 'is_synced', 'sync_at']
 }

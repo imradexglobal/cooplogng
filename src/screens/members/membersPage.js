@@ -1,10 +1,17 @@
 import { renderMembersFilters, attachFiltersListeners } from './membersFilters.js'
 import { renderMembersTable, getTableStyles } from './membersTable.js'
+import { renderMembersJoinRequests } from './membersJoinRequests.js'
 import { hasPermission } from '../../services/permissionService.js'
 import { showWorkspaceSpinner } from '../../components/workspaceSpinner.js'
+import { countPendingMembershipRequests } from '../../services/data/membershipRequests.js'
+import { secondaryView } from './membersState.js'
 
 export async function renderMembersPage(container, user) {
-    const isAdmin = hasPermission(user.permissions, 'admin') || user.username?.toLowerCase() === 'admin'
+    const isAdmin = user.isAdmin
+        || user.role === 'admin'
+        || hasPermission(user.permissions, 'admin')
+        || hasPermission(user.permissions, 'member_approval')
+        || user.username?.toLowerCase() === 'admin'
     const canCreate = isAdmin || hasPermission(user.permissions, 'create_member')
 
     // 1. Check if page scaffold is already rendered (prevents sync flickering)
@@ -13,19 +20,29 @@ export async function renderMembersPage(container, user) {
         try {
             const { applyFilters, getFilteredMembers } = await import('./membersState.js')
             const statsMod = await import('./membersStats.js')
-            
+
             // Re-apply current search/filters
             applyFilters()
-            
+
             // Update stats
             const statsContainer = container.querySelector('#members-stats-mount')
             if (statsContainer) {
-                statsContainer.innerHTML = statsMod.renderMembersStats(getFilteredMembers())
+                let pendingCount = 0
+                try {
+                    pendingCount = await countPendingMembershipRequests(user.cooperativeId)
+                } catch (e) {
+                    console.warn('[MembersPage] countPendingMembershipRequests failed:', e?.message)
+                }
+                statsContainer.innerHTML = statsMod.renderMembersStats(getFilteredMembers(), pendingCount)
                 statsMod.attachStatsListeners?.(container)
             }
-            
-            // Diff-render the table
-            renderMembersTable(container)
+
+            // Diff-render the table or join-requests view
+            if (secondaryView === 'join-requests') {
+                await renderMembersJoinRequests(container, user)
+            } else {
+                renderMembersTable(container)
+            }
             return
         } catch (err) {
             console.error("[MembersPage] Silent Refresh Error, falling back to full render:", err)
@@ -60,7 +77,7 @@ export async function renderMembersPage(container, user) {
 
           .members-stats-grid {
               display: grid;
-              grid-template-columns: repeat(4, 1fr);
+              grid-template-columns: repeat(5, 1fr);
               gap: 0.6rem;
               margin-top: 0.6rem;
           }
@@ -113,7 +130,7 @@ export async function renderMembersPage(container, user) {
               outline-offset: 2px;
           }
           @media (max-width: 999px) {
-              .members-stats-grid { gap: 0.4rem; }
+              .members-stats-grid { gap: 0.4rem; grid-template-columns: repeat(3, 1fr); }
               .members-stats-grid .stat-card { padding: 0.5rem 0.6rem; border-radius: var(--radius-md); }
               .members-stats-grid .stat-value { font-size: 1.05rem; }
           }
@@ -213,9 +230,9 @@ export async function renderMembersPage(container, user) {
               .fab-container { display: none !important; }
               /* Audit columns crowd small screens — name/mobile/status stay.
                  (Full card layout deferred as follow-up; see Phase 7 notes.) */
-              .styled-table th[data-sort="created"],
+              .styled-table th[data-sort="last_login"],
               .styled-table th[data-sort="modified"],
-              .styled-table td.col-created,
+              .styled-table td.col-last-login,
               .styled-table td.col-modified { display: none !important; }
               #members-filter-toggle {
                   display: inline-flex;
@@ -263,7 +280,7 @@ export async function renderMembersPage(container, user) {
             <th data-sort="name">Name<span class="sort-arrow"></span></th>
             <th class="col-mobile" data-sort="mobile">Mobile<span class="sort-arrow"></span></th>
             <th data-sort="status">Status<span class="sort-arrow"></span></th>
-            <th data-sort="created">Created<span class="sort-arrow"></span></th>
+            <th data-sort="last_login" style="width: 160px;">Last Login<span class="sort-arrow"></span></th>
             <th data-sort="modified">Last Modified<span class="sort-arrow"></span></th>
         </tr>
         </thead>
@@ -297,7 +314,13 @@ export async function renderMembersPage(container, user) {
                 const statsMod2 = await import('./membersStats.js')
                 const statsMount = container.querySelector('#members-stats-mount')
                 if (statsMount) {
-                    statsMount.innerHTML = statsMod2.renderMembersStats(getFilteredMembers())
+                    let pendingCount = 0
+                    try {
+                        pendingCount = await countPendingMembershipRequests(user.cooperativeId)
+                    } catch (e) {
+                        console.warn('[MembersPage] countPendingMembershipRequests failed:', e?.message)
+                    }
+                    statsMount.innerHTML = statsMod2.renderMembersStats(getFilteredMembers(), pendingCount)
                     statsMod2.attachStatsListeners?.(container)
                 }
             } catch (e) {
@@ -326,9 +349,24 @@ export async function renderMembersPage(container, user) {
             panel?.classList.toggle('show-on-mobile', !expanded)
         })
 
+        // Listen for view changes dispatched by the join-requests view
+        if (!window._membersViewChangeAttached) {
+            window._membersViewChangeAttached = true
+            window.addEventListener('members-view-change', () => {
+                const page = document.querySelector('.members-page')
+                if (page) {
+                    renderMembersPage(page, user)
+                }
+            })
+        }
+
 
     try {
-        renderMembersTable(container)
+        if (secondaryView === 'join-requests') {
+            await renderMembersJoinRequests(container, user)
+        } else {
+            renderMembersTable(container)
+        }
     } catch (err) {
         console.error("[MembersPage] Table Render Error:", err)
     }

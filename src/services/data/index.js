@@ -18,8 +18,10 @@ export {
     approveGuarantorRequest, rejectGuarantorRequest, setGuarantorDecision, approveLoanRequest, declineLoanRequest
 } from './loans.js'
 export {
-    getReconciliationTotals, getReconciliationTotalsByDateRange, getReconciliationSummary,
-    getAllReconciliationSummaries, saveReconciliationSummary, unsealReconciliation
+    getReconciliationTotals, checkReconciliation, getReconciliationSummary,
+    getReconciliationSummariesByOverlap, getAllReconciliationSummaries,
+    getReconciliationHistory, saveReconciliationSummary, unsealReconciliation,
+    getReconciliationDrillDown
 } from './reconciliation.js'
 export { buildAccountBalance, buildMemberLedger } from './balance.js'
 export {
@@ -30,3 +32,10 @@ export {
 } from './duesTransfer.js'
 export { registerCooperative } from './registration.js'
 export { submitFeedback } from './feedback.js'
+export {
+    submitMembershipRequest,
+    listMembershipRequests,
+    countPendingMembershipRequests,
+    approveMembershipRequest,
+    declineMembershipRequest,
+} from './membershipRequests.js'

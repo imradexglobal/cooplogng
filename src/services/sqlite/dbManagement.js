@@ -135,9 +135,9 @@ export async function importDatabase(arrayBuffer, currentCooperativeId) {
     }
 
     const tables = [
-        'enterprise', 'bank', 'members', 'users', 'remittance', 
-        'remittance_detail', 'loans', 'loan_guarantors', 'payment_advise', 
-        'transaction_types', 'bank_reconciliation_summary'
+        'enterprise', 'bank', 'members', 'users', 'remittance',
+        'remittance_detail', 'loans', 'loan_guarantors', 'payment_advise',
+        'transaction_types', 'bank_reconciliation_summary', 'membership_request'
     ];
     const stats = {};
     for (const t of tables) stats[t] = 0;

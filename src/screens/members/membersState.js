@@ -1,5 +1,6 @@
 import { fetchAllMembers, fetchCooperativeUsers, fetchEnterprises } from '../../services/dataService.js'
 import { save as persistState, load as loadPersisted } from '../../services/statePersistence.js'
+import { hasPermission } from '../../services/permissionService.js'
 
 // Global state for the members module instance
 let _allMembers = []
@@ -32,7 +33,8 @@ const sortVal = (m, key) => {
         case 'name': return String(m.name ?? '').trim()
         case 'mobile': return String(m.mobile ?? '').trim()
         case 'status': return String(m.status ?? '').trim()
-        case 'created': return m.created_at ?? ''
+        case 'last_login': return m.last_login ?? ''
+        case 'login_count': return String(m.login_count ?? 0).padStart(6, '0')
         case 'modified': return m.modified_at ?? m.created_at ?? ''
         default: return ''
     }
@@ -65,7 +67,7 @@ function _saveFilterState() {
 }
 
 export function applySort() {
-    const dateKey = sortKey === 'created' || sortKey === 'modified'
+    const dateKey = sortKey === 'last_login' || sortKey === 'modified'
     _filteredMembers.sort((ma, mb) => {
         let r = dateKey
             ? cmpDate(sortVal(ma, sortKey), sortVal(mb, sortKey), sortDir)
@@ -102,6 +104,10 @@ export function setSort(key) {
 export let isSelectionMode = false
 export let selectedIds = new Set()
 
+// Secondary view toggle: 'members' (default table) | 'join-requests'
+export let secondaryView = 'members'
+export function setSecondaryView(v) { secondaryView = v }
+
 export function setSelectionMode(val) {
     isSelectionMode = val
     if (!val) selectedIds.clear()
@@ -124,7 +130,11 @@ export function deselectAll() {
  * Loads all required initial data from Firebase/SQLite.
  */
 export async function loadMembersData(user) {
-    const isAdmin = user.isAdmin || user.role === 'admin' || user.username?.toLowerCase() === 'admin'
+    const isAdmin = user.isAdmin
+        || user.role === 'admin'
+        || hasPermission(user.permissions, 'admin')
+        || hasPermission(user.permissions, 'member_approval')
+        || user.username?.toLowerCase() === 'admin'
     
     // Run all fetches in parallel for speed
     const [members, users, enterprises] = await Promise.all([

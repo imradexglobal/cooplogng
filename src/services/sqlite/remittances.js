@@ -42,11 +42,11 @@ async function _attachNestedRemittanceData(remittances) {
  * (previously re-read per remittance: O(R x M)). Returns null when the
  * caller's RBAC path doesn't need it (admin / memberId / member / no user).
  */
-async function preloadMembersForRBAC(user) {
+async function preloadMembersForRBAC(user, coopShortName) {
     if (!user) return null
     const _role = (user.role || '').toLowerCase()
     const _username = (user.username || '').trim().toLowerCase()
-    const _isAdmin = _role === 'admin' || (user.permissions || '').includes('admin') || _username === 'admin'
+    const _isAdmin = _role === 'admin' || (user.permissions || '').includes('admin') || _username === 'admin' || _username === (coopShortName || '').toLowerCase()
     const _hasTarget = user.memberId && user.memberId !== '0000000000'
     if (_isAdmin || _hasTarget || _role === 'member') return null
     try {
@@ -56,11 +56,11 @@ async function preloadMembersForRBAC(user) {
     }
 }
 
-function applyRBAC(user, tableAlias = 'r', preloadedMembers = null) {
+function applyRBAC(user, tableAlias = 'r', preloadedMembers = null, coopShortName) {
     if (!user) return { filter: () => true }
     const role = (user.role || '').toLowerCase()
     const username = (user.username || '').trim().toLowerCase()
-    const isAdmin = role === 'admin' || (user.permissions || '').includes('admin') || username === 'admin'
+    const isAdmin = role === 'admin' || (user.permissions || '').includes('admin') || username === 'admin' || username === (coopShortName || '').toLowerCase()
     const isMember = role === 'member'
     const targetMemberId = (user.memberId && user.memberId !== '0000000000') ? String(user.memberId) : null
 
@@ -126,8 +126,8 @@ export async function getRemittances(cooperativeId, user = null) {
 
     // Preload the members directory ONCE for the staff RBAC branch below
     // (previously it was re-read per remittance: O(R x M)).
-    const preloadedMembers = await preloadMembersForRBAC(user)
-    const rbac = applyRBAC(user, 'r', preloadedMembers)
+    const preloadedMembers = await preloadMembersForRBAC(user, user?.coopShortName)
+    const rbac = applyRBAC(user, 'r', preloadedMembers, user?.coopShortName)
     if (user) {
         const filtered = []
         for (const rem of remittances) {
@@ -155,7 +155,7 @@ export async function getRemittances(cooperativeId, user = null) {
     return remittances
 }
 
-function buildRemittanceFilter(items, options) {
+function buildRemittanceFilter(items, options, memberMap = {}) {
     if (!options) return items
     let filtered = [...items]
 
@@ -248,8 +248,42 @@ function buildRemittanceFilter(items, options) {
             filtered = filtered.filter(r => String(r.member_id || '').toLowerCase().includes(term))
         } else if (searchColumn === 'Member Name') {
             filtered = filtered.filter(r => {
+                const member = memberMap[String(r.member_id)]
+                if (member) {
+                    const searchable = [
+                        member.name,
+                        member.first_name,
+                        member.last_name,
+                        member.middle_name
+                    ].filter(Boolean).join(' ').toLowerCase()
+                    return searchable.includes(term)
+                }
                 const m = r.member_name ? r.member_name.toLowerCase() : ''
                 return m.includes(term)
+            })
+        } else if (searchColumn === 'Special ID') {
+            filtered = filtered.filter(r => {
+                const member = memberMap[String(r.member_id)]
+                if (member && member.special_id) {
+                    return String(member.special_id).toLowerCase().includes(term)
+                }
+                return false
+            })
+        } else if (searchColumn === 'Mobile') {
+            filtered = filtered.filter(r => {
+                const member = memberMap[String(r.member_id)]
+                if (member && member.mobile) {
+                    return String(member.mobile).toLowerCase().includes(term)
+                }
+                return false
+            })
+        } else if (searchColumn === 'Registration No') {
+            filtered = filtered.filter(r => {
+                const member = memberMap[String(r.member_id)]
+                if (member && member.registration_no) {
+                    return String(member.registration_no).toLowerCase().includes(term)
+                }
+                return false
             })
         } else if (searchColumn === 'Transaction Date') {
             filtered = filtered.filter(r => String(r.remittance_date).includes(term) || (dateTerm && String(r.remittance_date).startsWith(dateTerm)))
@@ -264,19 +298,28 @@ function buildRemittanceFilter(items, options) {
         } else if (searchColumn === 'Note/Description') {
             filtered = filtered.filter(r => String(r.description || '').toLowerCase().includes(term))
         } else {
-            filtered = filtered.filter(r =>
-                String(r.id).toLowerCase().includes(term) ||
-                String(r.member_id || '').includes(term) ||
-                String(r.bank_name || '').toLowerCase().includes(term) ||
-                String(r.description || '').toLowerCase().includes(term) ||
-                String(r.transaction_type || '').toLowerCase().includes(term) ||
-                String(r.amount).includes(term) ||
-                (!isNaN(numTermMatch) && Number(r.amount) === numTermMatch) ||
-                String(r.status).toLowerCase().includes(term) ||
-                String(r.created_by || '').toLowerCase().includes(term) ||
-                String(r.remittance_date).includes(term) ||
-                (dateTerm && String(r.remittance_date) === dateTerm)
-            )
+            filtered = filtered.filter(r => {
+                const member = memberMap[String(r.member_id)]
+                const memberName = member ? [member.name, member.first_name, member.last_name, member.middle_name].filter(Boolean).join(' ').toLowerCase() : ''
+                const memberSpecialId = member ? String(member.special_id || '').toLowerCase() : ''
+                const memberMobile = member ? String(member.mobile || '').toLowerCase() : ''
+                const memberRegNo = member ? String(member.registration_no || '').toLowerCase() : ''
+                return String(r.id).toLowerCase().includes(term) ||
+                    String(r.member_id || '').includes(term) ||
+                    memberName.includes(term) ||
+                    memberSpecialId.includes(term) ||
+                    memberMobile.includes(term) ||
+                    memberRegNo.includes(term) ||
+                    String(r.bank_name || '').toLowerCase().includes(term) ||
+                    String(r.description || '').toLowerCase().includes(term) ||
+                    String(r.transaction_type || '').toLowerCase().includes(term) ||
+                    String(r.amount).includes(term) ||
+                    (!isNaN(numTermMatch) && Number(r.amount) === numTermMatch) ||
+                    String(r.status).toLowerCase().includes(term) ||
+                    String(r.created_by || '').toLowerCase().includes(term) ||
+                    String(r.remittance_date).includes(term) ||
+                    (dateTerm && String(r.remittance_date) === dateTerm)
+            })
         }
     }
     return filtered
@@ -307,7 +350,20 @@ export async function getRemittancesPage(cooperativeId, user = null, offset = 0,
         remittances = filtered
     }
 
-    remittances = buildRemittanceFilter(remittances, options)
+    // Fetch members for enhanced search (name, special_id, mobile, registration_no)
+    let memberMap = {}
+    if (options && options.searchTerm && (options.searchColumn === 'Member Name' || options.searchColumn === 'Special ID' || options.searchColumn === 'Mobile' || options.searchColumn === 'Registration No' || options.searchColumn === 'All Columns')) {
+        try {
+            const members = await getAllByIndex('members', 'cooperative_id', String(cooperativeId))
+            if (members && members.length > 0) {
+                memberMap = Object.fromEntries(members.filter(m => !m.is_deleted).map(m => [String(m.id), m]))
+            }
+        } catch (e) {
+            console.warn('Failed to fetch members for search:', e)
+        }
+    }
+
+    remittances = buildRemittanceFilter(remittances, options, memberMap)
 
     remittances.sort((a, b) => {
         const dateStrA = getLocalDateString(a.remittance_date)

@@ -42,7 +42,10 @@ export function isSubscriptionBlocked(doc, usernameOverride, nowIso = new Date()
   try {
     if (!doc) return false;
     const username = usernameOverride ?? doc.username ?? doc.mobile ?? '';
-    if (String(username || '').toLowerCase() === 'admin') return false;
+    // Exempt 'admin' username and coop short name from subscription blocking
+    const isAdminUsername = String(username || '').toLowerCase() === 'admin'
+      || (usernameOverride && String(usernameOverride).toLowerCase() === (doc.coopShortName || '').toLowerCase())
+    if (isAdminUsername) return false;
     const status = doc.subscriptionStatus;
     const hasStatus = status !== undefined && status !== null && status !== '';
     if (hasStatus) {
@@ -173,7 +176,7 @@ export async function getAllAccounts(cooperativeId, opts = {}) {
   for (const u of users || []) {
     const state = getSubscriptionState(u, nowIso);
     if (status !== 'all' && state !== status) continue;
-    const isAdmin = String(u.username || '').toLowerCase() === 'admin';
+    const isAdmin = String(u.username || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === String(u.coopShortName || '').toLowerCase();
     out.push({
       collection: 'users',
       id: u.id,

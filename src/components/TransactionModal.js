@@ -237,7 +237,9 @@ window.showTransactionModal = async (remittance) => {
     }
 
     // --- Approval Section ---
-    const isActualAdmin = hasPermission(state.welcomeUser.permissions, 'admin') || state.welcomeUser.username.toLowerCase() === 'admin';
+    const isActualAdmin = hasPermission(state.welcomeUser.permissions, 'admin') 
+        || state.welcomeUser.username.toLowerCase() === 'admin' 
+        || state.welcomeUser.username.toLowerCase() === state.welcomeUser.coopShortName?.toLowerCase();
     if (isActualAdmin && remittance.status === 'Pending') {
       const allGuarantorsApproved = (remittance.details || []).every(d => {
         if (!d.loan_info || !d.loan_info.guarantors) return true;

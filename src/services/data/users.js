@@ -1,6 +1,7 @@
-import { generateId, hashPassword, generateRandom6Digit, isSixDigitPin } from '../../utils/formatters.js'
+import { generateId, hashPassword, generateRandom6Digit, isSixDigitPin, isSha256Hex } from '../../utils/formatters.js'
 import { normalizeUsername, usernameKey, normalizeEmail } from '../../utils/normalize.js'
 import { saveDoc, getDocById_Global, getUsersByUsername, queryRows } from '../sqliteService.js'
+import { getDb, doc, getDoc, setDoc } from '../../firebase.js'
 
 function generateRandom4Digit() {
     return generateRandom6Digit()
@@ -68,7 +69,7 @@ export async function updateUser(id, data, modifiedBy) {
         is_synced: 0
     }
     if (data.password_hash) {
-        doc.password_hash = await hashPassword(data.password_hash)
+        doc.password_hash = isSha256Hex(data.password_hash) ? data.password_hash : await hashPassword(data.password_hash)
     }
     await saveDoc('users', doc)
 }
@@ -91,6 +92,10 @@ export async function changePassword(username, oldPassword, newPassword, coopera
     if (!isSixDigitPin(String(newPassword || ''))) {
         throw new Error('New PIN must be exactly 6 digits (numbers only).')
     }
+    // Actual password change requires internet connectivity.
+    if (!navigator.onLine) {
+        throw new Error('No internet connection. Password change requires online connection. Please connect to the internet and try again.')
+    }
     const coopStr = String(cooperativeId)
     const key = String(username || '').toLowerCase()
     const oldPlain = String(oldPassword || '')
@@ -104,6 +109,32 @@ export async function changePassword(username, oldPassword, newPassword, coopera
     const user = users[0]
     if (user) {
         if (!matches(user.password_hash)) throw new Error('Current password is incorrect')
+        // Ensure user document exists in Firestore before updating
+        const db = getDb()
+        const userDocRef = doc(db, 'users', user.id)
+        const userDocSnap = await getDoc(userDocRef)
+        if (!userDocSnap.exists()) {
+          // Create the user doc in Firestore if it doesn't exist (e.g. from new coop registration)
+          await setDoc(userDocRef, {
+            id: user.id,
+            username: user.username,
+            username_lower: user.username_lower,
+            password_hash: user.password_hash,
+            cooperative_id: user.cooperative_id,
+            role: user.role,
+            permissions: user.permissions,
+            enterprise_rights: user.enterprise_rights,
+            subscriptionStatus: user.subscriptionStatus,
+            expiry_date: user.expiry_date,
+            force_password_change: user.force_password_change,
+            created_at: user.created_at,
+            created_by: user.created_by,
+            modified_at: now,
+            modified_by: username,
+            is_deleted: user.is_deleted,
+            is_synced: 0
+          }, { merge: true })
+        }
         await saveDoc('users', {
             ...user,
             password_hash: await hashPassword(newPassword),

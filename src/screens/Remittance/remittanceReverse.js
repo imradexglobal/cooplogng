@@ -195,7 +195,7 @@ export async function showReverseModal(deps) {
                 // Full parent id in the marker (unique + matches Guard 2 scan).
                 const parentRid = String(g.parent.id);
                 const mirrorDetails = (doc) => (doc.details || []).map(d => ({
-                    id: generateId(),
+                    id: generateId(String(coopId)),
                     enterprise_id: String(d.enterprise_id || d.item || ''),
                     amount: -1 * (parseFloat(d.amount || 0) || 0),
                     notes: d.notes || ''

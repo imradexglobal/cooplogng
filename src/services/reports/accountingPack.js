@@ -37,6 +37,9 @@ const MEMBER_CATS = ['Member Liability', 'Loan Asset', 'Liability', 'Equity'];
 const RECOGNISED_CATS = [...INCOME_CATS, ...EXPENSE_CATS, ...COOP_ASSET_CATS, ...NON_POSTING_CATS, ...MEMBER_CATS];
 const PSEUDO_MEMBER = '0000000000';
 const INTERNAL_TRANSFER = 'Internal Transfer';
+// Severity is an ordered scale, not a word. Ranking it explicitly is what stops
+// the exceptions list being alphabetised into High / Low / Medium.
+const SEVERITY_RANK = { High: 0, Medium: 1, Low: 2 };
 
 const T = v => String(v == null ? '' : v).trim();
 function num(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; }
@@ -279,6 +282,23 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         .filter(x => x.d && x.d <= to)
         .sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : String(a.r.id).localeCompare(String(b.r.id))));
 
+    // Rows the walk cannot place. A row whose date is absent or malformed is
+    // excluded from every figure and from the audit trail, because the audit
+    // trail loop below keys on the same normalised date. Without collecting
+    // them here they would disappear from the pack entirely, with no exception
+    // and no count, so an auditor could not tell they existed.
+    const undatedRemittances = [];
+    for (const r of remittances) {
+        if (truthy(r.is_deleted) || T(r.status) !== 'Approved') continue;
+        if (normDate(r.remittance_date)) continue;
+        undatedRemittances.push(r);
+        stats.skippedNoDate += 1;
+    }
+    for (const r of undatedRemittances) {
+        addException('Medium', 'MISSING_DATE', 'Approved transaction has no usable posting date, so it is excluded from every figure', String(r.id), num(r.amount),
+            `remittance ${r.id} is Approved and not deleted, but remittance_date is "${T(r.remittance_date) || '(blank)'}", which is not a YYYY-MM-DD date. It cannot be placed in any period, so it is excluded from the trial balance, the statements and the general ledger, and does not appear on the Transaction Audit Trail. Its amount of ${round2(num(r.amount)).toLocaleString()} is therefore missing from this pack until the date is corrected in CoopLogNG.`);
+    }
+
     const postings = [];
     const exceptions = [];
     const auditRows = [];
@@ -301,6 +321,22 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         const inPeriod = date >= from && date <= to;
         if (inPeriod) acc.periodNet += net; else acc.openingNet += net;
         postings.push({ acc, date, debit: isDebit, amount: round2(amount), netDr: round2(net), inPeriod, meta });
+    };
+
+    // Per-entry balance tracking. Aggregate controls (C1, C3) prove the
+    // population foots, but they cannot say *which* entries are out of balance:
+    // a +5,000 and a -5,000 error in different transactions cancel in the
+    // total. Each remittance and each family is therefore netted here so an
+    // entry that does not balance is reported in its own right, with the legs
+    // that made it, rather than being hidden inside a control difference.
+    const entryNet = new Map();   // remittance id -> { net, debit, credit, legs }
+    const trackEntry = (remittanceId, netDr, amount) => {
+        const k = String(remittanceId);
+        const cur = entryNet.get(k) || { remittanceId: k, net: 0, debit: 0, credit: 0, legs: 0 };
+        cur.net = round2(cur.net + netDr);
+        if (netDr > 0) cur.debit += amount; else cur.credit += amount;
+        cur.legs += 1;
+        entryNet.set(k, cur);
     };
 
     const addException = (severity, code, title, remId, amount, explanation) => {
@@ -329,6 +365,7 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         // ---- 1. Cash leg
         if (isBank && Math.abs(H) >= EPS) {
             addPosting(getBankAccount(bankName), { date: d, debit: H > 0, amount: Math.abs(H), meta: { remittanceId: String(r.id), leg: 'Cash', detailId: '' } });
+            trackEntry(r.id, H > 0 ? Math.abs(H) : -Math.abs(H), Math.abs(H));
             if (inPeriod) {
                 cashTxRows.push({
                     date: d, remittanceId: String(r.id), family, bank: bankName,
@@ -372,6 +409,7 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
             }
 
             addPosting(acc, { date: d, debit: isDebit, amount: Math.abs(amt), meta: { remittanceId: String(r.id), leg: 'Member', detailId: String(det.id), memberId: memId, enterpriseId: entId } });
+            trackEntry(r.id, isDebit ? Math.abs(amt) : -Math.abs(amt), Math.abs(amt));
 
             if (acc.bucket === 'loan' && !loanIdForRow) {
                 unattributedLoan.push({ remittanceId: String(r.id), detailId: String(det.id), amount: round2(amt), transactionType: txType, member: isPseudo ? PSEUDO_MEMBER : memberName(mem) });
@@ -406,6 +444,7 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
          const effectiveClassAcc = classAcc || classAccForLiab;
         if (effectiveClassAcc && Math.abs(H) >= EPS) {
             addPosting(effectiveClassAcc, { date: d, debit: H < 0, amount: Math.abs(H), meta: { remittanceId: String(r.id), leg: 'Classification', detailId: '' } });
+            trackEntry(r.id, H < 0 ? Math.abs(H) : -Math.abs(H), Math.abs(H));
             if (inPeriod) {
                 const row = {
                     date: d, remittanceId: String(r.id), family, transactionType: txType,
@@ -464,6 +503,15 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
                 addException('Medium', 'UNKNOWN_CATEGORY', 'Transaction category is not a recognised accounting classification', String(r.id), H,
                     `Category "${cat}" matches none of the app's known classifications; treated as unclassified.`);
             }
+            // A recognised member category deliberately produces no
+            // profit-and-loss leg, because its detail rows already carry the
+            // value. An entry made of a bank leg and detail legs therefore
+            // balances on its own, and the category alone says nothing about
+            // whether it does. Whether an entry balances is measured, not
+            // inferred from its category: control C17 and the Entry Balance
+            // Proof sheet net every derived entry and report the ones that do
+            // not sum to nil, which covers this case and every other shape of
+            // imbalance without guessing from the category.
             if (classAcc && (classAcc.type === 'Income' || classAcc.type === 'Expense') && H < 0) {
                 addException('Medium', 'NEGATIVE_PL', 'Income or expenditure header recorded as a negative amount', String(r.id), H,
                     `Category "${cat}" is a profit and loss classification but the header is ${round2(H).toLocaleString()}, so it reduces ${classAcc.type === 'Income' ? 'income' : 'expenditure'} rather than increasing it. Treated as a reversal of an earlier entry and netted at its signed value.`);
@@ -508,9 +556,14 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
                 autogen: truthy(r.autogen) ? 'Yes' : 'No',
                 parentId: T(r.parent_remittance_id) || '', loanId: T(r.loan_id) || '',
                 description: T(r.description),
-                // Provenance. No `approved_by` column exists anywhere in the
-                // schema, so an approver identity is deliberately not shown
-                // rather than invented; approval is evidenced by `status`.
+                // Provenance. There is no separate `approved_by` column, but
+                // approving a remittance writes the approver into `modified_by`
+                // (data/remittances.js, approveRemittance), so for an Approved
+                // row `modified_by` is the approver and `modified_at` is when
+                // they approved it. It is labelled as such below rather than
+                // left for the reader to infer.
+                approvedBy: T(r.status) === 'Approved' ? T(r.modified_by) : '',
+                approvedAt: T(r.status) === 'Approved' ? T(r.modified_at) : '',
                 cooperativeId: T(r.cooperative_id), createdBy: T(r.created_by),
                 createdAt: T(r.created_at), modifiedBy: T(r.modified_by),
                 modifiedAt: T(r.modified_at)
@@ -529,6 +582,36 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         const f = String(famOf.get(p.meta.remittanceId) || p.meta.remittanceId);
         familyNet.set(f, round2((familyNet.get(f) || 0) + p.netDr));
     }
+
+    // --- Entry balance proof -------------------------------------------------
+    // Every journal entry this pack derives is netted here. An entry whose legs
+    // do not sum to nil is the unit an auditor actually tests, and it cannot be
+    // identified from the trial balance, where such errors cancel against one
+    // another. Entries are reported individually, with their own legs, and the
+    // population is quantified by control C17.
+    const entryRows = [];
+    for (const e of entryNet.values()) {
+        const r = remById.get(e.remittanceId);
+        if (!r) continue;
+        const mem = memberMap.get(String(r.member_id));
+        entryRows.push({
+            remittanceId: e.remittanceId,
+            date: normDate(r.remittance_date),
+            family: famOf.get(e.remittanceId) || e.remittanceId,
+            transactionType: T(r.transaction_type),
+            category: T(r.category),
+            member: String(r.member_id || '') === PSEUDO_MEMBER || !memberMap.get(String(r.member_id))
+                ? `${PSEUDO_MEMBER} (Cooperative)` : memberName(mem),
+            bank: T(r.bank_name) || '(blank)',
+            legs: e.legs,
+            debit: round2(e.debit),
+            credit: round2(e.credit),
+            outOfBalance: round2(e.net)
+        });
+    }
+    const unbalancedEntries = entryRows.filter(e => Math.abs(e.outOfBalance) >= 0.01)
+        .sort((a, b) => Math.abs(b.outOfBalance) - Math.abs(a.outOfBalance) || String(a.remittanceId).localeCompare(String(b.remittanceId)));
+
     for (const ex of exceptions) {
         if (ex.code !== 'ONE_LEGGED_NON_CASH') continue;
         const f = String(famOf.get(ex.remittanceId) || ex.remittanceId);
@@ -589,6 +672,8 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
                 autogen: truthy(r.autogen) ? 'Yes' : 'No',
                 parentId: T(r.parent_remittance_id) || '', loanId: T(r.loan_id) || '',
                 description: T(r.description),
+                approvedBy: T(r.status) === 'Approved' ? T(r.modified_by) : '',
+                approvedAt: T(r.status) === 'Approved' ? T(r.modified_at) : '',
                 cooperativeId: T(r.cooperative_id), createdBy: T(r.created_by),
                 createdAt: T(r.created_at), modifiedBy: T(r.modified_by),
                 modifiedAt: T(r.modified_at)
@@ -680,13 +765,22 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
     }
 
     // --- Retained earnings (cumulative surplus before the period) ------------
+    // The account is always created, even when the brought-forward balance is
+    // nil. A period that covers the whole history of the records has no
+    // brought-forward balance, and omitting the account entirely then left the
+    // Statement of Financial Position with no equity line at all and no way to
+    // show the period result, so assets did not equal liabilities plus equity.
+    // The account carries the brought-forward balance only: the surplus for the
+    // period itself stays in the income and expenditure accounts, which is
+    // where the trial balance shows it, and crediting it here as well would
+    // count the same result twice.
     let cumIncomeBefore = 0, cumExpenseBefore = 0;
     for (const acc of reg.accounts) {
         if (acc.type === 'Income' && acc.bucket === 'income') cumIncomeBefore += -acc.openingNet;
         if (acc.type === 'Expense') cumExpenseBefore += acc.openingNet;
     }
     const reOpening = round2(cumIncomeBefore - cumExpenseBefore);
-    if (Math.abs(reOpening) >= EPS) reg.retained().openingNet = -reOpening;
+    reg.retained().openingNet = Math.abs(reOpening) >= EPS ? -reOpening : 0;
 
     // --- Member account balances (needed for the member accounts sheet) ------
     // Accumulated in debit-positive terms in a single pass over the postings,
@@ -932,6 +1026,197 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
     loanMoveRows.sort((a, b) => a.date.localeCompare(b.date) || a.remittanceId.localeCompare(b.remittanceId));
 
     // =========================================================================
+    // Loan ageing
+    // =========================================================================
+    // The register already carries a free-text ageing string, but an auditor
+    // asks for buckets, not a single "26694 days overdue" figure. These are
+    // computed from the same due date the register uses and are presented as a
+    // separate schedule so the underlying loans can still be listed in full.
+    const AGEING_BUCKETS = [
+        { key: 'current', label: 'Not yet due' },
+        { key: 'd1_30', label: '1 - 30 days past due' },
+        { key: 'd31_60', label: '31 - 60 days past due' },
+        { key: 'd61_90', label: '61 - 90 days past due' },
+        { key: 'over90', label: 'Over 90 days past due' }
+    ];
+    const loanAging = new Map(AGEING_BUCKETS.map(b => [b.key, { ...b, count: 0, outstanding: 0, overdue: 0 }]));
+    const loanAgingUndated = { count: 0, outstanding: 0 };
+    for (const l of loanRows) {
+        const due = normDate(l.due);
+        if (!due) { loanAgingUndated.count += 1; loanAgingUndated.outstanding = round2(loanAgingUndated.outstanding + l.outstanding); continue; }
+        const days = Math.round((new Date(`${to}T00:00:00Z`) - new Date(`${due}T00:00:00Z`)) / 86400000);
+        const key = days <= 0 ? 'current' : days <= 30 ? 'd1_30' : days <= 60 ? 'd31_60' : days <= 90 ? 'd61_90' : 'over90';
+        const b = loanAging.get(key);
+        b.count += 1;
+        b.outstanding = round2(b.outstanding + l.outstanding);
+        if (days > 0) b.overdue = round2(b.overdue + l.outstanding);
+    }
+    const loanAgingRows = [...loanAging.values()].filter(b => b.count > 0 || Math.abs(b.outstanding) >= EPS);
+    const loanAgingOverdueTotal = round2(loanAgingRows.reduce((s, b) => s + b.overdue, 0));
+
+    // =========================================================================
+    // Suspense / unidentified cash roll-forward
+    // =========================================================================
+    // The app routes a Member Liability payment with no identifiable owner to
+    // an "Unknown Payments" liability account. Cash therefore sits in a
+    // liability line with no owner, and an auditor will ask how it moves and
+    // how old it is. There is no dated identification field for it, so it is
+    // reported as a movement schedule with an explicit statement of that limit
+    // rather than an invented ageing.
+    const suspenseAccounts = ordered.filter(a => a.type === 'Liability' && a.bucket === 'liability');
+    const suspenseRows = suspenseAccounts.map(a => ({
+        code: a.code,
+        account: a.name,
+        opening: round2((a.normal === 'CR' ? -1 : 1) * a.openingNet),
+        period: round2((a.normal === 'CR' ? -1 : 1) * a.periodNet),
+        closing: round2((a.normal === 'CR' ? -1 : 1) * (a.openingNet + a.periodNet))
+    }));
+    const suspenseClosing = round2(suspenseRows.reduce((s, x) => s + x.closing, 0));
+
+    // =========================================================================
+    // Statement of Financial Position
+    // =========================================================================
+    // Presented from the trial balance's own closing balances, grouped by the
+    // account's own normal balance, so every line foots to the trial balance
+    // without a separate calculation that could drift from it.
+    const fpLine = (acc, label) => ({
+        code: acc.code,
+        account: label || acc.name,
+        closing: round2((acc.normal === 'CR' ? -1 : 1) * (acc.openingNet + acc.periodNet))
+    });
+    const group = (label, predicate) => {
+        const lines = ordered.filter(predicate).map(a => fpLine(a)).filter(l => Math.abs(l.closing) >= EPS);
+        return { label, lines, total: round2(lines.reduce((s, l) => s + l.closing, 0)) };
+    };
+
+    const fpAssets = [
+        group('Cash and bank', a => a.bucket === 'bank'),
+        group('Loans receivable', a => a.bucket === 'loan'),
+        group('Other assets', a => a.bucket === 'asset'),
+        group('Cooperative assets', a => a.bucket === 'coopAsset')
+    ].filter(g => g.lines.length);
+    const fpLiabilities = [
+        group('Member savings', a => a.bucket === 'savings'),
+        group('Member dues and penalties', a => a.bucket === 'due'),
+        group('Other liabilities (including unidentified payments)', a => a.bucket === 'liability'),
+        group('Member equity accounts', a => a.bucket === 'equityEnt')
+    ].filter(g => g.lines.length);
+    // Equity. Two things belong here and they are not always in the same place.
+    //
+    // Retained earnings carries the cumulative surplus brought forward. The
+    // surplus for the period itself sits in the income and expenditure accounts,
+    // because that is where the trial balance shows it, and a balance sheet
+    // must still present it: on a period that covers the whole history of the
+    // records there is no brought-forward balance at all, so without the line
+    // below the statement had no equity for the result and assets could not
+    // equal liabilities plus equity. Presenting it is not double counting: the
+    // income and expenditure accounts are profit and loss and are excluded from
+    // the asset and liability sections above, so nothing else on this statement
+    // carries the surplus.
+    const reAcc = ordered.find(a => a.bucket === 'retained');
+    const reBroughtForward = reAcc ? round2((reAcc.normal === 'CR' ? -1 : 1) * (reAcc.openingNet + reAcc.periodNet)) : 0;
+    // The surplus is the same figure the trial balance's own period columns
+    // carry, so it is filtered by the same buckets the controls use
+    // (bucket === 'income' and bucket === 'expense'). Filtering by the account
+    // `type` instead would also pull in enterprise expense accounts, which the
+    // trial balance's income and expense movement deliberately excludes, and
+    // would make the statement disagree with the control it is meant to foot to.
+    // Both are presented positive on the trial balance, so expenditure is
+    // deducted rather than added: income 1,785,200 less expenditure 414,000 is
+    // a surplus of 1,371,200, and adding them would be an error, not a
+    // presentation choice.
+    const periodSurplusForEquity = round2(
+        ordered.filter(a => a.bucket === 'income')
+            .reduce((s, a) => s + (a.normal === 'CR' ? -1 : 1) * a.periodNet, 0)
+        - ordered.filter(a => a.bucket === 'expense')
+            .reduce((s, a) => s + (a.normal === 'CR' ? -1 : 1) * a.periodNet, 0)
+    );
+    const fpEquity = [];
+    if (reAcc) {
+        fpEquity.push({
+            label: 'Retained earnings brought forward',
+            lines: [fpLine(reAcc)],
+            total: reBroughtForward
+        });
+    }
+    fpEquity.push({
+        label: 'Surplus / (deficit) for the period',
+        lines: [{ code: '', account: 'Net surplus / (deficit) for the period (see Income & Expenditure)', closing: periodSurplusForEquity }],
+        total: periodSurplusForEquity
+    });
+
+    const fpAssetsTotal = round2(fpAssets.reduce((s, g) => s + g.total, 0));
+    const fpLiabTotal = round2(fpLiabilities.reduce((s, g) => s + g.total, 0));
+    const fpEquityTotal = round2(fpEquity.reduce((s, g) => s + g.total, 0));
+    const fpLiabEquityTotal = round2(fpLiabTotal + fpEquityTotal);
+    // The statement foots only if the trial balance foots, so the difference is
+    // the same control difference C1 already reports, not a new one.
+    const fpBalanceDiff = round2(fpAssetsTotal - fpLiabEquityTotal);
+
+    // =========================================================================
+    // Income and Expenditure Statement
+    // =========================================================================
+    // Line by line by account code, from the same period movements the trial
+    // balance shows, so the statement total equals the trial balance's income
+    // and expense movement exactly.
+    const ieSection = (label, predicate) => {
+        const lines = ordered.filter(predicate).map(a => {
+            const movement = round2((a.normal === 'CR' ? -1 : 1) * a.periodNet);
+            return { code: a.code, account: a.name, amount: movement };
+        }).filter(l => Math.abs(l.amount) >= EPS).sort((a, b) => b.amount - a.amount);
+        return { label, lines, total: round2(lines.reduce((s, l) => s + l.amount, 0)) };
+    };
+    // Filtered by bucket, not by account type, so these totals are the same
+    // figures the trial balance's income and expense movements carry and that
+    // C7, C8 and C20 are stated against. Enterprise expense accounts are shown
+    // on the expense detail sheet but are not part of the reported profit and
+    // loss movement, and including them here would make the statement disagree
+    // with the control that reconciles it.
+    const ieIncome = ieSection('Income', a => a.bucket === 'income');
+    const ieExpense = ieSection('Expenditure', a => a.bucket === 'expense');
+    const ieSurplus = round2(ieIncome.total - ieExpense.total);
+
+    // =========================================================================
+    // Cash Flow Statement (indirect method)
+    // =========================================================================
+    // The pack is cash-basis, so there is no accrual movement to report. The
+    // statement therefore reconciles the period result to the movement in cash
+    // using the non-cash and non-operating items the model has already
+    // isolated, and its endpoint is proved by C4 (cash book continuity).
+    const nonCashMemberMovement = round2(
+        ordered.filter(a => ['savings', 'due', 'equityEnt'].includes(a.bucket))
+            .reduce((s, a) => s + (a.normal === 'CR' ? -1 : 1) * a.periodNet, 0)
+    );
+    const loanMovement = round2(ordered.filter(a => a.bucket === 'loan')
+        .reduce((s, a) => s + (a.normal === 'CR' ? -1 : 1) * a.periodNet, 0));
+    const coopAssetMovement = round2(ordered.filter(a => a.bucket === 'coopAsset')
+        .reduce((s, a) => s + (a.normal === 'CR' ? -1 : 1) * a.periodNet, 0));
+    const otherLiabMovement = round2(ordered.filter(a => a.bucket === 'liability')
+        .reduce((s, a) => s + (a.normal === 'CR' ? -1 : 1) * a.periodNet, 0));
+    const otherAssetMovement = round2(ordered.filter(a => a.bucket === 'asset')
+        .reduce((s, a) => s + (a.normal === 'CR' ? -1 : 1) * a.periodNet, 0));
+    // Internal transfers move value between the cooperative's own accounts and
+    // are excluded from cash by posting rule 4, so they are removed here.
+    const internalAdj = round2(-internalMemo.net);
+
+    const cfLines = [
+        { label: 'Surplus / (deficit) for the period', amount: ieSurplus, kind: 'start' },
+        { label: 'Add back: internal transfer movement (non-cash)', amount: internalAdj, kind: 'adj' },
+        { label: 'Increase / (decrease) in member savings, dues and equity', amount: nonCashMemberMovement, kind: 'wc' },
+        { label: 'Increase / (decrease) in other liabilities', amount: otherLiabMovement, kind: 'wc' },
+        { label: 'Increase / (decrease) in loans receivable', amount: -loanMovement, kind: 'wc' },
+        { label: 'Increase / (decrease) in other assets', amount: -otherAssetMovement, kind: 'wc' },
+        { label: 'Capitalised cooperative asset purchases', amount: -coopAssetMovement, kind: 'wc' }
+    ];
+    const cfNetBeforeOther = round2(cfLines.reduce((s, l) => s + l.amount, 0));
+    // The cash book is the authority on the movement in cash, so the statement
+    // closes onto it and any difference is shown rather than absorbed.
+    const cfCashMovement = round2(cashCloseTotal - cashOpTotal);
+    const cfUnexplained = round2(cfCashMovement - cfNetBeforeOther);
+    const cfOpening = cashOpTotal;
+    const cfClosing = cashCloseTotal;
+
+    // =========================================================================
     // Account mapping
     // =========================================================================
     const mappingRows = [];
@@ -981,6 +1266,26 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
     const tbOpenDiff = round2(tbOpenDr - tbOpenCr);
     const cashCheck = round2(cashOpTotal + cashRecTotal - cashPayTotal - cashCloseTotal);
 
+    // The general ledger's own debit and credit columns, totalled from the
+    // written rows rather than from the account balances. This is a genuinely
+    // independent path to the same total: the trial balance is built from
+    // per-account running balances, the ledger from individual posting lines.
+    // If a posting were dropped, duplicated or rounded inconsistently between
+    // the two, the difference below would be non-zero.
+    let glDr = 0, glCr = 0, glMoveCount = 0;
+    for (const g of glRows) {
+        if (g.kind !== 'move') continue;
+        glMoveCount += 1;
+        if (g.debit !== '') glDr += g.debit;
+        if (g.credit !== '') glCr += g.credit;
+    }
+    glDr = round2(glDr); glCr = round2(glCr);
+    const glFootDiff = round2(glDr - glCr);
+    // Every posting must appear on the ledger exactly once. A posting present
+    // in the account balances but absent from the ledger would leave the
+    // statement evidence and the reported balances disagreeing.
+    const glMissingPostings = round2(glMoveCount - postings.filter(p => p.inPeriod).length);
+
     // Member accounts are compared against the member-related trial balance
     // lines only, each presented on its own normal balance. Cash, cooperative
     // assets, income, expenditure and retained earnings are not member
@@ -1005,6 +1310,15 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
      const liabilityDetailTotal = round2(liabilityRows.reduce((s, r) => s + r.effect, 0));
      const tbLiabilityPeriod = round2(ordered.filter(a => a.bucket === 'liability').reduce((s, a) => s + a.periodNet, 0));
 
+    // Statement-level controls. Each of the three statements is built from the
+    // trial balance's own figures, so these prove the statement agrees with
+    // the trial balance rather than merely looking plausible.
+    // The trial balance carries both sides as positive figures, so the
+    // comparison has to be income less expenditure, not income plus it.
+    const ieVsTb = round2(ieSurplus - round2(-tbIncomePeriod - tbExpensePeriod));
+    const fpVsTb = round2(fpBalanceDiff - tbCloseDiff);
+    const cfVsCashBook = round2(cfClosing - cashCloseTotal);
+
     // Gross member credits and debits, for the control that proves both sides of
     // the member statement are populated and foot to the period movement.
     const memberCreditsTotal = round2(memberRows.reduce((s, r) => s + r.credits, 0));
@@ -1023,11 +1337,12 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
     const checks = [
         { id: 'C1', name: 'Trial Balance closing integrity', description: 'Total closing Debits must equal total closing Credits.', valueA: tbCloseDr, valueB: tbCloseCr, difference: tbCloseDiff, status: status(tbCloseDiff), note: 'The difference is the sum of every posting that could not be traced to a complete entry. It is disclosed, never plugged. See the Data Quality Exceptions sheet.' },
         { id: 'C2', name: 'Trial Balance opening integrity', description: 'Total opening Debits must equal total opening Credits.', valueA: tbOpenDr, valueB: tbOpenCr, difference: tbOpenDiff, status: status(tbOpenDiff), note: 'Reflects unbalanced postings dated before the start of the selected period.' },
-        { id: 'C3', name: 'Posting completeness', description: 'The trial balance difference must equal the arithmetic sum of all postings.', valueA: tbCloseDiff, valueB: postingResidual, difference: round2(tbCloseDiff - postingResidual), status: status(tbCloseDiff - postingResidual), note: 'Proves no figure was adjusted, filtered or omitted after the postings were derived.' },
+        { id: 'C3', name: 'General ledger completeness and footing', description: 'Every posting in the period must appear on the ledger exactly once, and the ledger debit and credit columns must foot to the same difference as the trial balance.', valueA: glMoveCount, valueB: postings.filter(p => p.inPeriod).length, difference: glMissingPostings, status: status(glMissingPostings, 0), note: 'Counted from the written ledger lines against the derived postings, so a posting dropped, duplicated or rounded inconsistently between the ledger and the reported balances would show here as a non-zero difference.' },
+        { id: 'C18', name: 'General ledger debit and credit footing', description: 'Total Debits on the ledger less total Credits, totalled from the individual posting lines, must equal the trial balance control difference.', valueA: glDr, valueB: glCr, difference: glFootDiff, status: status(glFootDiff), note: 'The trial balance is built from per-account running balances and the ledger from individual posting lines, so this is an independent path to the same figure. Agreement is what proves the two agree; a difference means a posting was lost or double counted between them.' },
+        { id: 'C17', name: 'Journal entries balance individually', description: 'Every journal entry this pack derives must sum to nil. Entries that do not are listed on the Entry Balance Proof sheet.', valueA: unbalancedEntries.length, valueB: 0, difference: unbalancedEntries.length, status: unbalancedEntries.length ? 'REVIEW' : 'PASS', note: `This is the unit an auditor actually tests. The trial balance cannot identify a broken entry, because a debit error in one transaction and a credit error in another cancel in the total. Count ${unbalancedEntries.length} of ${entryRows.length} entries do not balance; each is listed with its own legs on the Entry Balance Proof sheet.` },
         { id: 'C4', name: 'Cash book continuity', description: 'Opening + receipts - payments must equal closing for every bank.', valueA: round2(cashOpTotal + cashRecTotal - cashPayTotal), valueB: cashCloseTotal, difference: cashCheck, status: status(cashCheck), note: 'Proves the cash book moves continuously from the opening position to the closing position with no unexplained step. Internal transfer rows are excluded from receipts and payments because they never touch a bank account; their net movement is disclosed by C9.' },
         { id: 'C5', name: 'Member accounts vs trial balance', description: 'Member credit balances less loan debit balances must equal the member-related lines in the trial balance.', valueA: memberClosingTotal, valueB: tbMemberSide, difference: memberVsTb, status: status(memberVsTb), note: 'Covers savings, dues and penalties, other liabilities, member equity, other assets and loans. Excludes cash, cooperative assets, income, expenditure and retained earnings, which are not member balances. The cooperative pseudo-member is included here and reported separately in C10.' },
         { id: 'C6', name: 'Loan register vs loan accounts', description: 'Sum of per-loan outstanding must equal the loan receivable balance in the trial balance.', valueA: loanOutstandingTotal, valueB: tbLoanAsset, difference: round2(loanOutstandingTotal - tbLoanAsset), status: status(loanOutstandingTotal - tbLoanAsset), note: 'A difference means loan-account postings exist that do not resolve to a loan record. Those are listed individually as LOAN_DETAIL_UNATTRIBUTED and quantified in C11.' },
-        { id: 'C15', name: 'Member credits less debits', description: 'Total gross member credits less total gross member debits must equal the total member period movement.', valueA: round2(memberCreditsTotal - memberDebitsTotal), valueB: memberPeriodTotal, difference: round2(memberCreditsTotal - memberDebitsTotal - memberPeriodTotal), status: status(memberCreditsTotal - memberDebitsTotal - memberPeriodTotal), note: 'Credits and debits are counted gross, so both columns are populated and an account that was credited and debited in the same period shows both. This is the control that would fail if the columns were derived from the sign of the net movement instead.' },
         { id: 'C7', name: 'Income detail vs trial balance', description: 'Sum of the signed income effects must equal the trial balance income movement for the period.', valueA: incomeDetailTotal, valueB: round2(-tbIncomePeriod), difference: round2(incomeDetailTotal + tbIncomePeriod), status: status(incomeDetailTotal + tbIncomePeriod), note: 'Both sides are net. A negative income header is a reversal and reduces income on both the detail sheet and the trial balance, so this control still foots.' },
         { id: 'C8', name: 'Expense detail vs trial balance', description: 'Sum of the signed expenditure effects must equal the trial balance expenditure movement for the period.', valueA: expenseDetailTotal, valueB: tbExpensePeriod, difference: round2(expenseDetailTotal - tbExpensePeriod), status: status(expenseDetailTotal - tbExpensePeriod), note: 'Excludes cooperative asset movements, which are an asset purchase rather than an expense. Those are reported separately in the Trial Balance and are quantified in C12.' },
         { id: 'C9', name: 'Internal transfer memo', description: 'Non-cash headers are excluded from cash and income. Their net movement is disclosed as a memo only.', valueA: round2(internalMemo.net), valueB: 0, difference: round2(internalMemo.net), status: 'INFO', note: 'Internal transfers reallocate value between member accounts; they are not income and not cash.' },
@@ -1035,9 +1350,13 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         { id: 'C11', name: 'Loan movements traceable to a loan record', description: 'Loan account movements that cannot be matched to an individual loan record, counted and quantified.', valueA: unattributedLoan.length, valueB: 0, difference: unattributedLoan.length, status: unattributedLoan.length ? 'REVIEW' : 'PASS', note: `These movements are included in the loan receivable in the trial balance but cannot be shown against an individual loan. Unmatched count ${unattributedLoan.length}, net detail amount ${unattributedLoanNet.toLocaleString()}.` },
         { id: 'C12', name: 'Cooperative asset movements', description: 'Capitalised asset movements must be reported as assets, never as expenditure.', valueA: coopAssetTotal, valueB: tbCoopAsset, difference: round2(coopAssetTotal - tbCoopAsset), status: status(coopAssetTotal - tbCoopAsset), note: 'Confirms the Expense Detail sheet excludes capitalised asset purchases.' },
         { id: 'C13', name: 'One-legged non-cash entries', description: 'Internal transfer rows that form a family of their own and so have no related row to balance them.', valueA: oneLeggedCount, valueB: 0, difference: oneLeggedCount, status: oneLeggedCount ? 'REVIEW' : 'PASS', note: `These rows contribute to the trial balance control difference in C1. Count ${oneLeggedCount}, net header amount ${oneLeggedNet.toLocaleString()}. Each is listed as ONE_LEGGED_NON_CASH on the Data Quality Exceptions sheet, or summarised there when beyond the largest 200. They are overwhelmingly legacy rows that recorded a member balance without a cash leg.` },
-         { id: 'C14', name: 'Loan receivable roll-forward', description: 'Opening loan receivable + disbursements - principal repaid = closing loan receivable.', valueA: tbLoanAssetClosingFromOpening, valueB: tbLoanAsset, difference: loanRollForwardDiff, status: status(loanRollForwardDiff), note: 'Disbursements and repayments are taken from the signed loan-account details posted in the period, so the roll-forward uses the same figures the Loan Movements sheet lists. Any difference is loan-account movement that no detail row explains, and is reported rather than absorbed.' },
-         { id: 'C16', name: 'Liability detail vs trial balance', description: 'Sum of signed liability effects must equal the trial balance liability movement for the period.', valueA: liabilityDetailTotal, valueB: tbLiabilityPeriod, difference: round2(liabilityDetailTotal - tbLiabilityPeriod), status: status(liabilityDetailTotal - tbLiabilityPeriod), note: 'Covers member liability postings (e.g. Unknown Payments) that have no enterprise detail leg. The offsetting liability account keeps the trial balance in equilibrium, so these entries do not contribute to the control difference. Confirms the Liability Detail sheet agrees with the trial balance.' }
-     ];
+        { id: 'C14', name: 'Loan receivable roll-forward', description: 'Opening loan receivable + disbursements - principal repaid = closing loan receivable.', valueA: tbLoanAssetClosingFromOpening, valueB: tbLoanAsset, difference: loanRollForwardDiff, status: status(loanRollForwardDiff), note: 'Disbursements and repayments are taken from the signed loan-account details posted in the period, so the roll-forward uses the same figures the Loan Movements sheet lists. Any difference is loan-account movement that no detail row explains, and is reported rather than absorbed.' },
+        { id: 'C15', name: 'Member credits less debits', description: 'Total gross member credits less total gross member debits must equal the total member period movement.', valueA: round2(memberCreditsTotal - memberDebitsTotal), valueB: memberPeriodTotal, difference: round2(memberCreditsTotal - memberDebitsTotal - memberPeriodTotal), status: status(memberCreditsTotal - memberDebitsTotal - memberPeriodTotal), note: 'Credits and debits are counted gross, so both columns are populated and an account that was credited and debited in the same period shows both. This is the control that would fail if the columns were derived from the sign of the net movement instead.' },
+        { id: 'C16', name: 'Liability detail vs trial balance', description: 'Sum of signed liability effects must equal the trial balance liability movement for the period.', valueA: liabilityDetailTotal, valueB: tbLiabilityPeriod, difference: round2(liabilityDetailTotal - tbLiabilityPeriod), status: status(liabilityDetailTotal - tbLiabilityPeriod), note: 'Covers member liability postings (e.g. Unknown Payments) that have no enterprise detail leg. The offsetting liability account keeps the trial balance in equilibrium, so these entries do not contribute to the control difference. Confirms the Liability Detail sheet agrees with the trial balance.' },
+        { id: 'C19', name: 'Statement of Financial Position vs trial balance', description: 'Assets less liabilities and equity on the statement of financial position must equal the trial balance control difference.', valueA: fpBalanceDiff, valueB: tbCloseDiff, difference: fpVsTb, status: status(fpVsTb), note: 'The statement is presented from the trial balance\'s own closing balances, so it must foot to the same figure. Agreement proves the statement was not built by a separate calculation that has drifted from the balances behind it. A non-zero difference on C1 appears identically here and is the source data imbalance, not a presentation error.' },
+        { id: 'C20', name: 'Income and Expenditure vs trial balance', description: 'The surplus on the income and expenditure statement must equal income less expenditure per the trial balance.', valueA: ieSurplus, valueB: round2(-tbIncomePeriod - tbExpensePeriod), difference: ieVsTb, status: status(ieVsTb), note: 'The trial balance carries both income and expenditure as positive figures, so the comparison is income less expenditure. Both sides are the period movement only, which proves the statement reports the same period result the trial balance does and has not swept a prior-period balance into it.' },
+        { id: 'C21', name: 'Cash flow statement closes onto the cash book', description: 'Closing cash on the cash flow statement must equal total closing cash and bank balances per the cash book.', valueA: cfClosing, valueB: cashCloseTotal, difference: cfVsCashBook, status: status(cfVsCashBook), note: 'The cash book is the authority on the movement in cash. The statement reconciles the period result to that movement, and this control proves it ends where the cash book actually ends. Items the statement cannot explain are shown on the statement as a disclosed reconciling line, not absorbed.' }
+    ];
 
     const periodIncome = round2(-tbIncomePeriod);
     const periodExpense = round2(tbExpensePeriod);
@@ -1053,13 +1372,17 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         },
         basis: [
             { topic: 'Scope', text: `One cooperative only (cooperative_id ${cooperativeId}). Every query is scoped in SQL and re-checked in JavaScript. No account-manager narrowing, matching the existing financial statements.` },
+            { topic: 'Financial statements', text: 'This pack includes a Statement of Financial Position, an Income and Expenditure Statement and a Cash Flow Statement. Each is presented from the figures on the trial balance itself rather than from a separate calculation, and each is reconciled back to the trial balance by controls C19, C20 and C21. There is no Statement of Changes in Equity: the period result is already visible in the retained earnings line of the Statement of Financial Position and in the Income and Expenditure Statement, so a separate equity schedule would restate the same movement without adding evidence.' },
+            { topic: 'Cash basis', text: 'The pack is prepared on a cash basis, because the source records are. There is no accrual of unpaid income, no depreciation and no provision for doubtful debts, so the cash flow statement is presented by the indirect method from the period result and the balance sheet movements the records do support, and it carries an explicit line for movement it cannot explain.' },
+            { topic: 'Loan ageing', text: 'Ageing is measured from the due date recorded on the loan, against the period end date. The Loan Register sheet lists each loan with its own ageing; the Loan Ageing sheet presents the same population in the buckets an auditor asks for. No provision for impairment is raised, because the records contain no evidence of recoverability to base one on.' },
+            { topic: 'Unidentified payments', text: 'A Member Liability payment with no identifiable owner is posted to an unidentified-payments liability account rather than to a member. The Unidentified Payments sheet reports that balance and its movement for the period. The records do not carry a dated identification reference for it, so no ageing of unidentified cash is presented, because none can be derived without inventing one.' },
             { topic: 'Source of truth', text: 'Two records drive everything: remittance (header = cooperative/cash leg) and remittance_detail (member/enterprise leg). No new tables or columns were added and no source data was modified.' },
             { topic: 'Included rows', text: 'Only remittances that are Approved and not deleted, dated on or before the end of the period. Pending, declined and deleted rows are listed on the Transaction Audit Trail but excluded from every figure.' },
             { topic: 'Date handling', text: 'remittance.remittance_date is the posting date, compared as a plain YYYY-MM-DD string so both period boundaries are inclusive and no timezone shift can move a transaction between days.' },
             { topic: 'Cash basis', text: 'bank_name = "Internal Transfer" is not cash and never reaches the cash book. Internal transfers are disclosed as a memo on the Cash & Bank Book sheet.' },
             { topic: 'Income and expense basis', text: 'Recognised from the remittance header category, which is the only basis that captures the app\'s header-only income pickups. Member-side revenue enterprises are reported as a memo only so income cannot be counted twice.' },
             { topic: 'Member liability basis', text: 'Member savings, dues and penalty balances come from the sum of remittance_detail per enterprise, exactly as the app\'s buildAccountBalance computes member net worth. The remittance header amount is never used as a member balance.' },
-            { topic: 'Retained earnings', text: 'Cumulative income less cumulative expense on the header classification basis, taken at the day before the period starts, so the period result is never double counted.' },
+            { topic: 'Retained earnings', text: 'Cumulative income less cumulative expense on the header classification basis, measured at the day before the period starts, so the period result is never counted twice. Retained earnings carries that brought-forward balance only. The surplus for the period itself is NOT closed into it here, because the income and expenditure accounts continue to carry the period movement on the trial balance; closing it as well would count the same result twice and put the trial balance out by the size of the surplus. Where a period covers the whole history of the records there is no brought-forward balance, so no retained earnings line arises and the full surplus sits in the income and expenditure accounts.' },
             { topic: 'Account codes', text: 'Codes are a reporting mapping layer derived at run time from the cooperative\'s own enterprises, banks and transaction types. They are not a statutory chart of accounts. The Account Mapping sheet documents the derivation of every line.' },
             { topic: 'Loan interest', text: 'The app recognises loan interest only as a one-time origination charge (a Loan Charges remittance plus a pickup to the cooperative). There is no accrual, so this pack reports charges collected, not accrued interest.' },
             { topic: 'Balancing', text: 'The pack never inserts a plug. Where the source data cannot form a complete entry the difference is reported as a control difference and listed line by line on the Data Quality Exceptions sheet.' }
@@ -1067,8 +1390,9 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         definitions: [
             { term: 'Opening balance', text: `Cumulative position at ${shiftDay(from, -1)} (the day before the period starts).` },
             { term: 'Period movement', text: `Postings dated between ${from} and ${to}, both dates inclusive.` },
-            { term: 'Closing balance', text: `Cumulative position at ${to}. For income and expense accounts the closing column shows the period movement, because the result is carried in retained earnings.` },
-            { term: 'Control difference', text: 'Total Debits less Total Credits on the trial balance. It is the value of postings that could not be matched into a complete double entry.' },
+            { term: 'Closing balance', text: `Cumulative position at ${to}. For income and expense accounts the closing column shows the period movement, because the cumulative result is already carried in retained earnings; showing both would count the same result twice.` },
+            { term: 'Control difference', text: 'Total Debits less Total Credits on the trial balance. It is the arithmetic sum of every posting that could not be matched into a complete double entry, and it is also the difference between total assets and total liabilities plus equity on the Statement of Financial Position, which is proved by control C19.' },
+            { term: 'Entry', text: 'One derived double entry, made of the postings a single remittance (or the family of remittances the app generated together) produced. Control C17 proves each entry sums to nil. An entry is the unit a balance can be tested at: errors in different entries cancel in the trial balance but not in the entry proof.' },
             { term: 'Family', text: 'A remittance together with the rows it generated, linked by parent_remittance_id or loan_id. Dues and charge families post as one balanced entry across several rows.' },
             { term: PSEUDO_MEMBER, text: 'The cooperative itself. Used by income, expense and cooperative-side postings, and excluded from member net worth.' }
         ],
@@ -1081,6 +1405,28 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         },
         periodResult: { income: periodIncome, expense: periodExpense, surplus: round2(periodIncome - periodExpense), retainedEarningsOpening: reOpening },
         generalLedger: glRows,
+        // Every derived journal entry, so an auditor can test the unit they
+        // actually test. Entries that do not sum to nil are listed first, and
+        // the whole population is quantified by control C17.
+        entryBalanceProof: { rows: entryRows, unbalanced: unbalancedEntries, unbalancedCount: unbalancedEntries.length, totalCount: entryRows.length },
+        // The three primary financial statements, each built from the trial
+        // balance's own figures and reconciled to it by C19, C20 and C21.
+        financialPosition: {
+            assets: fpAssets, liabilities: fpLiabilities, equity: fpEquity,
+            assetsTotal: fpAssetsTotal, liabilitiesTotal: fpLiabTotal, equityTotal: fpEquityTotal,
+            liabilitiesAndEquity: fpLiabEquityTotal, difference: fpBalanceDiff
+        },
+        incomeExpenditure: {
+            income: ieIncome, expenditure: ieExpense,
+            incomeTotal: ieIncome.total, expenditureTotal: ieExpense.total, surplus: ieSurplus
+        },
+        cashFlow: {
+            lines: cfLines, subtotal: cfNetBeforeOther,
+            cashMovement: cfCashMovement, unexplained: cfUnexplained,
+            opening: cfOpening, closing: cfClosing
+        },
+        loanAging: { buckets: loanAgingRows, undated: loanAgingUndated, overdueTotal: loanAgingOverdueTotal, bucketsTotal: round2(loanAgingRows.reduce((s, b) => s + b.outstanding, 0)) },
+        suspense: { rows: suspenseRows, closingTotal: suspenseClosing },
         cashBook: { summary: cashSummary, transactions: cashTxRows, internalMemo: internalMemo.rows, internalNet: round2(internalMemo.net), totals: { opening: cashOpTotal, receipts: cashRecTotal, payments: cashPayTotal, closing: cashCloseTotal } },
         memberAccounts: { rows: memberRows, summary: memberSummary, closingTotal: memberClosingTotal, pseudoTotal: memberPseudoTotal },
         loanRegister: { rows: loanRows, movements: loanMoveRows, outstandingTotal: loanOutstandingTotal, accountClosing: loanAccountClosing },
@@ -1088,12 +1434,35 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         expenseDetail: expenseRows,
         liabilityDetail: liabilityRows,
         coopAssetDetail: coopAssetRows,
-        bankReconciliation: bankRecs.map(b => ({
-            bank: T(b.bank_name), period: T(b.period_month), status: T(b.status),
-            bankCr: round2(num(b.bank_total_cr)), bankDr: round2(num(b.bank_total_dr)),
-            systemCr: round2(num(b.system_total_cr)), systemDr: round2(num(b.system_total_dr)),
-            difference: round2(num(b.system_total_cr) - num(b.bank_total_cr) - num(b.system_total_dr) + num(b.bank_total_dr))
-        })),
+        // Bank reconciliation summaries, filtered to the selected period. The
+        // raw table is read for the whole cooperative, so without this filter
+        // the sheet would show every summary ever sealed regardless of the date
+        // range the reader asked for, which is a straight contradiction of the
+        // period printed in the banner above it.
+        bankReconciliation: bankRecs
+            .filter(b => !truthy(b.is_deleted))
+            .map(b => {
+                const ps = T(b.period_start) || ''
+                const pe = T(b.period_end) || ''
+                const period = ps && pe ? `${ps} → ${pe}` : (T(b.period_month) || '')
+                const month = /^\d{4}-\d{2}/.test(ps) ? ps.slice(0, 7) : ''
+                const inPeriod = (ps && pe)
+                    ? (ps <= to && pe >= from)
+                    : (/^(\d{4})-(\d{2})/.test(T(b.period_month))
+                        ? (() => { const m = T(b.period_month).slice(0, 7); return m >= from.slice(0, 7) && m <= to.slice(0, 7); })()
+                        : false)
+                return {
+                    period,
+                    month,
+                    status: T(b.status),
+                    inPeriod,
+                    bank: T(b.bank_name),
+                    bankCr: round2(num(b.bank_total_cr)), bankDr: round2(num(b.bank_total_dr)),
+                    systemCr: round2(num(b.system_total_cr)), systemDr: round2(num(b.system_total_dr)),
+                    difference: round2(num(b.system_total_cr) - num(b.bank_total_cr) - num(b.system_total_dr) + num(b.bank_total_dr))
+                }
+            })
+            .sort((a, b) => b.period.localeCompare(a.period) || a.bank.localeCompare(b.bank)),
         accountMapping: mappingRows,
         revenueEntMemo: [...revenueEntMemo.values()].map(v => ({ code: v.acc.code, account: v.acc.name, opening: round2(-v.net), period: round2(-v.periodNet), closing: round2(-v.net - v.periodNet) })),
         unattributedLoan: { rows: unattributedLoan, count: unattributedLoan.length, net: unattributedLoanNet },
@@ -1111,7 +1480,14 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         }).sort((x, y) => x.code.localeCompare(y.code)),
         auditTrail: auditRows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.remittanceId).localeCompare(String(b.remittanceId)))),
         controlChecks: checks,
-        exceptions: exceptions.sort((a, b) => a.severity.localeCompare(b.severity) || Math.abs(b.amount) - Math.abs(a.amount)),
+        // Severity is ranked, not sorted alphabetically. Alphabetical order put
+        // every Low finding between the High and the Medium ones, so a reviewer
+        // scanning top-down met several hundred Low rows before reaching the
+        // first Medium one.
+        exceptions: exceptions.sort((a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9)
+            || Math.abs(b.amount) - Math.abs(a.amount)
+            || String(a.code).localeCompare(String(b.code))
+            || String(a.remittanceId).localeCompare(String(b.remittanceId))),
         stats
     };
 }

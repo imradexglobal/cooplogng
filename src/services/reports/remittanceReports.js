@@ -7,7 +7,7 @@ export async function getRemittanceListData(cooperativeId, user, filters = {}) {
     const isAdmin = user.role === 'admin' || (user.permissions || '').includes('admin');
 
     let sql = `
-        SELECT r.id, r.remittance_date, m.last_name, m.first_name, m.middle_name, m.registration_no, m.special_id, r.amount, r.bank_name, r.transaction_type, r.status, r.description, r.category
+        SELECT r.id, r.member_id, r.remittance_date, m.last_name, m.first_name, m.middle_name, m.registration_no, m.special_id, r.amount, r.bank_name, r.transaction_type, r.description, r.category, r.created_by
         FROM remittance r
         LEFT JOIN members m ON r.member_id = m.id
         WHERE r.cooperative_id = ? AND r.is_deleted = 0 AND r.status = 'Approved'
@@ -47,26 +47,42 @@ export async function getRemittanceListData(cooperativeId, user, filters = {}) {
 
     const rows = await queryRows(sql, bind);
     const useSpecialId = localStorage.getItem('useSpecialIdInReports') === 'true';
-    const headers = ["ID", "Date", useSpecialId ? "Member ID" : "Reg No", "Member Name", "Amount", "Bank", "Transaction Type", "Category", "Status", "Description"];
+    const headers = ["ID", "Date", useSpecialId ? "Member ID" : "Reg No", "Member Name", "Amount", "Bank", "Transaction Type", "Category", "Posted By", "Description"];
     const data = rows.map(r => [
         shortRef(r.id),
         formatDate(r.remittance_date),
         useSpecialId && r.special_id ? r.special_id : (r.registration_no ? String(r.registration_no).padStart(4, '0') : ''),
-        `${r.last_name || ''} ${r.first_name || ''} ${r.middle_name || ''}`.trim() || 'Admin',
-        r.amount,
+        memberLabel(r),
+        Number(r.amount) || 0,
         r.bank_name || '',
         r.transaction_type || '',
         r.category || '',
-        r.status || '',
+        r.created_by || '',
         r.description || ''
     ]);
 
-    return { data, headers };
+    // Journal footer: a running journal is only auditable against a total.
+    let footerCount = 0;
+    if (rows.length > 0) {
+        const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+        data.push(['', '', '', `TOTAL (${rows.length} transaction${rows.length === 1 ? '' : 's'})`, total, '', '', '', '', '']);
+        footerCount = 1;
+    }
+
+    return { data, headers, footerCount };
 }
 
-export async function getRemittanceScheduleData(cooperativeId, user, month, year, positive) {
+// Coop-wide system postings (member 0000000000) belong to the cooperative
+// itself, not to a person called Admin.
+function memberLabel(r) {
+    if (String(r.member_id || '') === '0000000000') return 'Cooperative';
+    return [r.last_name, r.first_name, r.middle_name].filter(Boolean).join(' ') || 'Admin';
+}
+
+export async function getRemittanceScheduleData(cooperativeId, user, month, year, positive, options = {}) {
     const isAdmin = user.role === 'admin' || (user.permissions || '').includes('admin');
     const signOp = positive ? ">" : "<";
+    const showMemberName = options.showMemberName !== false;
 
     const lastDay = new Date(year, month, 0).getDate();
     const dFrom = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -79,16 +95,24 @@ export async function getRemittanceScheduleData(cooperativeId, user, month, year
     const orderedEnts = [...loans, ...savings, ...others];
 
     const useSpecialId = localStorage.getItem('useSpecialIdInReports') === 'true';
-    const headers = ["S/N", useSpecialId ? "Member ID" : "Reg No", ...orderedEnts.map(e => e.account_name), "Total"];
+    const headers = [
+        "S/N",
+        useSpecialId ? "Member ID" : "Reg No",
+        ...(showMemberName ? ["Member Name"] : []),
+        ...orderedEnts.map(e => e.account_name),
+        "Total"
+    ];
 
     let sql = `
-        SELECT r.member_id as id, m.registration_no, m.special_id, rd.enterprise_id, SUM(rd.amount) as total
+        SELECT r.member_id as id, m.registration_no, m.special_id,
+               m.last_name, m.first_name, m.middle_name,
+               rd.enterprise_id, SUM(rd.amount) as total
         FROM remittance_detail rd
         JOIN remittance r ON r.id = rd.remittance_id
         JOIN members m ON m.id = r.member_id
         WHERE rd.cooperative_id = ? AND r.status = 'Approved'
           AND r.is_deleted = 0 AND rd.is_deleted = 0 AND m.is_deleted = 0
-          AND date(r.remittance_date) BETWEEN date(?) AND date(?)
+          AND r.remittance_date >= date(?) AND r.remittance_date <= date(?)
           AND rd.amount ${signOp} 0
     `;
     const bind = [cooperativeId, dFrom, dTo];
@@ -103,11 +127,15 @@ export async function getRemittanceScheduleData(cooperativeId, user, month, year
     const byMember = {};
     const regMap = {};
     const specialIdMap = {};
+    const nameMap = {};
     rows.forEach(r => {
         if (!byMember[r.id]) byMember[r.id] = {};
         byMember[r.id][r.enterprise_id] = r.total;
         regMap[r.id] = r.registration_no;
         specialIdMap[r.id] = r.special_id;
+        if (!nameMap[r.id]) {
+            nameMap[r.id] = [r.last_name, r.first_name, r.middle_name].filter(Boolean).join(' ');
+        }
     });
 
     const data = [];
@@ -116,7 +144,7 @@ export async function getRemittanceScheduleData(cooperativeId, user, month, year
 
     sortedIds.forEach((mid, idx) => {
         const memberId = useSpecialId ? (specialIdMap[mid] || String(regMap[mid] || '').padStart(4, '0')) : String(regMap[mid] || '').padStart(4, '0');
-        const row = [idx + 1, memberId];
+        const row = [idx + 1, memberId, ...(showMemberName ? [nameMap[mid] || ''] : [])];
         let rowTotal = 0;
         orderedEnts.forEach((ent, eIdx) => {
             const val = byMember[mid][ent.id] || 0;
@@ -129,7 +157,7 @@ export async function getRemittanceScheduleData(cooperativeId, user, month, year
     });
 
     if (data.length > 0) {
-        const totalRow = ["TOTAL", "", ...entTotals, entTotals.reduce((a, b) => a + b, 0)];
+        const totalRow = ["TOTAL", "", ...(showMemberName ? [""] : []), ...entTotals, entTotals.reduce((a, b) => a + b, 0)];
         data.push(totalRow);
     }
 

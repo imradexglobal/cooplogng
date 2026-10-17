@@ -101,12 +101,41 @@ function toActorType(role, permissions = '') {
     return 'staff'
 }
 
-async function loadSyncContext() {
+async function loadSyncContext(cooperativeId) {
     try {
         const { getAppSetting } = await import('./sqliteService.js')
         const raw = await getAppSetting('sync_context')
-        if (raw) return JSON.parse(raw)
+        if (raw) {
+            try { return JSON.parse(raw) } catch { /* fall through to sync_state */ }
+        }
     } catch {}
+
+    // `sync_context` is written only after a full sync succeeds, so it can be
+    // absent while `sync_state` still holds a valid watermark and cursors (a
+    // partially failed first sync, a cleared app_settings store, or a build
+    // predating that write). Deriving the context from `sync_state` keeps the
+    // decision below from seeing a spurious `prev=none` and falling through to
+    // DELTA_ONLY on no evidence.
+    if (cooperativeId) {
+        try {
+            const { getSyncMeta } = await import('./sqliteService.js')
+            const state = await getSyncMeta(String(cooperativeId))
+            if (state && (state.is_full_sync_complete || state.collection_cursors || state.last_sync_ts)) {
+                const scope = state.last_sync_scope || ''
+                const isMemberScope = scope.startsWith('member:')
+                return {
+                    cooperative_id: String(cooperativeId),
+                    dataset_scope: scope,
+                    principal_type: isMemberScope ? 'member' : (scope ? 'admin' : ''),
+                    principal_id: isMemberScope ? scope.slice('member:'.length) : '',
+                    // Derived, not authoritative: tells the caller a previous
+                    // sync exists without claiming a full sync completed.
+                    derived_from: 'sync_state',
+                    schema_version: state.schema_version
+                }
+            }
+        } catch {}
+    }
     return null
 }
 
@@ -148,8 +177,12 @@ export async function syncCooperativeData(cooperativeId, role, memberId, permiss
     const actorType = toActorType(role, permissions)
     const actorId = String(memberId || username || '')
     const coopStr = String(cooperativeId)
-    const prev = await loadSyncContext()
-    const hasDb = prev ? true : await dbHasUsableData()
+    const prev = await loadSyncContext(coopStr)
+    // `prev` is only trusted as "a previous sync exists" when it came from
+    // app_settings; a context derived from sync_state still needs the rows
+    // themselves to be present, otherwise the tables were cleared underneath
+    // us and a delta would leave the dashboard empty.
+    const hasDb = prev && !prev.derived_from ? true : await dbHasUsableData()
 
     const prevCoop = prev?.cooperative_id ? String(prev.cooperative_id) : null
     const sameCoop = prevCoop ? prevCoop === coopStr : false
@@ -159,7 +192,10 @@ export async function syncCooperativeData(cooperativeId, role, memberId, permiss
     const currScope = actorType === 'member' ? `member:${actorId}` : 'cooperative'
 
     let action = 'DELTA_ONLY'
-    if (!hasDb && !prev) {
+    if (!hasDb) {
+        // No local rows: nothing to delta against, whether or not sync_state
+        // still holds cursors from an earlier sync. A delta here would repopulate
+        // only the overlap window and leave the rest of the dashboard empty.
         action = actorType === 'member' ? 'FULL_MEMBER_SYNC' : 'FULL_COOP_SYNC'
     } else if (!sameCoop && prevCoop) {
         action = 'SAFE_SCOPE_SWITCH'

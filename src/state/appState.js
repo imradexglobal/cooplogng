@@ -1,6 +1,7 @@
 import { hasPermission } from '../services/permissionService.js'
 import { loadSavedSession, restoreSessionFromIndexedDB } from '../services/offlineAuthService.js'
 import { loadRememberedIdentity } from '../services/rememberMeService.js'
+import { DEFAULT_MEMBER_FIELDS } from '../services/reports/memberFields.js'
 
 function getDefaultTab(user) {
   if (!user) return 'dashboard';
@@ -99,7 +100,7 @@ const state = {
   reports: {
     type: '',
     filters: {},
-    selectedFields: ['full_name', 'registration_no', 'mobile', 'sex', 'status'],
+    selectedFields: DEFAULT_MEMBER_FIELDS,
     currentReportData: null
   },
 }

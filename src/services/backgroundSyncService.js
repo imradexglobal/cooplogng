@@ -31,6 +31,7 @@ let _isSyncing = false // Lock to prevent concurrent full syncs
 let _pendingQueue = new Map() // Track pending items for conflict resolution
 let _activityHandler = null
 let _coordinator = 'IDLE' // IDLE|INITIALIZING|PUSHING|PULLING|FULL_SYNCING|SWITCHING_SCOPE|STOPPING|ERROR
+let _deltaInFlight = null // shared delta pass: loop/refresh/login/online join it instead of re-running
 
 export function getSyncSession() {
     return _session
@@ -48,21 +49,47 @@ function setCoordinator(state) {
     _coordinator = state
 }
 
-export function setSyncSession(session) {
+// The generation token exists so async completions belonging to a *different*
+// scope are discarded. Two independent entry points set the same session on
+// login — `syncCooperativeData` (via setSyncSession, then triggerDeltaSync)
+// and `initializeSyncService` (via initializeBackgroundSync) — so bumping
+// unconditionally made each one abort the other's in-flight work, which is how
+// the login-path delta sync died on its first collection with
+// "Session changed during delta sync; aborting." Bump only when the identity
+// actually changes; re-asserting the same session must not invalidate it.
+function _sessionIdentity(s) {
+    if (!s) return ''
+    const coop = s.cooperative_id || s.cooperativeId || ''
+    const user = s.user_id || s.userId || s.member_id || s.memberId || s.username || ''
+    return `${coop}|${user}|${String(s.role || '').toLowerCase()}`
+}
+
+function _adoptSession(session) {
+    const changed = _sessionIdentity(session) !== _sessionIdentity(_session)
     _session = session
-    _sessionGen++
+    if (changed) {
+        _sessionGen++
+        // An in-flight delta pass belongs to the previous scope — do not let
+        // the new session join it (its internal gen guard aborts it anyway).
+        _deltaInFlight = null
+    }
+    return changed
+}
+
+export function setSyncSession(session) {
+    return _adoptSession(session)
 }
 
 export function clearSyncSession() {
     _session = null
     _sessionGen++
+    _deltaInFlight = null
 }
 
 // ─── Initialization ───────────────────────────────────────────────────────────
 
 export async function initializeBackgroundSync(session) {
-    _session = session
-    _sessionGen++
+    _adoptSession(session)
     _lastActivityTs = Date.now()
 
     // Track activity for adaptive timing (single handler, removed on stop).
@@ -125,7 +152,7 @@ async function _runSchemaRecoveryFlow() {
 
     // Clear cache
     const tables = ['remittance', 'remittance_detail', 'loans', 'loan_guarantors', 'members',
-        'payment_advise', 'enterprise', 'bank', 'users', 'cooperatives', 'notifications', 'transaction_types']
+        'payment_advise', 'enterprise', 'bank', 'users', 'cooperatives', 'notifications', 'transaction_types', 'membership_request']
     for (const t of tables) {
         await runSql(`DELETE FROM ${t}`)
     }
@@ -175,7 +202,7 @@ function _startBackgroundLoop() {
             const { pushQueue } = await import('./syncService.js')
             await pushQueue(cooperativeId)
             if (myGen !== _sessionGen) return
-            await _deltaSync()
+            await _runDeltaShared()
         } catch (e) {
             console.error('[BgSync] Loop error:', e)
         } finally {
@@ -211,7 +238,7 @@ function _ensureNetVisibilityHandlers() {
                     .then(async () => {
                         const { pushQueue } = await import('./syncService.js')
                         await pushQueue(_session.cooperative_id || _session.cooperativeId)
-                        if (myGen === _sessionGen) await _deltaSync()
+                        if (myGen === _sessionGen) await _runDeltaShared()
                     })
                     .catch(e => console.warn('[BgSync] Online catch-up failed:', e.message))
                     .finally(() => {
@@ -249,7 +276,7 @@ function _adjustLoopTiming() {
                 try {
                     const { pushQueue } = await import('./syncService.js')
                     await pushQueue(_session.cooperative_id || _session.cooperativeId)
-                    if (myGen === _sessionGen) await _deltaSync()
+                    if (myGen === _sessionGen) await _runDeltaShared()
                 } catch (e) {
                     console.error('[BgSync] Loop error:', e)
                 } finally {
@@ -279,6 +306,21 @@ export function scheduleImmediatePush(cooperativeId, delayMs = 500) {
 
 // ─── Delta Sync (isolated from UI) ───────────────────────────────────────────
 
+// Single in-flight delta pass shared by every trigger (background loop,
+// refresh bootstrap, login, online event, manual catch-up). Callers that fire
+// while a pass is already running join it instead of starting a second,
+// duplicate set of Firestore queries. Invalidated on session change so a new
+// scope never inherits the previous session's pass.
+function _runDeltaShared() {
+    if (!_deltaInFlight) {
+        const run = _deltaSync()
+        _deltaInFlight = run
+        const done = () => { if (_deltaInFlight === run) _deltaInFlight = null }
+        run.then(done, done)
+    }
+    return _deltaInFlight
+}
+
 async function _deltaSync() {
     const cooperativeId = _session.cooperative_id || _session.cooperativeId
     if (!cooperativeId) return
@@ -302,7 +344,29 @@ async function _deltaSync() {
 
     if (!meta?.is_full_sync_complete) {
         const unsynced = await getUnsyncedCollections(cooperativeId)
-        if (unsynced.length > 0) {
+        if (unsynced.length === 0) {
+            // Every collection is already flagged synced but the completion bit
+            // was never set (crash between the last markCollectionSynced and the
+            // final updateSyncMeta). Falling through to `return` here — as this
+            // path used to — leaves `is_full_sync_complete` at 0 forever, so
+            // delta sync re-enters this branch on every poll and never fetches
+            // anything again. Promote to complete, anchoring the watermark to the
+            // cursors already on disk (server-anchored), never to the local clock.
+            const stored = (meta?.collection_cursors && typeof meta.collection_cursors === 'object') ? meta.collection_cursors : {}
+            let cursorMax = 0
+            for (const entry of Object.values(stored)) {
+                const ts = Number(entry?.cursorSyncAt) || 0
+                if (ts > cursorMax) cursorMax = ts
+            }
+            await updateSyncMeta(cooperativeId, {
+                is_full_sync_complete: 1,
+                last_sync_ts: Math.max(meta?.last_sync_ts || 0, cursorMax),
+                schema_version: CURRENT_SCHEMA_VERSION,
+                last_sync_scope: meta?.last_sync_scope || _getSessionScopeId()
+            })
+            console.log('[BgSync] Promoted incomplete sync to complete from stored cursors; resuming delta.')
+            meta = await getSyncMeta(cooperativeId).catch(() => null)
+        } else {
             console.log(`[BgSync] Resuming incomplete sync. Collections remaining: ${unsynced.join(', ')}`)
             const resumeCursors = { ...((meta?.collection_cursors && typeof meta.collection_cursors === 'object') ? meta.collection_cursors : {}) }
             let resumeObsMax = 0
@@ -319,11 +383,17 @@ async function _deltaSync() {
                             if (ts > colMax) colMax = ts
                         })
                         if (colMax > resumeObsMax) resumeObsMax = colMax
-                        // Seed the per-collection cursor so the first delta
-                        // after resume is server-anchored (same fix as full sync).
-                        const prevCursor = Number(resumeCursors[col]?.cursorSyncAt) || 0
-                        const newCursor = Math.max(prevCursor, colMax)
-                        if (newCursor > 0) resumeCursors[col] = { cursorSyncAt: newCursor, updatedAt: Date.now() }
+                        // Seed the per-collection cursor (timestamp + sort
+                        // position of the newest doc) so the first delta after
+                        // resume is server-anchored (same fix as full sync).
+                        const derived = _deriveCursorPair(docs)
+                        if (derived) {
+                            resumeCursors[col] = { cursorSyncAt: derived.ts, lastDocId: derived.id, updatedAt: Date.now() }
+                        } else {
+                            const prevCursor = Number(resumeCursors[col]?.cursorSyncAt) || 0
+                            const newCursor = Math.max(prevCursor, colMax)
+                            if (newCursor > 0) resumeCursors[col] = { cursorSyncAt: newCursor, updatedAt: Date.now() }
+                        }
                     }
                     await markCollectionSynced(cooperativeId, col)
                     console.log(`[BgSync] Synced incomplete collection: ${col} (${docs.length} docs)`)
@@ -348,8 +418,8 @@ async function _deltaSync() {
                 }))
                 console.log('[BgSync] Incomplete sync fully resumed.')
             }
+            return
         }
-        return
     }
 
     const lastSyncTs = meta.last_sync_ts || 0
@@ -357,7 +427,7 @@ async function _deltaSync() {
     const storedCursors = (meta.collection_cursors && typeof meta.collection_cursors === 'object') ? meta.collection_cursors : {}
 
     try {
-        const collections = ['enterprise', 'bank', 'members', 'remittance', 'users', 'notifications', 'cooperatives', 'transaction_types', 'feedback']
+        const collections = ['enterprise', 'bank', 'members', 'remittance', 'users', 'notifications', 'cooperatives', 'transaction_types', 'feedback', 'membership_request']
         let updateCount = 0
         const failedCols = []
         const nextCursors = { ...storedCursors }
@@ -376,26 +446,43 @@ async function _deltaSync() {
                 return
             }
             try {
-                // Conservative floor: min(cursor, global watermark) minus
-                // overlap. Overlap + idempotent upsert makes re-delivery safe
-                // and closes the steady-state gap where `sync_at == cursor`
-                // rows (same-ms batch commits, mid-pagination writes) were
-                // missed forever until a force full sync.
-                const colCursorTs = Number(nextCursors[col]?.cursorSyncAt) || 0
+                // Mode selection per collection (legacy behaviour is kept
+                // exactly when no position-anchored pair is stored):
+                //  - valid (cursorSyncAt, lastDocId) pair → fetch strictly after
+                //    that (sync_at, __name__) position: zero re-reads of rows we
+                //    already have, no overlap window needed (same-ms batch ties
+                //    are covered by the id part of the pair).
+                //  - notifications with an empty local table → full scan (0).
+                //  - otherwise → legacy floor: min(cursor, global watermark)
+                //    minus overlap + idempotent upsert, as before.
+                const colState = nextCursors[col]
+                const colCursorTs = Number(colState?.cursorSyncAt) || 0
                 const prevCursor = colCursorTs
-                let since = _deltaSinceTs(colCursorTs, lastSyncTs)
+                const prevLastDocId = typeof colState?.lastDocId === 'string' ? colState.lastDocId : ''
+                let since = 0
+                let cursorPair = null
 
                 if (col === 'notifications') {
                     const existingCount = await queryRows('SELECT COUNT(*) as count FROM notifications')
-                    if (existingCount[0]?.count === 0) since = 0
+                    if (existingCount[0]?.count === 0) {
+                        since = 0
+                    } else if (_isValidCursorPair(colState)) {
+                        cursorPair = { ts: colCursorTs, id: prevLastDocId }
+                    } else {
+                        since = _deltaSinceTs(colCursorTs, lastSyncTs)
+                    }
+                } else if (_isValidCursorPair(colState)) {
+                    cursorPair = { ts: colCursorTs, id: prevLastDocId }
+                } else {
+                    since = _deltaSinceTs(colCursorTs, lastSyncTs)
                 }
 
                 const startCol = Date.now()
-                const docs = await _fetchCollection(col, cooperativeId, since)
+                const docs = await _fetchCollection(col, cooperativeId, since, cursorPair)
                 const timeCol = Date.now() - startCol
 
                 if (docs.length > 0) {
-                    console.log(`[BgSync] Delta Sync: Downloaded ${docs.length} records for ${col} in ${timeCol}ms (since ${new Date(since).toISOString()})`)
+                    console.log(`[BgSync] Delta Sync: Downloaded ${docs.length} records for ${col} in ${timeCol}ms (mode ${cursorPair ? 'cursor' : 'window'}, since ${new Date(since).toISOString()})`)
                     _noteServerTimes(docs)
                     let colObsMax = 0
                     docs.forEach(d => {
@@ -411,24 +498,58 @@ async function _deltaSync() {
                     }
 
                     if (safeDocs.length > 0) {
-                        const savedCount = await saveMany(col, safeDocs)
-                        console.log(`[BgSync] Delta Sync: Saved ${savedCount} records for ${col} to IndexedDB`)
-                        // Emit/count only genuinely-new rows (newer than the
-                        // pre-cycle cursor) so overlap re-deliveries save
+                        // Re-persist only what this cycle actually learned.
+                        // The legacy window floor re-delivers the overlap every
+                        // cycle — writing those rows again each poll is pure
+                        // write amplification. The cursor only advances after a
+                        // successful saveMany, and a failed collection keeps its
+                        // old cursor, so anything at or below the stored position
+                        // is already on disk. Docs with no server sync_at can't
+                        // be placed relative to the cursor (legacy rows, forced
+                        // since=0 paths) so they still save. Same-ms docs whose
+                        // id sorts AFTER the stored pair are new (they were not
+                        // in any earlier page) and do save.
+                        const toSave = prevCursor > 0
+                            ? safeDocs.filter(d => {
+                                const t = _syncAtMs(d)
+                                if (t === 0) return true
+                                if (t !== prevCursor) return t > prevCursor
+                                return !!prevLastDocId && String(d.id) > prevLastDocId
+                            })
+                            : safeDocs
+                        if (toSave.length > 0) {
+                            const savedCount = await saveMany(col, toSave)
+                            if (savedCount > 0 || toSave.length > 0) {
+                                console.log(`[BgSync] Delta Sync: Saved ${savedCount} records for ${col} to IndexedDB`)
+                            }
+                        }
+                        // Emit/count only genuinely-new rows (at or beyond the
+                        // pre-cycle cursor position) so re-deliveries save
                         // silently without churning the UI.
                         const freshDocs = prevCursor > 0
-                            ? safeDocs.filter(d => _docTimeMs(d) > prevCursor)
+                            ? safeDocs.filter(d => {
+                                const t = _docTimeMs(d)
+                                if (t > prevCursor) return true
+                                if (t < prevCursor) return false
+                                return _syncAtMs(d) === prevCursor && !!prevLastDocId && String(d.id) > prevLastDocId
+                            })
                             : safeDocs
                         updateCount += freshDocs.length
                         _emitGranularUpdates(col, freshDocs)
                     }
                     // Advance this collection's cursor ONLY from observed
-                    // server timestamps after successful fetch+persist.
-                    // Failures — and empty/timestamp-less results — keep the
-                    // old cursor for retry instead of poisoning it with a
-                    // local-clock value.
-                    const newCursor = Math.max(colCursorTs, colObsMax)
-                    if (newCursor > 0) nextCursors[col] = { cursorSyncAt: newCursor, updatedAt: Date.now() }
+                    // server timestamps after successful fetch+persist, paired
+                    // with the sort position (last doc id at the max sync_at)
+                    // so the next cycle can startAfter it instead of re-reading
+                    // an overlap window. Fetch order is ascending
+                    // (sync_at, __name__), so the derived pair is the exact
+                    // high-water mark of everything downloaded. Failures — and
+                    // empty/timestamp-less results — keep the old cursor for
+                    // retry instead of poisoning it with a local-clock value.
+                    const pair = _deriveCursorPair(docs)
+                    if (pair) {
+                        nextCursors[col] = { cursorSyncAt: pair.ts, lastDocId: pair.id, updatedAt: Date.now() }
+                    }
                 } else {
                     // No docs: leave the cursor untouched. Advancing it from
                     // the local clock would permanently hide cloud rows whose
@@ -452,7 +573,7 @@ async function _deltaSync() {
         if (failedCols.length === 0) {
             if (cycleObsMax > 0) metaUpdate.last_sync_ts = Math.max(lastSyncTs, cycleObsMax)
         } else {
-            console.warn(`[BgSync] ${failedCols.length} collections failed (${failedCols.join(', ')}); global watermark held for retry.`)
+            console.warn(`[BgSync] ${failedCols.length} collections failed (${failedCols.join(', ')}); global watermark held for retry (healthy collections keep advancing their own cursor pairs, so only these collections retry). If this repeats every cycle, open the Firestore console and check for missing composite indexes on them: cooperative_id == + sync_at range + __name__ ordering.`)
         }
         await updateSyncMeta(cooperativeId, metaUpdate)
 
@@ -615,7 +736,7 @@ async function _initialSyncInternal(forceFull = false, options = {}) {
         if (forceFull) {
             console.log('[BgSync] forceFull is true. Clearing local cache tables.');
             const tables = ['enterprise', 'bank', 'members', 'remittance', 'remittance_detail', 'loans',
-                'loan_guarantors', 'users', 'notifications', 'payment_advise', 'cooperatives', 'transaction_types']
+                'loan_guarantors', 'users', 'notifications', 'payment_advise', 'cooperatives', 'transaction_types', 'membership_request']
             for (const t of tables) {
                 await runSql(`DELETE FROM ${t} WHERE cooperative_id = ? OR id = ?`, [String(cooperativeId), String(cooperativeId)])
             }
@@ -661,8 +782,14 @@ async function _initialSyncInternal(forceFull = false, options = {}) {
                 if (ts > seedMax) seedMax = ts;
             });
             if (seedMax > 0) {
-                seedCursors[name] = { cursorSyncAt: seedMax, updatedAt: Date.now() };
-                if (seedMax > seedObsMax) seedObsMax = seedMax;
+                // Pair the timestamp with the sort position of the newest doc
+                // (ascending fetch order ⇒ last doc at max sync_at) so delta
+                // can startAfter it and never re-reads these rows.
+                const derived = _deriveCursorPair(docs)
+                seedCursors[name] = (derived && derived.ts === seedMax)
+                    ? { cursorSyncAt: seedMax, lastDocId: derived.id, updatedAt: Date.now() }
+                    : { cursorSyncAt: seedMax, updatedAt: Date.now() }
+                if (seedMax > seedObsMax) seedObsMax = seedMax
             }
             await markCollectionSynced(cooperativeId, name);
             counts[name] = docs.length;
@@ -685,6 +812,7 @@ async function _initialSyncInternal(forceFull = false, options = {}) {
         await syncOne('remittance', () => _fetchCollection('remittance', cooperativeId, 0));
         await syncOne('notifications', () => _fetchCollection('notifications', cooperativeId, 0));
         await syncOne('feedback', () => _fetchCollection('feedback', cooperativeId, 0));
+        await syncOne('membership_request', () => _fetchCollection('membership_request', cooperativeId, 0));
 
         if (failedCollections.length > 0) {
             throw new Error(`Collections failed: ${failedCollections.join(', ')} (kept previous rows; will retry)`);
@@ -724,7 +852,12 @@ async function _initialSyncInternal(forceFull = false, options = {}) {
                 last_successful_sync: Date.now(),
                 schema_version: CURRENT_SCHEMA_VERSION
             }))
-        } catch {}
+        } catch (e) {
+            // Not fatal: the login decision falls back to sync_state cursors
+            // when this key is missing. Still surface it — a silent failure here
+            // is what made a populated DB look like a first-ever login.
+            console.warn('[BgSync] Failed to persist sync_context; login scope will be inferred from sync_state:', e?.message)
+        }
 
         syncBus.emit(SyncEvents.BULK_MEMBERS_LOADED, createSyncPayload(SyncEvents.BULK_MEMBERS_LOADED, {
             count: counts.members || 0,
@@ -811,11 +944,15 @@ const withTimeout = (promise, ms, description = 'Operation') => {
     ]);
 };
 
-// Overlap window subtracted from every delta watermark. The delta filter
-// compares against cloud `sync_at` (Firestore serverTimestamp), so watermarks
-// must be server-anchored: re-querying a small window covers same-ms ties
-// (batched pushes share one commit timestamp), docs updated mid-pagination
-// (query pages by __name__, filters sync_at client-side), and index lag.
+// Overlap window subtracted from every delta watermark — LEGACY time-window
+// mode only. The delta filter compares against cloud `sync_at` (Firestore
+// serverTimestamp), so time-based watermarks must be server-anchored:
+// re-querying a small window covers same-ms ties (batched pushes share one
+// commit timestamp), docs updated mid-pagination (query pages by __name__,
+// filters sync_at client-side), and index lag. Collections carrying a
+// position-anchored (cursorSyncAt, lastDocId) pair bypass this window entirely
+// via startAfter — the id half of the pair covers same-ms ties with zero
+// re-reads; _isValidCursorPair falls back to this window when no pair exists.
 const DELTA_OVERLAP_MS = 5 * 60 * 1000
 
 // Best-effort server-anchored timestamp for a downloaded doc. sync_at is set
@@ -874,7 +1011,8 @@ export function getServerNowMs() {
 // the collections just pushed — never the global last_sync_ts. The delta
 // floor is min(cursor, last_sync_ts) − overlap, so keeping last_sync_ts low
 // preserves full coverage while the cursor records "uploaded at server time".
-// Safe because the estimate never exceeds true server time.
+// Safe because the estimate never exceeds true server time. Collections whose
+// cursors are position-anchored pairs are left untouched (see loop below).
 export async function stampPushWatermarks(cooperativeId, collectionNames) {
     if (!cooperativeId || !collectionNames || collectionNames.length === 0) return
     try {
@@ -884,7 +1022,15 @@ export async function stampPushWatermarks(cooperativeId, collectionNames) {
         const stored = (meta?.collection_cursors && typeof meta.collection_cursors === 'object') ? meta.collection_cursors : {}
         const next = { ...stored }
         for (const col of collectionNames) {
-            const prev = Number(next[col]?.cursorSyncAt) || 0
+            const existing = next[col]
+            // Position-anchored pairs (cursorSyncAt + lastDocId) describe rows
+            // actually downloaded — only a successful pull may move them, or the
+            // next delta would startAfter a position we never observed. Legacy
+            // time-only stamps keep their old behaviour: in time-window mode the
+            // delta floor still takes min(cursor, last_sync_ts) − overlap, which
+            // is what makes this stamp safe there.
+            if (existing && typeof existing.lastDocId === 'string' && existing.lastDocId) continue
+            const prev = Number(existing?.cursorSyncAt) || 0
             if (srvNow > prev) next[col] = { cursorSyncAt: srvNow, updatedAt: Date.now() }
         }
         await updateSyncMeta(cooperativeId, { collection_cursors: next })
@@ -911,35 +1057,95 @@ function _deltaSinceTs(colCursorTs, lastSyncTs) {
     return Math.max(0, Math.min(...anchors) - DELTA_OVERLAP_MS)
 }
 
-async function _fetchCollection(collectionName, cooperativeId, sinceTs = 0) {
+// Position-anchored cursor: (cursorSyncAt, lastDocId) is the exact sort
+// position of the newest downloaded doc under (sync_at, __name__). When both
+// parts exist and the timestamp is not ahead of the server clock, delta fetches
+// startAfter the pair and skip every already-seen row — no overlap re-reads.
+// Records without lastDocId (legacy installs, time-only push stamps) and
+// poisoned timestamps (fast local clock) fall back to the legacy time-window
+// floor in _deltaSinceTs, preserving the previous behaviour exactly.
+function _isValidCursorPair(state) {
+    const ts = Number(state?.cursorSyncAt) || 0
+    const id = typeof state?.lastDocId === 'string' ? state.lastDocId : ''
+    if (!id || !(ts > 0)) return false
+    return ts <= getServerNowMs() + 5 * 60 * 1000 // same ceiling as _deltaSinceTs
+}
+
+// Derive (max sync_at, last doc id at that sync_at) from docs fetched in
+// ascending (sync_at, __name__) order. Returns null when nothing usable exists
+// (empty results or no doc carries a server sync_at).
+function _deriveCursorPair(docs) {
+    if (!Array.isArray(docs) || docs.length === 0) return null
+    let maxTs = 0
+    let maxId = ''
+    for (const d of docs) {
+        const t = _syncAtMs(d)
+        if (t <= 0) continue
+        if (t >= maxTs) {
+            maxTs = t
+            maxId = d && d.id != null ? String(d.id) : ''
+        }
+    }
+    if (!(maxTs > 0) || !maxId) return null
+    return { ts: maxTs, id: maxId }
+}
+
+// Single-doc collections (cooperatives, member-scoped members) previously did
+// one network getDoc per delta cycle even when nothing changed (the since
+// filter ran only after the read). When the fetch is an anchored delta read
+// (threshold > 0), a short TTL cache serves the previous read instead — the
+// same exists/cooperative_id/since checks still run on the cached copy, so
+// results are identical whenever the doc is unchanged (the common case) and at
+// most TTL-stale when it changed. Full/unanchored fetches (threshold = 0:
+// initial sync, resume) always hit the network.
+const SINGLE_DOC_TTL_MS = { cooperatives: 5 * 60 * 1000, members: 2 * 60 * 1000 }
+const _singleDocCache = new Map() // `${col}/${id}` -> { exists, data, fetchedAt }
+
+async function _resolveSingleDoc(colName, docId, db, allowCache) {
+    const key = `${colName}/${docId}`
+    if (allowCache) {
+        const hit = _singleDocCache.get(key)
+        if (hit && Date.now() - hit.fetchedAt < SINGLE_DOC_TTL_MS[colName]) return hit
+    }
+    const MAX_RETRIES = 2
+    const RETRY_DELAYS_MS = [3000, 6000]
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const d = await withTimeout(getDoc(doc(db, colName, docId)), 20000, `getDoc ${colName}/${docId}`)
+            const entry = d.exists()
+                ? { exists: true, data: _normalizeFromFirestore({ id: d.id, ...d.data() }), fetchedAt: Date.now() }
+                : { exists: false, data: null, fetchedAt: Date.now() }
+            try { _singleDocCache.set(key, entry) } catch { /* cache is best-effort */ }
+            return entry
+        } catch (err) {
+            if (attempt === MAX_RETRIES) {
+                console.error(`[BgSync] fetchCollection failed for ${colName} after ${attempt + 1} attempt(s):`, err)
+                throw err
+            }
+            console.warn(`[BgSync] fetchCollection attempt ${attempt + 1} failed for ${colName}, retrying in ${RETRY_DELAYS_MS[attempt]}ms:`, err.message)
+            await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]))
+        }
+    }
+}
+
+async function _fetchCollection(collectionName, cooperativeId, sinceTs = 0, cursor = null) {
     const db = getDb()
     const coopStr = String(cooperativeId)
     const MAX_RETRIES = 2
     const RETRY_DELAYS_MS = [3000, 6000]
+    // Threshold the single-doc paths filter against: the position-anchored
+    // cursor's timestamp in cursor mode, the legacy time window otherwise.
+    const docThreshold = cursor ? cursor.ts : sinceTs
 
     if (collectionName === 'cooperatives') {
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-            try {
-                const docRef = doc(db, 'cooperatives', coopStr)
-                const d = await withTimeout(getDoc(docRef), 20000, `getDoc cooperatives/${coopStr}`)
-                if (d.exists()) {
-                    const data = _normalizeFromFirestore({ id: d.id, ...d.data() })
-                    if (sinceTs > 0) {
-                        const syncAt = data.sync_at ? new Date(data.sync_at).getTime() : 0
-                        if (syncAt <= sinceTs) return []
-                    }
-                    return [data]
-                }
-                return []
-            } catch (err) {
-                if (attempt === MAX_RETRIES) {
-                    console.error(`[BgSync] fetchCollection failed for ${collectionName} after ${attempt + 1} attempt(s):`, err)
-                    throw err
-                }
-                console.warn(`[BgSync] fetchCollection attempt ${attempt + 1} failed for ${collectionName}, retrying in ${RETRY_DELAYS_MS[attempt]}ms:`, err.message)
-                await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]))
-            }
+        const entry = await _resolveSingleDoc('cooperatives', coopStr, db, docThreshold > 0)
+        if (!entry.exists) return []
+        const data = entry.data
+        if (docThreshold > 0) {
+            const syncAt = data.sync_at ? new Date(data.sync_at).getTime() : 0
+            if (syncAt <= docThreshold) return []
         }
+        return [data]
     }
 
     let constraints = [where('cooperative_id', '==', coopStr)]
@@ -973,30 +1179,24 @@ async function _fetchCollection(collectionName, cooperativeId, sinceTs = 0) {
             // because member documents don't carry a member_id field.
             const userId = (_session.user_id || _session.userId || _session.member_id || _session.memberId || '').toString()
             if (!userId) return []
-            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-                try {
-                    const d = await withTimeout(getDoc(doc(db, 'members', userId)), 20000, `getDoc members/${userId}`)
-                    if (!d.exists()) return []
-                    const data = _normalizeFromFirestore({ id: d.id, ...d.data() })
-                    if (String(data.cooperative_id) !== coopStr) return []
-                    if (sinceTs > 0) {
-                        const syncAt = data.sync_at ? new Date(data.sync_at).getTime() : 0
-                        if (syncAt <= sinceTs) return []
-                    }
-                    return [data]
-                } catch (err) {
-                    if (attempt === MAX_RETRIES) {
-                        console.error(`[BgSync] fetchCollection failed for ${collectionName} after ${attempt + 1} attempt(s):`, err)
-                        throw err
-                    }
-                    console.warn(`[BgSync] fetchCollection attempt ${attempt + 1} failed for ${collectionName}, retrying in ${RETRY_DELAYS_MS[attempt]}ms:`, err.message)
-                    await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]))
-                }
+            const entry = await _resolveSingleDoc('members', userId, db, docThreshold > 0)
+            if (!entry.exists) return []
+            const data = entry.data
+            if (String(data.cooperative_id) !== coopStr) return []
+            if (docThreshold > 0) {
+                const syncAt = data.sync_at ? new Date(data.sync_at).getTime() : 0
+                if (syncAt <= docThreshold) return []
             }
+            return [data]
         }
     }
 
-    if (sinceTs > 0) {
+    if (cursor) {
+        // Position-anchored delta: rows strictly after (cursorSyncAt, lastDocId)
+        // in (sync_at, __name__) order. `>=` on sync_at keeps same-ms docs whose
+        // id sorts after the stored pair — those have not been seen yet.
+        constraints.push(where('sync_at', '>=', Timestamp.fromMillis(cursor.ts)))
+    } else if (sinceTs > 0) {
         constraints.push(where('sync_at', '>', Timestamp.fromMillis(sinceTs)))
     }
 
@@ -1015,9 +1215,16 @@ async function _fetchCollection(collectionName, cooperativeId, sinceTs = 0) {
           let docs = []
           let lastSnap = null
           for (;;) {
-              const pageQ = lastSnap
-                  ? query(collection(db, collectionName), ...constraints, ...ordering, startAfter(lastSnap), limit(SYNC_PAGE_SIZE))
-                  : query(collection(db, collectionName), ...constraints, ...ordering, limit(SYNC_PAGE_SIZE))
+              let pageQ
+              if (lastSnap) {
+                  pageQ = query(collection(db, collectionName), ...constraints, ...ordering, startAfter(lastSnap), limit(SYNC_PAGE_SIZE))
+              } else if (cursor) {
+                  // Resume from the stored (sync_at, __name__) position — rows
+                  // at or before it were downloaded by earlier cycles.
+                  pageQ = query(collection(db, collectionName), ...constraints, ...ordering, startAfter(Timestamp.fromMillis(cursor.ts), cursor.id), limit(SYNC_PAGE_SIZE))
+              } else {
+                  pageQ = query(collection(db, collectionName), ...constraints, ...ordering, limit(SYNC_PAGE_SIZE))
+              }
               const snap = await withTimeout(getDocs(pageQ), 45000, `getDocs ${collectionName} page`)
               if (snap.empty) break
               snap.forEach(d => {
@@ -1027,7 +1234,9 @@ async function _fetchCollection(collectionName, cooperativeId, sinceTs = 0) {
               if (snap.size < SYNC_PAGE_SIZE) break
               lastSnap = snap.docs[snap.docs.length - 1]
           }
-          if (sinceTs > 0) {
+          if (sinceTs > 0 && !cursor) {
+              // Legacy window mode only: cursor mode is already bounded by the
+              // server-side `>= cursorSyncAt` range filter.
               docs = docs.filter(d => {
                   const syncAt = d.sync_at ? new Date(d.sync_at).getTime() : 0
                   return syncAt > sinceTs
@@ -1125,21 +1334,23 @@ export async function pruneForMemberScope(cooperativeId, session) {
             last_successful_sync: Date.now(),
             schema_version: CURRENT_SCHEMA_VERSION
         }))
-    } catch {}
+    } catch (e) {
+        // The scope is already recorded in sync_state above, which is the
+        // authoritative fallback, so this only degrades login-scope inference.
+        console.warn('[BgSync] pruneForMemberScope: failed to persist sync_context:', e?.message)
+    }
     console.log(`[BgSync] Pruned local scope to member:${memberId} for coop ${coopStr}`)
 }
 
 // ─── External Sync Triggers ───────────────────────────────────────────────────
 
 export async function triggerFullSync(session, forceFull = true, options = {}) {
-    _session = session
-    _sessionGen++
+    _adoptSession(session)
     await _initialSyncInternal(forceFull, { ...options, fromCoordinator: true })
 }
 
 export async function triggerFullResync(session) {
-    _session = session
-    _sessionGen++
+    _adoptSession(session)
     const cooperativeId = session.cooperative_id || session.cooperativeId
     const result = { pushed: 0, error: null, blocked: false }
 
@@ -1192,20 +1403,23 @@ export async function triggerDeltaSync(session) {
         console.log('[BgSync] Delta deferred: full/resync in progress.')
         return
     }
-    _session = session
-    _sessionGen++
-    await _deltaSync()
+    // Adopt BEFORE the coordinator check would matter but note the ordering:
+    // _deltaSync captures _sessionGen itself, so it always compares against the
+    // generation this call established. Adopting the same session twice (login
+    // path + init path) no longer invalidates the work.
+    _adoptSession(session)
+    await _runDeltaShared()
 }
 
 // ─── Online/Offline Monitor ───────────────────────────────────────────────────
 
 export function startBgSyncMonitor(session) {
-    _session = session
+    _adoptSession(session)
 
     window.addEventListener('online', () => {
         console.log('[BgSync] Online. Triggering background sync...')
         syncBus.emit(SyncEvents.SYNC_STATUS_CHANGED, { status: 'reconnecting' })
-        _deltaSync().finally(() => {
+        _runDeltaShared().finally(() => {
             syncBus.emit(SyncEvents.SYNC_STATUS_CHANGED, { status: 'online' })
         })
     })

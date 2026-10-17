@@ -239,7 +239,7 @@ export function showLoanReviewModal(
   const memberReg = member ? (member.registration_no || member.member_registration_no || '') : '';
 
   let modalCharges = (loanInfo.charges || []).map(c => ({
-    id: c.id || generateId(),
+    id: c.id || generateId(String(user.cooperativeId)),
     name: c.name || '',
     value: parseFloat(c.value) || 0,
     type: c.type || 'fixed'
@@ -253,7 +253,7 @@ export function showLoanReviewModal(
     if (enterprise) {
       if (enterprise.interest_rate !== undefined && enterprise.interest_rate !== null && enterprise.interest_rate !== '') {
         modalCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Interest',
           value: Math.abs(parseFloat(enterprise.interest_rate) || 0),
           type: enterprise.interest_is_percent ? 'percentage' : 'fixed'
@@ -261,7 +261,7 @@ export function showLoanReviewModal(
       }
       if (enterprise.form_fee !== undefined && enterprise.form_fee !== null && enterprise.form_fee !== '') {
         modalCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Form Fee',
           value: Math.abs(parseFloat(enterprise.form_fee) || 0),
           type: enterprise.form_fee_is_percent ? 'percentage' : 'fixed'
@@ -269,7 +269,7 @@ export function showLoanReviewModal(
       }
       if (enterprise.admin_charge !== undefined && enterprise.admin_charge !== null && enterprise.admin_charge !== '') {
         modalCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Admin Charge',
           value: Math.abs(parseFloat(enterprise.admin_charge) || 0),
           type: enterprise.admin_charge_is_percent ? 'percentage' : 'fixed'
@@ -418,7 +418,7 @@ export function showLoanReviewModal(
     }
 
     modalDiv.querySelector('.lr-add-charge-btn')?.addEventListener('click', () => {
-      modalCharges.push({ id: generateId(), name: '', value: 0, type: 'percentage' });
+      modalCharges.push({ id: generateId(String(user.cooperativeId)), name: '', value: 0, type: 'percentage' });
       renderModal();
     });
 

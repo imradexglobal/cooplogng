@@ -78,7 +78,7 @@ export function sumDuesTotals(totalsByEnt) {
 // Throws when savings can't cover the dues (live flows reject the remittance).
 // Backfill may pass allowShortfall to book the remainder onto the first
 // savings line instead (legacy data predates the guard).
-export function buildTransferDetails({ savingsLines, duesItems, allowShortfall = false }) {
+export function buildTransferDetails({ savingsLines, duesItems, allowShortfall = false, cooperativeId }) {
     const totalsByEnt = duesTotalsByEnt(duesItems);
     const total = sumDuesTotals(totalsByEnt);
     if (!(total > 0)) return { details: [], total: 0 };
@@ -98,7 +98,7 @@ export function buildTransferDetails({ savingsLines, duesItems, allowShortfall =
         const take = Math.min(l.amount, remaining);
         if (take <= 0) continue;
         details.push({
-            id: generateId(),
+            id: generateId(String(cooperativeId)),
             enterprise_id: l.enterprise_id,
             amount: -take,
             notes: 'Transfer to dues & penalties'
@@ -112,7 +112,7 @@ export function buildTransferDetails({ savingsLines, duesItems, allowShortfall =
             );
         }
         details.push({
-            id: generateId(),
+            id: generateId(String(cooperativeId)),
             enterprise_id: lines[0].enterprise_id,
             amount: -remaining,
             notes: 'Transfer to dues & penalties (shortfall)'
@@ -120,7 +120,7 @@ export function buildTransferDetails({ savingsLines, duesItems, allowShortfall =
     }
     for (const [eid, v] of Object.entries(totalsByEnt)) {
         details.push({
-            id: generateId(),
+            id: generateId(String(cooperativeId)),
             enterprise_id: eid,
             amount: v.amount,
             notes: `Funded from savings (${v.name || eid})`
@@ -281,13 +281,13 @@ export async function createDueFundingTransfer({ cooperativeId, parentId, member
     const sourceLabel = isLoan ? 'loan' : 'savings';
     const details = [
         {
-            id: generateId(),
+            id: generateId(String(cooperativeId)),
             enterprise_id: String(fundingEntId),
             amount: -X,
             notes: isLoan ? 'Dues & penalties funded from loan' : 'Transfer to dues & penalties'
         },
         {
-            id: generateId(),
+            id: generateId(String(cooperativeId)),
             enterprise_id: String(chargeEntId),
             amount: X,
             notes: `Funded from ${sourceLabel} (${chargeEntName || ''})`

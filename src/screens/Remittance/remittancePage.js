@@ -3,7 +3,7 @@ import { createDuesTransfer, createDuesIncomePickup } from '../../services/data/
 import { hasPermission } from '../../services/permissionService.js';
 import { formatCurrency, formatDate, formatDateForInput, escapeHtml, getTimestampMs, generateId, generateRemittanceId, wrapDateInput, formatDateTime, getInitials, timestampTail } from '../../utils/formatters.js';
 import { showToast } from '../../services/toastService.js';
-import { getAllForCoop } from '../../services/sqliteService.js';
+import { getAllForCoop, queryOne } from '../../services/sqliteService.js';
 import { getAvatarColor, isMobile } from './constants.js';
 import { applyLoanRequestPrefillInternal, applyWithdrawalRequestPrefillInternal } from './remittancePrefill.js';
 import { showLoanConfigModal } from './remittanceLoanConfig.js';
@@ -50,6 +50,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
   let showAllZeros = false;
   let previewMode = false; // When true, form is read-only showing a selected history record
   let editMode = false; // When true, form is editable for updating an existing parent remittance
+  let sealLocked = false; // Reconciled record: Bank/Date/Amount inputs are frozen
 
   // --- Form State ---
   let formData = {
@@ -440,7 +441,14 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
   async function handleMemberChange(newMemberId) {
     formData.member_id = newMemberId;
     previewMode = false;
-    editMode = false;
+    // When re-assigning a member on an EXISTING record, keep edit mode so the
+    // submit path calls updateRemittance (same tran id) instead of falling
+    // through to addRemittance and creating a duplicate record.
+    if (!formData.id) editMode = false;
+    // Mirror the member choice onto the Admin Mode checkbox immediately so a
+    // syncFormData() fired while we await below can't revert the selection.
+    const adminCheckEl = container.querySelector('#admin-mode-check');
+    if (adminCheckEl) adminCheckEl.checked = newMemberId === '0000000000';
     
     // Keep existing form data — only update member_id
     
@@ -503,7 +511,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
           if (ent) {
             if (ent.interest_rate !== undefined && ent.interest_rate !== null && ent.interest_rate !== '') {
               defaultCharges.push({
-                id: generateId(),
+                id: generateId(String(cooperativeId)),
                 name: 'Interest',
                 value: Math.abs(parseFloat(ent.interest_rate) || 0),
                 type: ent.interest_is_percent ? 'percentage' : 'fixed'
@@ -511,7 +519,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
             }
             if (ent.form_fee !== undefined && ent.form_fee !== null && ent.form_fee !== '') {
               defaultCharges.push({
-                id: generateId(),
+                id: generateId(String(cooperativeId)),
                 name: 'Form fee',
                 value: Math.abs(parseFloat(ent.form_fee) || 0),
                 type: ent.form_fee_is_percent ? 'percentage' : 'fixed'
@@ -519,7 +527,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
             }
             if (ent.admin_charge !== undefined && ent.admin_charge !== null && ent.admin_charge !== '') {
               defaultCharges.push({
-                id: generateId(),
+                id: generateId(String(cooperativeId)),
                 name: 'Admin charge',
                 value: Math.abs(parseFloat(ent.admin_charge) || 0),
                 type: ent.admin_charge_is_percent ? 'percentage' : 'fixed'
@@ -589,6 +597,34 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
       });
     }
     
+    // Determine seal (reconciliation) lock BEFORE formData is replaced so the
+    // async queries can't interleave with form sync. Locked when the record is
+    // linked to an active reconciliation summary, or its (bank, date) falls
+    // inside a sealed period.
+    sealLocked = false;
+    if (remit.reconciliation_summary_id) {
+      try {
+        const summaryRow = await queryOne(
+          'SELECT is_deleted FROM bank_reconciliation_summary WHERE id = ?',
+          [remit.reconciliation_summary_id]
+        );
+        sealLocked = !!(summaryRow && summaryRow.is_deleted !== 1);
+      } catch (_) { sealLocked = false; }
+    }
+    if (!sealLocked && remit.bank_name && remit.remittance_date) {
+      try {
+        const d = String(remit.remittance_date).slice(0, 10);
+        const sealedRow = await queryOne(
+          `SELECT id FROM bank_reconciliation_summary
+           WHERE cooperative_id = ? AND bank_name = ? AND is_deleted = 0
+             AND period_start <= ? AND period_end >= ?
+           LIMIT 1`,
+          [String(remit.cooperative_id || cooperativeId), remit.bank_name, d, d]
+        );
+        sealLocked = !!sealedRow;
+      } catch (_) { }
+    }
+
     // Set non-detail fields first (details set AFTER balance load to avoid
     // syncFormData reading old DOM during the await and reverting our details).
     // created_at is required: the opening-balance cutoff sums only records
@@ -626,6 +662,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
     clearSavedForm();
     previewMode = false;
     editMode = false;
+    sealLocked = false;
     Object.keys(formData).forEach(k => delete formData[k]);
     Object.assign(formData, {
       id: null,
@@ -687,7 +724,10 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
     if (dateVal) formData.remittance_date = dateVal;
     const bankVal = fd.get('bank_name');
     if (bankVal !== null) formData.bank_name = bankVal;
-    formData.amount = parseFloat(fd.get('amount') || 0);
+    // Disabled (seal-locked) fields are absent from FormData — keep the
+    // loaded value instead of collapsing the amount to 0.
+    const amtVal = fd.get('amount');
+    if (amtVal !== null) formData.amount = parseFloat(amtVal || 0);
     formData.description = fd.get('description') || '';
     if (isAdmin) {
       if (adminCheck && adminCheck.checked) {
@@ -701,7 +741,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
     if (detailRows.length > 0) {
       formData.details = Array.from(detailRows)
         .map(row => {
-          const rowId = row.dataset.id || generateId();
+          const rowId = row.dataset.id || generateId(String(cooperativeId));
           const entId = String(row.dataset.entid || '');
           const inputValStr = row.querySelector('.detail-amt-grid').value;
           let amount = inputValStr ? parseFloat(inputValStr) : 0;
@@ -740,7 +780,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
             }
           }
           return {
-            id: row.dataset.id || (prevDetail ? prevDetail.id : generateId()),
+            id: row.dataset.id || (prevDetail ? prevDetail.id : generateId(String(cooperativeId))),
             enterprise_id: entId,
             item: entId,
             amount: amount,
@@ -1050,7 +1090,10 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
       
        let txType = formData.transaction_type;
        const lockedTypes = transactionTypes?.filter(t => t.is_locked === 1 || t.is_locked === true).map(t => t.transaction_type) || [];
-       if (lockedTypes.includes(txType)) {
+       // Locked types are disabled in the dropdown, so during an EDIT the only
+       // way txType is locked is that the existing record already carries it
+       // (e.g. 'Member Deposit'). Reject only manual selection on new records.
+       if (!editMode && lockedTypes.includes(txType)) {
         showToast('Validation Error: This transaction type is system-managed and cannot be manually selected.', 'error');
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = editMode ? 'Update Remittance' : 'Save Remittance'; }
         highlightField('transaction_type');
@@ -1098,7 +1141,9 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
         }
       } else {
         txType = '';
-        if (!isAdmin) {
+        // Staff without member-read permission log for themselves when CREATING
+        // only — never re-stamp an existing record's member on edit.
+        if (!isAdmin && !formData.id) {
           memberId = user.memberId;
           formData.member_id = user.memberId;
         }
@@ -1179,7 +1224,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
             return;
           }
           if (amountVal < 0 && txType !== 'Internal Transfer') {
-            if (isAdmin) {
+            if (isAdmin || editMode) {
               if (!isCoopWide) {
                 const nonZeroDetails = formData.details;
                 const hasLoanDistribution = nonZeroDetails.some(d => loanEntIds.includes(d.enterprise_id || d.item) && d.amount < 0);
@@ -1359,7 +1404,10 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
       const pickupMemberName = [selectedMember?.last_name, selectedMember?.first_name, selectedMember?.middle_name].filter(Boolean).join(' ')
         || selectedMember?.name
         || formData.member_id;
-      const status = canApprove ? 'Approved' : 'Pending';      const finalDescription = (status === 'Approved' && formData.description === 'Loan Request') ? '' : formData.description;
+      // Sealed (reconciled) records keep their loaded status so they cannot
+      // drop out of the reconciled 'Approved' set behind a non-approver's edit.
+      // Mirrors the frozen-field guard inside updateRemittance().
+      const status = (sealLocked && formData.status) ? formData.status : (canApprove ? 'Approved' : 'Pending');      const finalDescription = (status === 'Approved' && formData.description === 'Loan Request') ? '' : formData.description;
 
       // EDIT MODE: reverse old payment advise BEFORE cleanup (cleanup
       // soft-deletes loans, which makes loadDoc return empty loans array),
@@ -1405,7 +1453,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
           const entId = d.enterprise_id || d.item;
           if (!localLoanEntIds.includes(entId)) return;
           const lInfo = d.loan_info;
-          const loanId = generateId();
+          const loanId = generateId(String(cooperativeId));
           formData.loans.push({
             id: loanId,
             member_id: formData.member_id,
@@ -1427,7 +1475,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
               }
               val = -Math.abs(val);
               const singleDetail = [{
-                id: generateId(),
+                id: generateId(String(cooperativeId)),
                 enterprise_id: d.enterprise_id || d.item,
                 amount: val,
                 notes: c.name
@@ -1548,7 +1596,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
                   user_role: user.role || 'member',
                   user_roles: [user.role || 'member'],
                   details: [{
-                      id: generateId(),
+                      id: generateId(String(cooperativeId)),
                       enterprise_id: item.enterprise_id,
                       amount: dueVal,
                       notes: item.name
@@ -1630,7 +1678,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
                       user_role: user.role || 'member',
                       user_roles: [user.role || 'member'],
                       details: [{
-                          id: generateId(),
+                          id: generateId(String(cooperativeId)),
                           enterprise_id: savEnterpriseId,
                           amount: val,
                           notes: item.name
@@ -1709,7 +1757,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
   // --- Render ---
   const render = () => {
     const savedScrollTop = container.querySelector('.history-table-container')?.scrollTop ?? null;
-    Object.assign(deps, { formData, openingBalances, paymentAdvise, previewMode, editMode, historyState });
+    Object.assign(deps, { formData, openingBalances, paymentAdvise, previewMode, editMode, sealLocked, historyState });
     _render(container, deps);
     setupHistoryScrollListener();
     if (savedScrollTop !== null) {

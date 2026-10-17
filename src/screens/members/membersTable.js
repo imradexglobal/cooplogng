@@ -1,4 +1,4 @@
-import { escapeHtml, getInitials, getAvatarColor, formatDateTime } from '../../utils/formatters.js';
+import { escapeHtml, getInitials, getAvatarColor, formatDate, formatDateTime } from '../../utils/formatters.js';
 import {
     getFilteredMembers, visibleLimit, increaseVisibleLimit,
     isSelectionMode, selectedIds, toggleSelection, selectAllFiltered, deselectAll,
@@ -124,14 +124,14 @@ function updateRow(row, m) {
     const mobileEl = row.querySelector('.col-mobile')
     if (mobileEl) mobileEl.innerHTML = mobileCellHtml(m)
 
-    // Update combined created cell
-    let createdEl = row.querySelector('.col-created')
-    if (createdEl) {
-        const by = escapeHtml(m.created_by || '—')
-        const at = formatDateTime(m.created_at) || '—'
-        createdEl.innerHTML = `
-            <div class="modified-by-name">${by}</div>
+    // Update Last Login cell
+    let lastLoginEl = row.querySelector('.col-last-login')
+    if (lastLoginEl) {
+        const at = formatDate(m.last_login) || '—'
+        const count = m.login_count !== undefined && m.login_count !== null ? m.login_count : 0
+        lastLoginEl.innerHTML = `
             <div class="modified-at-time">${at}</div>
+            <div class="login-count-badge">(${String(count).padStart(2, '0')})</div>
         `
     }
 
@@ -234,6 +234,8 @@ export function renderMembersTable(container) {
             const newRow = document.createElement('tr')
             newRow.className = `member-row ${isSelected ? 'selected' : ''}`
             newRow.dataset.id = m.id
+            const loginAt = formatDate(m.last_login) || '—'
+            const loginCount = m.login_count !== undefined && m.login_count !== null ? m.login_count : 0
             newRow.innerHTML = `
                 <td class="col-profile"></td>
                 <td class="col-reg-no">${padRegNo(m.registration_no || m.reg_no)}</td>
@@ -244,9 +246,9 @@ export function renderMembersTable(container) {
                 </td>
                 <td class="col-mobile">${mobileCellHtml(m)}</td>
                 <td class="col-status"><div class="status-badge status-${escapeHtml(m.status)}">${escapeHtml(m.status)}</div></td>
-                <td class="col-created">
-                    <div class="modified-by-name">${escapeHtml(m.created_by || '—')}</div>
-                    <div class="modified-at-time">${formatDateTime(m.created_at) || '—'}</div>
+                <td class="col-last-login">
+                    <div class="modified-at-time">${loginAt}</div>
+                    <div class="login-count-badge">(${String(loginCount).padStart(2, '0')})</div>
                 </td>
                 <td class="col-modified">
                     <div class="modified-by-name">${escapeHtml(m.modified_by || m.created_by || '—')}</div>
@@ -365,6 +367,8 @@ function handleScroll(e) {
                         const tr = document.createElement('tr');
                         tr.className = `member-row ${isSelected ? 'selected' : ''}`;
                         tr.dataset.id = m.id;
+                        const loginAt = formatDate(m.last_login) || '—'
+                        const loginCount = m.login_count !== undefined && m.login_count !== null ? m.login_count : 0
                         tr.innerHTML = `
                             <td class="col-profile">${getProfileHtml(m)}</td>
                             <td class="col-reg-no">${padRegNo(m.registration_no || m.reg_no)}</td>
@@ -375,9 +379,9 @@ function handleScroll(e) {
                             </td>
                             <td class="col-mobile">${mobileCellHtml(m)}</td>
                             <td class="col-status"><div class="status-badge status-${escapeHtml(m.status)}">${escapeHtml(m.status)}</div></td>
-                            <td class="col-created">
-                                <div class="modified-by-name">${escapeHtml(m.created_by || '—')}</div>
-                                <div class="modified-at-time">${formatDateTime(m.created_at) || '—'}</div>
+                            <td class="col-last-login">
+                                <div class="modified-at-time">${loginAt}</div>
+                                <div class="login-count-badge">(${String(loginCount).padStart(2, '0')})</div>
                             </td>
                             <td class="col-modified">
                                 <div class="modified-by-name">${escapeHtml(m.modified_by || m.created_by || '—')}</div>
@@ -781,6 +785,26 @@ export function getTableStyles() {
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Last Login column ── */
+        .col-last-login {
+            min-width: 130px;
+            vertical-align: middle;
+            text-align: center;
+        }
+        .col-last-login .modified-at-time {
+            font-size: 0.78rem;
+            color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+        }
+        .login-count-badge {
+            font-size: 0.7rem;
+            color: var(--accent-primary);
+            font-weight: 700;
+            margin-top: 0.2rem;
+            font-variant-numeric: tabular-nums;
+        }
 
         /* ── Combined Modified column ── */
         .col-modified {

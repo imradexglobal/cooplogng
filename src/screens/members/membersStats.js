@@ -1,12 +1,13 @@
-import { statusFilter, sortKey, sortDir } from './membersState.js'
+import { statusFilter, sortKey, sortDir, secondaryView } from './membersState.js'
 
 /**
  * Renders the summary cards at the top of the Members page.
  * Cards are clickable shortcuts (see attachStatsListeners):
  * Total -> All statuses, Active -> Active only, Issues -> Inactive+Suspended,
- * New -> sort newest first. Sub-lines expose the breakdown.
+ * New -> sort newest first, Join Requests -> pending join-request list.
+ * Sub-lines expose the breakdown.
  */
-export function renderMembersStats(members = []) {
+export function renderMembersStats(members = [], pendingJoinCount = 0) {
     let total = members.length
     let active = 0
     let inactive = 0
@@ -38,10 +39,11 @@ export function renderMembersStats(members = []) {
     const issues = inactive + suspended
     const activePct = total > 0 ? Math.round((active / total) * 100) : 0
     const isActive = (key) => {
-        if (key === 'total') return statusFilter === 'All Status'
-        if (key === 'active') return statusFilter === 'Active'
-        if (key === 'issues') return statusFilter === 'Issues'
-        if (key === 'new') return sortKey === 'created' && sortDir === 'desc'
+        if (key === 'total') return statusFilter === 'All Status' && secondaryView === 'members'
+        if (key === 'active') return statusFilter === 'Active' && secondaryView === 'members'
+        if (key === 'issues') return statusFilter === 'Issues' && secondaryView === 'members'
+        if (key === 'new') return sortKey === 'last_login' && sortDir === 'desc' && secondaryView === 'members'
+        if (key === 'join-requests') return secondaryView === 'join-requests'
         return false
     }
 
@@ -70,7 +72,25 @@ export function renderMembersStats(members = []) {
               <div class="stat-value" style="color: var(--accent-primary);">${newThisMonth}</div>
               <div class="stat-sub">last 30 days</div>
           </div>
+
+          <div class="stat-card${isActive('join-requests') ? ' active' : ''}" data-stat="join-requests" data-has-pending="${pendingJoinCount > 0 ? 'true' : 'false'}" title="View pending join requests" role="button" tabindex="0">
+              <div class="stat-label">Join Requests</div>
+              <div class="stat-value" style="color: var(--warning, #d97706);">${pendingJoinCount}</div>
+              <div class="stat-sub">${pendingJoinCount > 0 ? 'Needs review' : 'All clear'}</div>
+          </div>
       </div>
+      <style>
+          .members-stats-grid .stat-card[data-stat="join-requests"][data-has-pending="true"] .stat-value::after {
+              content: ' NEW';
+              font-size: 0.5em;
+              background: var(--danger);
+              color: #fff;
+              padding: 2px 6px;
+              border-radius: 999px;
+              vertical-align: middle;
+              margin-left: 6px;
+          }
+      </style>
     `
 }
 

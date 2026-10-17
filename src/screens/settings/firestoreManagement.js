@@ -13,6 +13,7 @@ import {
   writeBatch,
   serverTimestamp
 } from '../../firebase.js'
+import { hardDeleteDoc } from '../../services/sqlite/mutationEngine.js'
 import sqlWasmUrl from 'sql.js/dist/sql-wasm.wasm?url'
 
 const FORCE_STRING_COLS = new Set([
@@ -67,7 +68,8 @@ const FIRESTORE_COLLECTIONS = [
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'feedback', label: 'Feedback', icon: '💬' },
   { id: 'transaction_types', label: 'Transaction Types', icon: '📝' },
-  { id: 'bank_reconciliation_summary', label: 'Bank Reconciliation', icon: '📋' }
+  { id: 'bank_reconciliation_summary', label: 'Bank Reconciliation', icon: '📋' },
+  { id: 'membership_request', label: 'Membership Requests', icon: '🤝' }
 ]
 
 export function renderFirestoreManagementSection(area) {
@@ -535,6 +537,10 @@ export function setupFirestoreManagementListeners(user) {
                 })
               }
               await batch.commit()
+              // Also hard-delete locally from IndexedDB
+              for (const docSnap of batchDocs) {
+                hardDeleteDoc(col.id, docSnap.id)
+              }
               batchProcessed += batchDocs.length
             } else {
               // Hard delete: remove documents
@@ -543,6 +549,10 @@ export function setupFirestoreManagementListeners(user) {
                 batch.delete(docSnap.ref)
               }
               await batch.commit()
+              // Also hard-delete locally from IndexedDB (permanent)
+              for (const docSnap of batchDocs) {
+                hardDeleteDoc(col.id, docSnap.id)
+              }
               batchProcessed += batchDocs.length
             }
 

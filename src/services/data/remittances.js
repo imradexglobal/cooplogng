@@ -2,8 +2,101 @@ import { generateId, generateRemittanceId } from '../../utils/formatters.js'
 import {
     getRemittances, getRemittancesPage,
     getTransactionTypes, saveDoc, getDocById_Global,
-    queryRows, enqueueWrite, upsertRow
+    queryRows, queryOne, enqueueWrite, upsertRow
 } from '../sqliteService.js'
+
+async function _ensureRemittanceNotSealed(remittanceId, operationLabel) {
+    const rem = await getDocById_Global('remittance', remittanceId)
+    if (!rem) return
+    const summaryId = rem.reconciliation_summary_id
+    if (!summaryId) return
+    const summary = await queryOne(
+        'SELECT is_deleted FROM bank_reconciliation_summary WHERE id = ?',
+        [summaryId]
+    ).catch(() => null)
+    if (!summary) {
+        try {
+            await upsertRow('remittance', {
+                ...rem,
+                reconciliation_summary_id: null,
+                modified_at: new Date().toISOString(),
+                is_synced: 0
+            })
+        } catch (_) { }
+        return
+    }
+    if (summary.is_deleted === 1) {
+        try {
+            await upsertRow('remittance', {
+                ...rem,
+                reconciliation_summary_id: null,
+                modified_at: new Date().toISOString(),
+                is_synced: 0
+            })
+        } catch (_) { }
+        return
+    }
+    throw new Error(`Cannot ${operationLabel} a reconciled remittance. Unseal the associated bank reconciliation first.`)
+}
+
+// Returns the active (not Unsealed) bank_reconciliation_summary whose
+// period covers (bankName, remittanceDate), or null when the slot is open.
+async function _isPeriodSealed(cooperativeId, bankName, remittanceDate) {
+    if (!cooperativeId || !bankName || !remittanceDate) return null
+    const coopId = String(cooperativeId)
+    const dateStr = String(remittanceDate).slice(0, 10)
+    return queryOne(
+        `SELECT period_start, period_end
+         FROM bank_reconciliation_summary
+         WHERE cooperative_id = ?
+           AND bank_name = ?
+           AND is_deleted = 0
+           AND period_start <= ? AND period_end >= ?
+         LIMIT 1`,
+        [coopId, bankName, dateStr, dateStr]
+    ).catch(() => null)
+}
+
+// True when the remittance belongs to an active bank reconciliation —
+// either linked directly via reconciliation_summary_id, or its
+// (bank, date) falls inside a sealed period. Stale links (summary
+// deleted/unsealed) are cleared, mirroring _ensureRemittanceNotSealed.
+async function _isRemittanceSealed(rem) {
+    if (!rem) return false
+    const summaryId = rem.reconciliation_summary_id
+    if (summaryId) {
+        const summary = await queryOne(
+            'SELECT is_deleted FROM bank_reconciliation_summary WHERE id = ?',
+            [summaryId]
+        ).catch(() => null)
+        if (summary && summary.is_deleted !== 1) return true
+        try {
+            await upsertRow('remittance', {
+                ...rem,
+                reconciliation_summary_id: null,
+                modified_at: new Date().toISOString(),
+                is_synced: 0
+            })
+        } catch (_) { }
+        rem.reconciliation_summary_id = null
+    }
+    return !!(await _isPeriodSealed(rem.cooperative_id, rem.bank_name, rem.remittance_date))
+}
+
+// Guards write operations against sealed period overlap. Throws if the
+// (cooperative, bank, date) falls within an active (not Unsealed)
+// bank_reconciliation_summary range.
+async function _ensurePeriodNotSealed(cooperativeId, bankName, remittanceDate, operationLabel) {
+    const summary = await _isPeriodSealed(cooperativeId, bankName, remittanceDate)
+    if (!summary) return
+    const dateStr = String(remittanceDate).slice(0, 10)
+    throw new Error(
+        `Cannot ${operationLabel} this remittance because bank "${bankName}" on ${dateStr} ` +
+        `falls within an already-sealed reconciliation period ` +
+        `(${summary.period_start} → ${summary.period_end}). ` +
+        `Unseal that reconciliation first if this change is intentional.`
+    )
+}
 
 export async function fetchRemittances(cooperativeId, user = null) {
     return getRemittances(cooperativeId, user)
@@ -143,6 +236,12 @@ export async function addRemittance(data, createdBy) {
             }))
         }))
     }
+    await _ensurePeriodNotSealed(
+        doc.cooperative_id,
+        doc.bank_name,
+        doc.remittance_date,
+        'create'
+    )
     await saveDoc('remittance', doc)
     return { id }
 }
@@ -161,6 +260,33 @@ export async function updateRemittance(id, data, modifiedBy) {
             }
         } catch (e) { }
     }
+    // Sealed (reconciled) records stay editable for member / distribution /
+    // note / transaction-type changes, but Bank, Date and Amount are frozen —
+    // they feed the sealed reconciliation totals. Status is frozen too so the
+    // record cannot drop out of the reconciled 'Approved' set behind a
+    // non-approver's edit.
+    const isSealed = await _isRemittanceSealed(existing)
+    let sealLocked = false
+    if (isSealed) {
+        const bankChanged = data.bank_name !== undefined && String(data.bank_name) !== String(existing.bank_name || '')
+        const dateChanged = data.remittance_date !== undefined && String(data.remittance_date).slice(0, 10) !== String(existing.remittance_date || '').slice(0, 10)
+        const amountChanged = data.amount !== undefined && Math.abs((parseFloat(data.amount) || 0) - (parseFloat(existing.amount) || 0)) > 0.009
+        if (bankChanged || dateChanged || amountChanged) {
+            throw new Error(
+                'Cannot change Bank, Date or Amount of a remittance inside a sealed bank reconciliation. ' +
+                'Unseal that reconciliation first. Member, distribution and note can still be edited.'
+            )
+        }
+        sealLocked = true
+        const frozen = {
+            bank_name: existing.bank_name,
+            remittance_date: existing.remittance_date,
+            amount: existing.amount,
+            status: existing.status
+        }
+        if ('loan_status' in existing) frozen.loan_status = existing.loan_status
+        data = { ...data, ...frozen }
+    }
     const doc = {
         ...existing,
         ...data,
@@ -170,6 +296,16 @@ export async function updateRemittance(id, data, modifiedBy) {
         modified_at: now,
         modified_by: modifiedBy || 'system',
         is_synced: 0
+    }
+    // Already-sealed records skip this: bank/date are frozen to the sealed
+    // values above, so re-running the period guard would always trip.
+    if (!sealLocked) {
+        await _ensurePeriodNotSealed(
+            doc.cooperative_id,
+            doc.bank_name,
+            doc.remittance_date,
+            'edit'
+        )
     }
     delete doc.details
     delete doc.loans
@@ -259,6 +395,7 @@ export async function updateRemittance(id, data, modifiedBy) {
 }
 
 export async function deleteRemittance(id, modifiedBy) {
+    await _ensureRemittanceNotSealed(id, 'delete')
     const existing = await getDocById_Global('remittance', id)
     if (!existing) throw new Error('Remittance not found')
     const now = new Date().toISOString()
@@ -272,6 +409,10 @@ export async function deleteRemittance(id, modifiedBy) {
 }
 
 export async function cleanupRemittanceFamily(remittanceId, modifiedBy) {
+    // No seal guard on the parent: this runs only inside the edit flow, and a
+    // sealed parent's distribution IS editable (updateRemittance freezes
+    // Bank/Date/Amount and throws if any of them actually change). Per-child
+    // seal guards below still protect individually reconciled child rows.
     const now = new Date().toISOString()
 
     // Use upsertRow (not saveDoc) to soft-delete children — saveDoc's cascade
@@ -295,6 +436,7 @@ export async function cleanupRemittanceFamily(remittanceId, modifiedBy) {
         if (!childIds.has(c.id)) allChildren.push(c);
     }
     for (const child of allChildren) {
+        await _ensureRemittanceNotSealed(child.id, 'clean up child of')
         await upsertRow('remittance', {
             ...child,
             is_deleted: 1,
@@ -357,6 +499,9 @@ export async function approveRemittance(remittanceId, approvedBy, bankName, remi
     const now = new Date().toISOString()
     const remittance = await getDocById_Global('remittance', remittanceId)
     if (!remittance) throw new Error('Remittance not found')
+    if (remittance.status === 'Approved') {
+        await _ensureRemittanceNotSealed(remittanceId, 're-approve')
+    }
     const updateData = {
         ...remittance,
         status: 'Approved',
@@ -366,6 +511,15 @@ export async function approveRemittance(remittanceId, approvedBy, bankName, remi
     }
     if (bankName) updateData.bank_name = bankName
     if (remittanceDate) updateData.remittance_date = remittanceDate
+
+    const effectiveBank = updateData.bank_name || remittance.bank_name
+    const effectiveDate = updateData.remittance_date || remittance.remittance_date
+    await _ensurePeriodNotSealed(
+        String(remittance.cooperative_id),
+        effectiveBank,
+        effectiveDate,
+        'approve'
+    )
 
     await saveDoc('remittance', updateData)
 
@@ -389,6 +543,12 @@ export async function approveRemittance(remittanceId, approvedBy, bankName, remi
             // approver's real bank onto them (and undo the loan/charge fix).
             if (remittanceDate) next.remittance_date = remittanceDate
         }
+        await _ensurePeriodNotSealed(
+            String(next.cooperative_id),
+            next.bank_name,
+            next.remittance_date,
+            'approve cascade for'
+        )
         await saveDoc('remittance', next)
     }
     // Downward: parent approved => its direct autogen children approve too.
@@ -419,6 +579,16 @@ export async function declineRemittance(remittanceId, declinedBy) {
 
         const target = await getDocById_Global('remittance', sid)
         if (!target) throw new Error('Remittance not found')
+
+        if (target.status === 'Approved') {
+            await _ensureRemittanceNotSealed(sid, 'decline')
+            await _ensurePeriodNotSealed(
+                String(target.cooperative_id),
+                target.bank_name,
+                target.remittance_date,
+                'decline'
+            )
+        }
 
         if (target.status !== 'Declined') {
             await saveDoc('remittance', {
@@ -469,6 +639,15 @@ export async function declineRemittance(remittanceId, declinedBy) {
             )
             for (const autorem of autogenRems) {
                 if (autorem.status === 'Declined') continue
+                if (autorem.status === 'Approved') {
+                    await _ensureRemittanceNotSealed(autorem.id, 'decline autogen of')
+                    await _ensurePeriodNotSealed(
+                        String(autorem.cooperative_id),
+                        autorem.bank_name,
+                        autorem.remittance_date,
+                        'decline autogen of'
+                    )
+                }
                 await saveDoc('remittance', {
                     ...autorem,
                     status: 'Declined',
@@ -483,6 +662,15 @@ export async function declineRemittance(remittanceId, declinedBy) {
         // remittance id, no loan bridge). Declining the parent declines them.
         const declineOne = async (r) => {
             if (!r || r.status === 'Declined') return
+            if (r.status === 'Approved') {
+                await _ensureRemittanceNotSealed(r.id, 'decline')
+                await _ensurePeriodNotSealed(
+                    String(r.cooperative_id),
+                    r.bank_name,
+                    r.remittance_date,
+                    'decline'
+                )
+            }
             await saveDoc('remittance', {
                 ...r,
                 status: 'Declined',

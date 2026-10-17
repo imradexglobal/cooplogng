@@ -213,7 +213,7 @@ export function renderLoginHTML(renderAlertFn, renderGlobalModalFn) {
 
           <div style="margin-top: 2.5rem; text-align: center; border-top: 1px solid var(--border-light); padding-top: 2rem;">
             <button type="button" class="ghost-button" data-action="show-registration" style="width: 100%; height: 3.25rem;">
-                Register New Cooperative
+                Register
             </button>
           </div>
         </form>
@@ -798,8 +798,11 @@ export async function handlePasswordStage() {
         console.log(`[Login] [${Date.now()}] Authentication response received. Success: ${!!session}`);
         if (!session) onlineRecordedFail = true
       } else {
-        loginError = { type: 'network', message: 'No internet connection detected. Please check your network and try again.' }
-        console.log(`[Login] [${Date.now()}] No internet connection.`);
+        // Actual login (not remember-me boot auto-login) requires internet.
+        // If offline, show network error and skip both online AND offline fallback.
+        // The "remember me" persistent session is handled at boot in main.js via loadSavedSession().
+        loginError = { type: 'network', message: 'No internet connection. Actual login requires online connection. Please connect to the internet and try again.' }
+        console.log(`[Login] [${Date.now()}] No internet connection — actual login requires online.`);
       }
     } catch (onlineErr) {
       loginError = classifyLoginError(onlineErr)
@@ -809,33 +812,38 @@ export async function handlePasswordStage() {
 
     // Offline fallback (skipped when online already gave a final verdict:
     // lockout, extracted coop, or unsubscribed account must not fall back
-    // to stale local data).
+    // to stale local data). Also skipped when network error prevents login.
     if (!session) {
-      if (loginError?.type === 'lockout' || loginError?.type === 'subscription' || loginError?.type === 'extracted') {
+      if (loginError?.type === 'network') {
+        // Actual login requires internet — do not fall back to offline.
+        // The error message is already set in the online block above.
+        console.log(`[Login] [${Date.now()}] Skipping offline login due to network error.`);
+      } else if (loginError?.type === 'lockout' || loginError?.type === 'subscription' || loginError?.type === 'extracted') {
         state.errorMessage = loginError.message
         state.isSubmitting = false
         window.__render()
         return
-      }
-      console.log(`[Login] [${Date.now()}] Attempting offline authentication...`);
-      try {
-        session = await attemptOfflineLogin(username, password, cooperativeId, onlineRecordedFail)
-        if (session) loginError = null
-        console.log(`[Login] [${Date.now()}] Offline authentication result: ${!!session}`);
-        if (!session && !onlineRecordedFail) {
-          try {
-            const { recordFailedAttempt } = await import('../../services/authService.js')
-            recordFailedAttempt(username.toLowerCase(), cooperativeId)
-          } catch {}
+      } else {
+        console.log(`[Login] [${Date.now()}] Attempting offline authentication...`);
+        try {
+          session = await attemptOfflineLogin(username, password, cooperativeId, onlineRecordedFail)
+          if (session) loginError = null
+          console.log(`[Login] [${Date.now()}] Offline authentication result: ${!!session}`);
+          if (!session && !onlineRecordedFail) {
+            try {
+              const { recordFailedAttempt } = await import('../../services/authService.js')
+              recordFailedAttempt(username.toLowerCase(), cooperativeId)
+            } catch {}
+          }
+        } catch (offlineErr) {
+          const classified = classifyLoginError(offlineErr)
+          // A definitive offline verdict (blocked/lockout) overrides a softer
+          // online error (e.g. timeout/network) so the polite message wins.
+          if (!loginError || classified.type === 'subscription' || classified.type === 'extracted' || classified.type === 'lockout') {
+            loginError = classified
+          }
+          console.warn(`[Login] [${Date.now()}] Offline authentication failed:`, offlineErr.message)
         }
-      } catch (offlineErr) {
-        const classified = classifyLoginError(offlineErr)
-        // A definitive offline verdict (blocked/lockout) overrides a softer
-        // online error (e.g. timeout/network) so the polite message wins.
-        if (!loginError || classified.type === 'subscription' || classified.type === 'extracted' || classified.type === 'lockout') {
-          loginError = classified
-        }
-        console.warn(`[Login] [${Date.now()}] Offline authentication failed:`, offlineErr.message)
       }
     }
 
@@ -919,7 +927,7 @@ export async function handlePasswordStage() {
     // Build the welcomeUser immediately, subscription will be loaded in background
     // Seed from the live auth doc (already subscription-gated above) so the
     // dashboard guard is correct on first paint — not a hardcoded 1.
-    state.welcomeUser = {
+state.welcomeUser = {
       memberId: session.memberId,
       username: session.username,
       fullName: session.fullName,
@@ -928,7 +936,8 @@ export async function handlePasswordStage() {
       enterprises: session.enterprises || '',
       enterprise_rights: session.enterprise_rights || session.enterprises || '',
       cooperativeId: session.cooperativeId,
-      cooperativeName,
+      cooperativeName: session.cooperative_name || '',
+      coopShortName: session.cooperative_name?.split('-')[0] || session.cooperative_name || '',  // short name segment or full name fallback
       subscriptionStatus: session.userDoc?.subscriptionStatus ?? 1,
       subscriptionExpiry: session.userDoc?.expiry_date ?? session.userDoc?.subscriptionExpiry ?? null,
       userDoc: session.userDoc,

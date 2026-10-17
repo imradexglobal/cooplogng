@@ -32,7 +32,7 @@ import {
 import { renderAdminDbManagementSection, setupAdminDbManagementListeners } from './settings/adminDbManagement.js'
 
 export async function renderSettings(container, user) {
-  const isAdmin = user.isAdmin || hasPermission(user.permissions, 'admin') || (user.username || '').toLowerCase() === 'admin'
+  const isAdmin = user.isAdmin || hasPermission(user.permissions, 'admin') || (user.username || '').toLowerCase() === 'admin' || (user.username || '').toLowerCase() === (user.coopShortName || '').toLowerCase()
   const canManageSettings = isAdmin || hasPermission(user.permissions, 'settings_manage')
   const cooperativeId = user.cooperativeId
 

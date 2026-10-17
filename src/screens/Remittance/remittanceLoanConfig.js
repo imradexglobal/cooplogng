@@ -20,7 +20,7 @@ export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
       // Map old enterprise fields to charges
       if (enterprise.interest_rate !== undefined && enterprise.interest_rate !== null && enterprise.interest_rate !== '') {
         defaultCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Interest',
           value: Math.abs(parseFloat(enterprise.interest_rate) || 0),
           type: enterprise.interest_is_percent ? 'percentage' : 'fixed'
@@ -28,7 +28,7 @@ export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
       }
       if (enterprise.form_fee !== undefined && enterprise.form_fee !== null && enterprise.form_fee !== '') {
         defaultCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Form Fee',
           value: Math.abs(parseFloat(enterprise.form_fee) || 0),
           type: enterprise.form_fee_is_percent ? 'percentage' : 'fixed'
@@ -36,7 +36,7 @@ export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
       }
       if (enterprise.admin_charge !== undefined && enterprise.admin_charge !== null && enterprise.admin_charge !== '') {
         defaultCharges.push({
-          id: generateId(),
+          id: generateId(String(user.cooperativeId)),
           name: 'Admin Charge',
           value: Math.abs(parseFloat(enterprise.admin_charge) || 0),
           type: enterprise.admin_charge_is_percent ? 'percentage' : 'fixed'
@@ -161,7 +161,7 @@ export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
                   const borderStyle = isDeclined ? 'var(--danger)' : 'var(--border-medium)';
                   const cursorStyle = isDeclined && !isReadOnly ? 'pointer' : 'default';
                   return `
-                    <div class="guarantor-row" data-index="${gi}" data-id="${g.id || generateId()}" data-approval="${approval ?? ''}" style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--bg-main); padding: 1rem; border-radius: 0.75rem; border: 1px solid ${borderStyle}; margin-bottom: 0.5rem;">
+                    <div class="guarantor-row" data-index="${gi}" data-id="${g.id || generateId(String(user.cooperativeId))}" data-approval="${approval ?? ''}" style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--bg-main); padding: 1rem; border-radius: 0.75rem; border: 1px solid ${borderStyle}; margin-bottom: 0.5rem;">
                       <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                         <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
                           <div style="position: relative; flex: 1;">
@@ -209,7 +209,7 @@ export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
               ${modalState.charges.length === 0 ? '<p style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">No charges added yet.</p>' : ''}
               <div id="charges-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
                 ${modalState.charges.map((c, ci) => `
-                  <div class="charge-row" data-index="${ci}" data-id="${c.id || generateId()}" style="display: grid; grid-template-columns: 2fr 1fr 1.5fr auto; gap: 0.75rem; align-items: end; background: var(--bg-main); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-medium);">
+                  <div class="charge-row" data-index="${ci}" data-id="${c.id || generateId(String(user.cooperativeId))}" style="display: grid; grid-template-columns: 2fr 1fr 1.5fr auto; gap: 0.75rem; align-items: end; background: var(--bg-main); padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-medium);">
                     <div class="field">
                       <label>Charge Name</label>
                       <input type="text" class="charge-name" value="${escapeHtml(c.name || '')}" placeholder="e.g. Interest" ${isReadOnly ? 'disabled' : ''}>
@@ -271,7 +271,7 @@ export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
       if (!isReadOnly) {
         document.getElementById('add-charge-btn')?.addEventListener('click', () => {
           modalState.charges.push({
-            id: generateId(),
+            id: generateId(String(user.cooperativeId)),
             name: '',
             value: 0,
             type: 'percentage'
@@ -347,7 +347,7 @@ export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
         });
         document.getElementById('add-guarantor-btn')?.addEventListener('click', () => {
           modalState.guarantors.push({
-            id: generateId(),
+            id: generateId(String(user.cooperativeId)),
             member_id: '',
             amount: 0,
             guarantor_approval: null
@@ -599,7 +599,7 @@ export function showLoanReviewModal(
   const memberReg = member ? (member.registration_no || member.member_registration_no || '') : '';
 
   let modalCharges = (loanInfo.charges || []).map(c => ({
-    id: c.id || generateId(),
+    id: c.id || generateId(String(user.cooperativeId)),
     name: c.name || '',
     value: parseFloat(c.value) || 0,
     type: c.type || 'fixed'
@@ -744,7 +744,7 @@ export function showLoanReviewModal(
     }
 
     modalDiv.querySelector('.lr-add-charge-btn')?.addEventListener('click', () => {
-      modalCharges.push({ id: generateId(), name: '', value: 0, type: 'percentage' });
+      modalCharges.push({ id: generateId(String(user.cooperativeId)), name: '', value: 0, type: 'percentage' });
       renderModal();
     });
 

@@ -59,6 +59,13 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    match /membership_request/{requestId} {
+      allow read: if true;
+      allow create: if hasCooperativeId() && incomingData().keys().hasAny(['last_name', 'first_name', 'mobile', 'status']);
+      allow update: if hasCooperativeId();
+      allow delete: if true;
+    }
+
     match /sync_state/{stateId} {
       allow read, write: if true;
       allow delete: if true;

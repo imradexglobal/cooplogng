@@ -1,29 +1,25 @@
 import { 
-    getMemberListData, 
-    getRemittanceListData, 
-    getEnterpriseAccountData, 
-    getRemittanceScheduleData, 
-    getPaymentAdviseData,
-    getEODReportData,
-    getTrialBalanceData,
-    getGeneralLedgerData,
-    getIncomeExpenditureData,
-    getBalanceSheetData,
-    getCashFlowData,
-    getPersonalLedgerData,
-    getMemberPerformanceAgingData,
-    getGeneralNetworthData,
+    REPORT_TYPES,
+    REPORT_TYPE_FILTER_GROUPS,
+    REPORT_TYPE_OPTIONS,
+    memberFieldOptions,
+    DEFAULT_MEMBER_FIELDS,
     buildAccountingPack,
     exportAccountingPack,
     exportToExcel,
     exportToPDF
 } from '../services/reportsService.js';
 import { fetchBanks, fetchEnterprises, fetchAllMembers } from '../services/dataService.js';
+import { getTransactionTypes } from '../services/sqlite/transactionTypes.js';
 import { queryOne, queryRows } from '../services/sqliteService.js';
-import { escapeHtml, formatNumber, wrapDateInput } from '../utils/formatters.js';
+import { escapeHtml, formatDate, formatNumber, wrapDateInput } from '../utils/formatters.js';
 import { showToast } from '../services/toastService.js';
 import { showWorkspaceSpinner } from '../components/workspaceSpinner.js';
 import { save as persistState, load as loadPersisted } from '../services/statePersistence.js';
+import { SHEETS } from '../services/reports/accountingPackExcel.js';
+
+// Rows per preview page; exports always use the full result set.
+const PREVIEW_PAGE_SIZE = 100;
 
 export async function renderReports(container, user) {
     showWorkspaceSpinner(container);
@@ -105,6 +101,46 @@ export async function renderReports(container, user) {
                 font-style: italic;
             }
 
+            #preview-toolbar {
+                position: sticky;
+                top: 0;
+                z-index: 40;
+                min-height: 44px;
+                box-sizing: border-box;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 0.75rem;
+                padding: 0.5rem 1rem;
+                background: var(--bg-card);
+                border-bottom: 1px solid var(--border-light);
+            }
+            #preview-toolbar input[type="search"] {
+                height: 2rem;
+                min-width: 200px;
+                padding: 0 0.6rem;
+                border-radius: var(--radius-md);
+                border: 1px solid var(--border-medium);
+                background: var(--bg-input);
+                color: var(--text-primary);
+                font-size: 0.8rem;
+            }
+            #preview-toolbar button {
+                height: 1.8rem;
+                min-width: 1.8rem;
+                padding: 0 0.4rem;
+                border: 1px solid var(--border-medium);
+                background: var(--bg-input);
+                color: var(--text-primary);
+                border-radius: var(--radius-md);
+                cursor: pointer;
+                font-size: 0.9rem;
+                line-height: 1;
+            }
+            #preview-toolbar button:disabled { opacity: 0.4; cursor: default; }
+            .styled-table thead th[data-sort-idx] { cursor: pointer; user-select: none; }
+
             .styled-table { 
                 width: auto !important;
                 min-width: 100%;
@@ -116,7 +152,7 @@ export async function renderReports(container, user) {
             
             .styled-table thead tr th {
                 position: sticky;
-                top: 0;
+                top: 44px;
                 background: var(--bg-card) !important;
                 z-index: 30;
                 box-shadow: 0 1px 0 var(--border-light);
@@ -293,21 +329,7 @@ export async function renderReports(container, user) {
                         <label>Report Type</label>
                         <select id="report-type">
                             <option value="">Select Report Type...</option>
-                            <option value="member_list">Member Register</option>
-                            <option value="remittance_list">Transaction Journal</option>
-                            <option value="enterprise_account">Member Remittance Record (by Account)</option>
-                            <option value="remittance_schedule">Monthly Deduction Schedule</option>
-                            <option value="payment_advise">Payment Advice</option>
-                            <option value="eod_report">Daily Transactions Summary</option>
-                            <option value="trial_balance">Trial Balance</option>
-                            <option value="general_ledger">General Ledger</option>
-                            <option value="income_expenditure">Income & Expenditure</option>
-                            <option value="balance_sheet">Balance Sheet</option>
-                            <option value="cash_flow">Cash Flow Statement</option>
-                            <option value="personal_ledger">Member Account Statement</option>
-                            <option value="member_performance_aging">Loan Aging Analysis</option>
-                            <option value="general_networth">Member Balances Summary (As At Date)</option>
-                            <option value="accounting_pack">Accounting Pack (Excel workbook)</option>
+                            ${REPORT_TYPE_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
                         </select>
                     </div>
                     
@@ -319,14 +341,7 @@ export async function renderReports(container, user) {
                         <label>Date To</label>
                         <input type="date" id="eod-date-to">
                     </div>
-                    
-                    <div class="control-group filter-gl-enterprise" style="display: none;">
-                        <label>Account (Optional)</label>
-                        <select id="gl-enterprise">
-                            <option value="all">All Accounts</option>
-                        </select>
-                    </div>
-                    
+
                     <div class="control-group filter-personal-member" style="display: none;">
                         <label>Member</label>
                         <select id="personal-member">
@@ -346,6 +361,14 @@ export async function renderReports(container, user) {
                         </select>
                     </div>
 
+                    <div class="control-group filter-schedule-member-name" style="display: none;">
+                        <label>Columns</label>
+                        <label class="checkbox-item" for="schedule-show-member-name">
+                            <input type="checkbox" id="schedule-show-member-name" checked>
+                            <span>Show Member Name</span>
+                        </label>
+                    </div>
+
                     <div class="control-group filter-date" style="display: none;">
                         <label>Date From</label>
                         <input type="date" id="date-from">
@@ -362,14 +385,58 @@ export async function renderReports(container, user) {
                         </select>
                     </div>
 
+                    <div class="control-group filter-txn-type" style="display: none;">
+                        <label>Transaction Type</label>
+                        <select id="txn-type-filter">
+                            <option value="All">All Types</option>
+                        </select>
+                    </div>
+
                     <div class="control-group filter-enterprise" style="display: none;">
                         <label>Enterprise</label>
                         <select id="ent-filter"></select>
                     </div>
 
+                    <div class="control-group filter-advise-ent" style="display: none;">
+                        <label>Enterprise</label>
+                        <select id="advise-ent-filter">
+                            <option value="">All Enterprises</option>
+                        </select>
+                    </div>
+
                     <div class="control-group filter-fiscal-year" style="display: none;">
                         <label>Fiscal Year</label>
                         <select id="fy-filter"></select>
+                    </div>
+
+                    <div class="control-group filter-ent-date" style="display: none;">
+                        <label>Date From (optional)</label>
+                        <input type="date" id="ent-date-from">
+                    </div>
+                    <div class="control-group filter-ent-date" style="display: none;">
+                        <label>Date To (optional)</label>
+                        <input type="date" id="ent-date-to">
+                    </div>
+
+                    <div class="control-group filter-ent-options" style="display: none;">
+                        <label>Options</label>
+                        <div class="field-checkbox-group" style="grid-template-columns: 1fr;">
+                            <label class="checkbox-item"><input type="checkbox" id="ent-show-name"> Show member name</label>
+                            <label class="checkbox-item"><input type="checkbox" id="ent-include-inactive"> Include inactive members</label>
+                        </div>
+                    </div>
+
+                    <div class="control-group filter-monthly-summary-fy" style="display: none;">
+                        <label>Fiscal Year</label>
+                        <select id="monthly-summary-fy"></select>
+                    </div>
+
+                    <div class="control-group filter-monthly-summary-type" style="display: none;">
+                        <label>Transaction Type</label>
+                        <select id="monthly-summary-type">
+                            <option value="cr">Cr (+ve)</option>
+                            <option value="dr">Dr (-ve)</option>
+                        </select>
                     </div>
 
                     <div class="control-group filter-schedule-month" style="display: none;">
@@ -415,7 +482,9 @@ export async function renderReports(container, user) {
                     </div>
                 </div>
                 <p id="pack-hint" class="pack-hint" style="display: none;">
-                    The Accounting Pack is generated and downloaded as a single Excel workbook with 14 worksheets.
+                    The Accounting Pack is generated and downloaded as a single Excel workbook with ${SHEETS.length} worksheets,
+                    including a Statement of Financial Position, an Income and Expenditure Statement, a Cash Flow Statement,
+                    a full general ledger, a journal-entry balance proof and the control checks that tie them together.
                     There is no preview step — press the button once and the file is produced straight from the
                     approved records for the selected dates.
                 </p>
@@ -448,25 +517,14 @@ export async function renderReports(container, user) {
     const reportsState = {
         type: _savedReports.type || user.reports?.type || '',
         filters: _savedReports.filters || user.reports?.filters || {},
-        selectedFields: _savedReports.selectedFields || user.reports?.selectedFields || ['full_name', 'registration_no', 'mobile', 'sex', 'status'],
-        currentReportData: null, // Don't persist large report data
+        selectedFields: _savedReports.selectedFields || user.reports?.selectedFields || DEFAULT_MEMBER_FIELDS,
     };
     const filters = reportsState.filters || {};
     
-    let selectedFieldKeys = reportsState.selectedFields || ['full_name', 'registration_no', 'mobile', 'sex', 'status'];
+    let selectedFieldKeys = reportsState.selectedFields || DEFAULT_MEMBER_FIELDS;
     let pendingFieldKeys = [...selectedFieldKeys]; // Temporary selection before apply
     
-    const fieldOptions = [
-        { key: 'short_name', label: 'Short Name' },
-        { key: 'full_name', label: 'Full Name' },
-        { key: 'registration_no', label: 'Reg No' },
-        { key: 'mobile', label: 'Mobile' },
-        { key: 'sex', label: 'Sex' },
-        { key: 'status', label: 'Status' },
-        { key: 'date_joined', label: 'Date Joined' },
-        { key: 'address', label: 'Address' },
-        { key: 'account_manager', label: 'Manager' }
-    ];
+    const fieldOptions = memberFieldOptions();
 
     const renderFieldDropdown = () => {
         const dropdown = container.querySelector('#field-dropdown');
@@ -565,6 +623,7 @@ export async function renderReports(container, user) {
                     : 'Select Fields...';
             }
             updateGlobalState();
+            maybeAutoGenerate();
         });
 
         dropdown.querySelector('#cancel-fields')?.addEventListener('click', (e) => {
@@ -605,11 +664,20 @@ export async function renderReports(container, user) {
                 dateFrom: container.querySelector('#date-from').value,
                 dateTo: container.querySelector('#date-to').value,
                 bank: container.querySelector('#bank-filter').value,
+                transactionType: container.querySelector('#txn-type-filter').value,
                 enterprise: container.querySelector('#ent-filter').value,
+                adviseEnterprise: container.querySelector('#advise-ent-filter').value,
                 fiscalYear: container.querySelector('#fy-filter').value,
+                entDateFrom: container.querySelector('#ent-date-from').value,
+                entDateTo: container.querySelector('#ent-date-to').value,
+                entShowName: container.querySelector('#ent-show-name').checked,
+                entIncludeInactive: container.querySelector('#ent-include-inactive').checked,
+                monthlySummaryFy: container.querySelector('#monthly-summary-fy').value,
+                monthlySummaryType: container.querySelector('#monthly-summary-type').value,
                 scheduleMonth: container.querySelector('#schedule-month').value,
                 scheduleYear: container.querySelector('#schedule-year').value,
                 scheduleType: container.querySelector('#schedule-type').value,
+                scheduleShowMemberName: container.querySelector('#schedule-show-member-name').checked,
                 memberStatus: container.querySelector('#member-status').value
             },
             selectedFields: selectedFieldKeys,
@@ -632,21 +700,41 @@ export async function renderReports(container, user) {
         bankFilter.appendChild(opt);
     });
 
-    // Populate Enterprises for enterprise_account and general_ledger
+    // Populate transaction types for the Transaction Journal filter
+    const txnTypeFilter = container.querySelector('#txn-type-filter');
+    try {
+        const txnTypes = await getTransactionTypes(cooperativeId);
+        txnTypes.filter(t => t.is_active !== 0 && t.is_active !== false).forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.transaction_type;
+            opt.textContent = t.transaction_type;
+            txnTypeFilter.appendChild(opt);
+        });
+    } catch (e) {
+        console.warn('Failed to load transaction types:', e);
+    }
+    if (filters.transactionType && [...txnTypeFilter.options].some(o => o.value === filters.transactionType)) {
+        txnTypeFilter.value = filters.transactionType;
+    }
+
+    // Populate Enterprises for enterprise_account
     const enterprises = await fetchEnterprises(cooperativeId, true);
     const entFilter = container.querySelector('#ent-filter');
-    const glEntFilter = container.querySelector('#gl-enterprise');
     enterprises.sort((a, b) => a.account_name.localeCompare(b.account_name)).forEach(e => {
         const opt = document.createElement('option');
         opt.value = e.id;
         opt.textContent = e.account_name;
         if (filters.enterprise === e.id) opt.selected = true;
         entFilter.appendChild(opt);
-        
-        const optGl = document.createElement('option');
-        optGl.value = e.id;
-        optGl.textContent = e.account_name;
-        glEntFilter.appendChild(optGl);
+    });
+
+    // Populate Enterprises for the Payment Advice matrix (All Enterprises default)
+    const adviseEntFilter = container.querySelector('#advise-ent-filter');
+    enterprises.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.account_name;
+        adviseEntFilter.appendChild(opt);
     });
     
     // Populate Members for Member Account Statement
@@ -658,6 +746,17 @@ export async function renderReports(container, user) {
         opt.textContent = `${m.name} (Reg: ${m.registration_no ? String(m.registration_no).padStart(4, '0') : 'N/A'})`;
         memberFilter.appendChild(opt);
     });
+
+    // Status options come from the data, so every status actually in use can be
+    // filtered (Member Register and Payment Advice both key off this select).
+    const statusFilter = container.querySelector('#member-status');
+    const statuses = [...new Set(members.map(m => m.status).filter(Boolean))].sort();
+    if (filters.memberStatus && filters.memberStatus !== 'All' && !statuses.includes(filters.memberStatus)) {
+        statuses.push(filters.memberStatus);
+    }
+    statusFilter.innerHTML = ['All', ...statuses]
+        .map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`)
+        .join('');
     
     // Set default EOD dates to today
     const today = new Date().toISOString().split('T')[0];
@@ -676,6 +775,28 @@ export async function renderReports(container, user) {
         fyFilter.appendChild(opt);
     }
 
+    // Populate Fiscal Years for Member Monthly Summary
+    const monthlySummaryFyFilter = container.querySelector('#monthly-summary-fy');
+    let coopFirstMonth = 1;
+    try {
+        const coopRows = await queryRows("SELECT coop_first_month FROM cooperatives WHERE id=?", [cooperativeId]);
+        if (coopRows[0]?.coop_first_month) {
+            const parts = String(coopRows[0].coop_first_month).split('-');
+            coopFirstMonth = parseInt(parts[1]) || 1;
+        }
+    } catch (e) {
+        console.warn('Failed to fetch coop_first_month:', e);
+    }
+    const useSlashFormat = coopFirstMonth !== 1;
+    for (let i = -2; i <= 2; i++) {
+        const y = currentYear + i;
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = useSlashFormat ? `${y}/${y+1}` : `${y}`;
+        if (filters.monthlySummaryFy ? (filters.monthlySummaryFy == y) : (y === currentYear)) opt.selected = true;
+        monthlySummaryFyFilter.appendChild(opt);
+    }
+
     // Set other filters
     if (reportsState.type) reportTypeSelect.value = reportsState.type;
     if (filters.dateFrom) container.querySelector('#date-from').value = filters.dateFrom;
@@ -683,67 +804,42 @@ export async function renderReports(container, user) {
     if (filters.scheduleMonth) container.querySelector('#schedule-month').value = filters.scheduleMonth;
     if (filters.scheduleYear) container.querySelector('#schedule-year').value = filters.scheduleYear;
     if (filters.scheduleType) container.querySelector('#schedule-type').value = filters.scheduleType;
+    // Defaults to shown, so state saved before this toggle existed keeps the name column.
+    container.querySelector('#schedule-show-member-name').checked = filters.scheduleShowMemberName !== false;
     if (filters.memberStatus) container.querySelector('#member-status').value = filters.memberStatus;
+    if (filters.adviseEnterprise && [...adviseEntFilter.options].some(o => o.value === filters.adviseEnterprise)) {
+        adviseEntFilter.value = filters.adviseEnterprise;
+    }
+    if (filters.entDateFrom) container.querySelector('#ent-date-from').value = filters.entDateFrom;
+    if (filters.entDateTo) container.querySelector('#ent-date-to').value = filters.entDateTo;
+    container.querySelector('#ent-show-name').checked = !!filters.entShowName;
+    container.querySelector('#ent-include-inactive').checked = !!filters.entIncludeInactive;
+    if (filters.monthlySummaryType) container.querySelector('#monthly-summary-type').value = filters.monthlySummaryType;
     
-    let currentReportData = reportsState.currentReportData || null;
+    // Report results are never persisted (they are large), so the preview always
+    // starts empty on a fresh visit.
+    let currentReportData = null;
 
-    const formatInputDate = (date) => {
-        const d = new Date(date);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
+    const buildCtx = () => ({
+        cooperativeId,
+        cooperativeFullName,
+        user,
+        selectedFields: selectedFieldKeys,
+        read: (sel) => container.querySelector(sel)?.value ?? '',
+        el: (sel) => container.querySelector(sel)
+    });
 
     const updateUIForType = () => {
-        const val = reportTypeSelect.value;
-        const isPack = val === 'accounting_pack';
-        container.querySelectorAll('.filter-date').forEach(el => el.style.display = (val === 'remittance_list' || val === 'general_ledger' || isPack) ? 'flex' : 'none');
-        container.querySelector('.filter-bank').style.display = (val === 'remittance_list') ? 'flex' : 'none';
-        container.querySelector('.filter-enterprise').style.display = (val === 'enterprise_account') ? 'flex' : 'none';
-        container.querySelector('.filter-fiscal-year').style.display = (val === 'enterprise_account' || val === 'trial_balance' || val === 'income_expenditure' || val === 'balance_sheet') ? 'flex' : 'none';
-        container.querySelector('.filter-schedule-month').style.display = (val === 'remittance_schedule') ? 'flex' : 'none';
-        container.querySelector('.filter-schedule-year').style.display = (val === 'remittance_schedule') ? 'flex' : 'none';
-        container.querySelector('.filter-schedule-type').style.display = (val === 'remittance_schedule') ? 'flex' : 'none';
-        container.querySelector('.filter-member-status').style.display = (val === 'member_list') ? 'flex' : 'none';
-        container.querySelector('#member-fields-container').style.display = (val === 'member_list') ? 'flex' : 'none';
-        container.querySelector('.filter-eod-date-from').style.display = (val === 'eod_report') ? 'flex' : 'none';
-        container.querySelector('.filter-eod-date-to').style.display = (val === 'eod_report') ? 'flex' : 'none';
-        container.querySelector('.filter-gl-enterprise').style.display = (val === 'general_ledger') ? 'flex' : 'none';
-        container.querySelector('.filter-personal-member').style.display = (val === 'personal_ledger') ? 'flex' : 'none';
-        container.querySelector('.filter-networth-date').style.display = (val === 'general_networth') ? 'flex' : 'none';
+        const cfg = REPORT_TYPES[reportTypeSelect.value];
 
-        // Prefill dates
-        if (val === 'remittance_list' || val === 'general_ledger' || isPack) {
-            const dateFromInput = container.querySelector('#date-from');
-            const dateToInput = container.querySelector('#date-to');
-            if (!dateFromInput.value || !dateToInput.value) {
-                const today = new Date();
-                const oneMonthAgo = new Date(today);
-                oneMonthAgo.setMonth(today.getMonth() - 1);
-                dateFromInput.value = formatInputDate(oneMonthAgo);
-                dateToInput.value = formatInputDate(today);
-                dateFromInput.dispatchEvent(new Event('change', { bubbles: true }));
-                dateToInput.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
+        REPORT_TYPE_FILTER_GROUPS.forEach(sel => {
+            container.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
+        });
+        (cfg?.filterGroups || []).forEach(sel => {
+            container.querySelectorAll(sel).forEach(el => { el.style.display = 'flex'; });
+        });
 
-        if (val === 'eod_report') {
-            const eodDateFromInput = container.querySelector('#eod-date-from');
-            const eodDateToInput = container.querySelector('#eod-date-to');
-            if (!eodDateFromInput.value || !eodDateToInput.value) {
-                const today = formatInputDate(new Date());
-                eodDateFromInput.value = today;
-                eodDateToInput.value = today;
-            }
-        }
-
-        if (val === 'general_networth') {
-            const nwDateInput = container.querySelector('#networth-date');
-            if (!nwDateInput.value) {
-                nwDateInput.value = formatInputDate(new Date());
-            }
-        }
+        cfg?.prefill?.(buildCtx());
 
         const triggerText = container.querySelector('#field-trigger-text');
         if (triggerText) {
@@ -754,13 +850,19 @@ export async function renderReports(container, user) {
 
         // The Accounting Pack is produced directly as a workbook, so it needs
         // no preview surface and no separate export buttons.
-        btnGenerate.textContent = isPack ? 'Generate Accounting Pack' : 'Generate Preview';
+        btnGenerate.textContent = cfg?.buttonLabel || 'Generate Preview';
         const packHint = container.querySelector('#pack-hint');
-        if (packHint) packHint.style.display = isPack ? 'block' : 'none';
-        if (isPack) {
+        if (packHint) packHint.style.display = cfg?.showHint ? 'block' : 'none';
+        if (cfg?.directDownload) {
             btnExport.style.display = 'none';
             btnPdf.style.display = 'none';
         }
+    };
+
+    // Types flagged autoGenerate (Member Register) refresh themselves when a
+    // filter or field selection changes, so the preview never goes stale.
+    const maybeAutoGenerate = () => {
+        if (REPORT_TYPES[reportTypeSelect.value]?.autoGenerate) btnGenerate.click();
     };
 
     updateUIForType();
@@ -768,41 +870,44 @@ export async function renderReports(container, user) {
     // Wrap all date inputs to show DD MMM, YYYY format
     container.querySelectorAll('input[type="date"]').forEach(wrapDateInput);
 
-    if (currentReportData) {
-        previewTitle.textContent = currentReportData.title;
-        btnExport.style.display = 'block';
-        btnPdf.style.display = 'block';
-        renderPreviewTable(currentReportData.headers, currentReportData.data);
-    }
-
     // Add listeners to all controls for state update
     container.querySelectorAll('select, input').forEach(el => {
         el.addEventListener('change', updateGlobalState);
     });
+    container.querySelector('#member-status')?.addEventListener('change', maybeAutoGenerate);
 
     reportTypeSelect.addEventListener('change', () => {
         updateUIForType();
+        const cfg = REPORT_TYPES[reportTypeSelect.value];
         btnExport.style.display = 'none';
         btnPdf.style.display = 'none';
-        previewBody.innerHTML = reportTypeSelect.value === 'accounting_pack'
+        previewBody.innerHTML = cfg?.directDownload
             ? '<div class="preview-placeholder">The Accounting Pack has no preview. Choose your dates and press Generate Accounting Pack to download the workbook.</div>'
             : '<div class="preview-placeholder">Select filters and click Generate Preview</div>';
         previewTitle.textContent = 'Report Preview';
         currentReportData = null;
         updateGlobalState();
+        if (cfg?.autoGenerate) btnGenerate.click();
     });
 
     btnGenerate.addEventListener('click', async () => {
         const type = reportTypeSelect.value;
         if (!type) return showToast('Please select a report type', 'warning');
+        const cfg = REPORT_TYPES[type];
+        if (!cfg) return showToast('Unknown report type', 'warning');
+
+        const ctx = buildCtx();
+        const validationError = cfg.validate ? cfg.validate(ctx) : null;
+        if (validationError) return showToast(validationError, 'warning');
+        if (cfg.fieldPicker && selectedFieldKeys.length === 0) {
+            return showToast('Select at least one field to include', 'warning');
+        }
 
         // Accounting Pack: build and download the workbook in one action.
         // No preview is produced and no separate export step is offered.
-        if (type === 'accounting_pack') {
-            const dateFrom = container.querySelector('#date-from').value;
-            const dateTo = container.querySelector('#date-to').value;
-            if (!dateFrom || !dateTo) return showToast('Please select both a start and an end date', 'warning');
-            if (dateFrom > dateTo) return showToast('Start date must not be after end date', 'warning');
+        if (cfg.directDownload) {
+            const dateFrom = ctx.read('#date-from');
+            const dateTo = ctx.read('#date-to');
 
             const originalText = btnGenerate.textContent;
             btnGenerate.textContent = 'Building workbook...';
@@ -839,90 +944,19 @@ export async function renderReports(container, user) {
         btnPdf.style.display = 'none';
 
         try {
-            let result;
-            let title = '';
-
-            if (type === 'member_list') {
-                result = await getMemberListData(cooperativeId, user, { 
-                    status: container.querySelector('#member-status').value,
-                    selectedFields: selectedFieldKeys
-                });
-                title = 'Member Register';
-            } else if (type === 'remittance_list') {
-                result = await getRemittanceListData(cooperativeId, user, {
-                    dateFrom: container.querySelector('#date-from').value,
-                    dateTo: container.querySelector('#date-to').value,
-                    bank: container.querySelector('#bank-filter').value,
-                    transactionType: 'All'
-                });
-                title = 'Transaction Journal';
-            } else if (type === 'enterprise_account') {
-                result = await getEnterpriseAccountData(cooperativeId, user, 
-                    container.querySelector('#ent-filter').value,
-                    container.querySelector('#fy-filter').selectedOptions[0].textContent
-                );
-                title = result.title;
-            } else if (type === 'remittance_schedule') {
-                const month = parseInt(container.querySelector('#schedule-month').value);
-                const year = parseInt(container.querySelector('#schedule-year').value);
-                const positive = container.querySelector('#schedule-type').value === 'positive';
-                result = await getRemittanceScheduleData(cooperativeId, user, month, year, positive);
-                const monthName = container.querySelector('#schedule-month').selectedOptions[0].textContent;
-                title = `Monthly Deduction Schedule for ${monthName} ${year} (${positive ? 'Deposit' : 'Loan'})`;
-            } else if (type === 'payment_advise') {
-                result = await getPaymentAdviseData(cooperativeId);
-                title = 'Payment Advice';
-            } else if (type === 'eod_report') {
-                const eodDateFrom = container.querySelector('#eod-date-from').value;
-                const eodDateTo = container.querySelector('#eod-date-to').value;
-                result = await getEODReportData(cooperativeId, eodDateFrom, eodDateTo);
-                title = result.title;
-            } else if (type === 'trial_balance') {
-                const fy = container.querySelector('#fy-filter').selectedOptions[0].textContent;
-                result = await getTrialBalanceData(cooperativeId, fy);
-                title = result.title;
-            } else if (type === 'general_ledger') {
-                const dateFrom = container.querySelector('#date-from').value;
-                const dateTo = container.querySelector('#date-to').value;
-                const entId = container.querySelector('#gl-enterprise').value;
-                result = await getGeneralLedgerData(cooperativeId, dateFrom, dateTo, entId);
-                title = result.title;
-            } else if (type === 'income_expenditure') {
-                const fy = container.querySelector('#fy-filter').selectedOptions[0].textContent;
-                result = await getIncomeExpenditureData(cooperativeId, fy);
-                title = result.title;
-            } else if (type === 'balance_sheet') {
-                const fy = container.querySelector('#fy-filter').selectedOptions[0].textContent;
-                result = await getBalanceSheetData(cooperativeId, fy);
-                title = result.title;
-            } else if (type === 'cash_flow') {
-                const fy = container.querySelector('#fy-filter').selectedOptions[0].textContent;
-                result = await getCashFlowData(cooperativeId, fy);
-                title = result.title;
-            } else if (type === 'personal_ledger') {
-                const memberId = container.querySelector('#personal-member').value;
-                result = await getPersonalLedgerData(cooperativeId, memberId);
-                title = result.title;
-            } else if (type === 'member_performance_aging') {
-                result = await getMemberPerformanceAgingData(cooperativeId);
-                title = result.title;
-            } else if (type === 'general_networth') {
-                const networthDate = container.querySelector('#networth-date').value;
-                if (!networthDate) return showToast('Please select an As At date', 'warning');
-                result = await getGeneralNetworthData(cooperativeId, user, networthDate);
-                title = result.title;
-            }
+            const result = await cfg.build(ctx);
 
             if (!result || !result.data || result.data.length === 0) {
                 previewBody.innerHTML = '<div class="preview-placeholder">No data found for the selected criteria</div>';
                 return;
             }
 
+            const title = cfg.title || result.title || 'Report';
             currentReportData = { ...result, title };
             previewTitle.textContent = title;
             btnExport.style.display = 'block';
             btnPdf.style.display = 'block';
-            renderPreviewTable(result.headers, result.data);
+            renderPreviewTable(result.headers, result.data, result.footerCount || 0);
             updateGlobalState();
 
         } catch (err) {
@@ -961,7 +995,7 @@ export async function renderReports(container, user) {
                 currentReportData.data,
                 'l', // Landscape
                 user.username,
-                type === 'enterprise_account'
+                type === 'enterprise_account' || type === 'payment_advise'
             );
             showToast('PDF print completed successfully!', 'success');
         } catch (err) {
@@ -972,29 +1006,126 @@ export async function renderReports(container, user) {
         }
     });
 
-    function renderPreviewTable(headers, data) {
+    const previewView = { page: 1, search: '', sortIdx: null, sortDir: 1, footerCount: 0 };
+    let previewSource = { headers: [], data: [], footerCount: 0 };
+    let previewSearchTimer = null;
+
+    const previewCells = (row, headers) => (Array.isArray(row) ? row : headers.map(h => row[h]));
+
+    const comparePreviewValues = (a, b) => {
+        const sa = String(a ?? '').trim();
+        const sb = String(b ?? '').trim();
+        const na = sa === '' ? NaN : Number(sa);
+        const nb = sb === '' ? NaN : Number(sb);
+        if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+        return sa.localeCompare(sb, undefined, { numeric: true, sensitivity: 'base' });
+    };
+
+    const isTotalRow = (cells) => typeof cells[0] === 'string' && /^total\b/i.test(cells[0].trim());
+
+    function renderPreviewTable(headers, data, footerCount = 0) {
+        previewView.page = 1;
+        previewView.search = '';
+        previewView.sortIdx = null;
+        previewView.sortDir = 1;
+        renderPreviewGrid(headers, data, footerCount);
+    }
+
+    function renderPreviewGrid(headers, data, footerCount = 0) {
+        previewSource = { headers, data, footerCount };
+        previewView.footerCount = footerCount;
+
+        const bodyEnd = Math.max(0, data.length - footerCount);
+        const body = data.slice(0, bodyEnd);
+        const footerRows = data.slice(bodyEnd);
+
+        const query = previewView.search.trim().toLowerCase();
+        const matches = query
+            ? body.filter(row => previewCells(row, headers).some(v => String(v ?? '').toLowerCase().includes(query)))
+            : body;
+
+        const totalPages = Math.max(1, Math.ceil(matches.length / PREVIEW_PAGE_SIZE));
+        if (previewView.page > totalPages) previewView.page = totalPages;
+        const start = (previewView.page - 1) * PREVIEW_PAGE_SIZE;
+        const pageRows = matches.slice(start, start + PREVIEW_PAGE_SIZE);
+
+        if (!previewBody.querySelector('#preview-toolbar')) {
+            previewBody.innerHTML = `
+                <div id="preview-toolbar">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <input id="preview-search" type="search" placeholder="Search rows..." autocomplete="off">
+                        <span id="preview-count" style="font-size: 0.75rem; color: var(--text-muted);"></span>
+                    </div>
+                    <div id="preview-pager" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
+                        <button id="preview-prev" type="button" aria-label="Previous page">&#8249;</button>
+                        <span id="preview-page-info"></span>
+                        <button id="preview-next" type="button" aria-label="Next page">&#8250;</button>
+                    </div>
+                </div>
+                <div id="preview-table-wrap"></div>
+            `;
+
+            const searchInput = previewBody.querySelector('#preview-search');
+            searchInput.value = previewView.search;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(previewSearchTimer);
+                previewSearchTimer = setTimeout(() => {
+                    previewView.search = searchInput.value;
+                    previewView.page = 1;
+                    const src = previewSource;
+                    renderPreviewGrid(src.headers, src.data, src.footerCount);
+                }, 150);
+            });
+
+            previewBody.querySelector('#preview-prev').addEventListener('click', () => {
+                if (previewView.page <= 1) return;
+                previewView.page -= 1;
+                const src = previewSource;
+                renderPreviewGrid(src.headers, src.data, src.footerCount);
+            });
+            previewBody.querySelector('#preview-next').addEventListener('click', () => {
+                previewView.page += 1;
+                const src = previewSource;
+                renderPreviewGrid(src.headers, src.data, src.footerCount);
+            });
+        }
+
+        const countEl = previewBody.querySelector('#preview-count');
+        countEl.textContent = query
+            ? `${formatNumber(matches.length)} of ${formatNumber(body.length)} rows match`
+            : `${formatNumber(body.length)} rows`;
+
+        const pager = previewBody.querySelector('#preview-pager');
+        pager.style.display = totalPages > 1 ? 'flex' : 'none';
+        previewBody.querySelector('#preview-page-info').textContent = `Page ${previewView.page} of ${totalPages}`;
+        previewBody.querySelector('#preview-prev').disabled = previewView.page <= 1;
+        previewBody.querySelector('#preview-next').disabled = previewView.page >= totalPages;
+
         let html = `
             <table class="styled-table" style="width: auto !important; min-width: 100% !important; border-collapse: separate !important;">
                 <thead>
                     <tr>
-                        ${headers.map(h => `<th style="white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important;">${escapeHtml(h).replace(/ /g, '&nbsp;')}</th>`).join('')}
+                        ${headers.map((h, i) => {
+                            const arrow = previewView.sortIdx === i ? (previewView.sortDir === 1 ? ' &#9650;' : ' &#9660;') : '';
+                            return `<th data-sort-idx="${i}" title="Click to sort" style="white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important;">${escapeHtml(h).replace(/ /g, '&nbsp;')}${arrow}</th>`;
+                        }).join('')}
                     </tr>
                 </thead>
                 <tbody>
         `;
 
-        data.forEach(row => {
+        const renderRows = (rows) => rows.map(row => {
             const rowArray = Array.isArray(row) ? row : headers.map(h => row[h]);
-            html += `
+            return `
                 <tr>
                     ${rowArray.map((val, idx) => {
                         const header = headers[idx];
                         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                         const commonAmountHeaders = ['Amount', 'Total', 'Principal', 'Bal B/F', 'DR', 'CR', 'BL', 'Balance'];
                         const isAmount = typeof val === 'number' || ((val !== null && val !== undefined && val !== '') && (commonAmountHeaders.includes(header) || monthNames.includes(header)));
-                        
+
                         const shouldWrap = header === 'Description' || header === 'Notes' || header === 'Note';
-                        
+
                         // Force no-wrap on all non-wrap-friendly cells globally with !important
                         const baseStyle = shouldWrap
                             ? 'white-space: normal !important; word-break: break-word !important; min-width: 150px; max-width: 250px;'
@@ -1013,12 +1144,63 @@ export async function renderReports(container, user) {
                     }).join('')}
                 </tr>
             `;
-        });
+        }).join('');
+
+        if (pageRows.length === 0) {
+            html += `
+                <tr>
+                    <td colspan="${headers.length}" style="white-space: normal !important; text-align: center; font-style: italic; color: var(--text-muted); padding: 0.7rem;">
+                        No rows match your search.
+                    </td>
+                </tr>
+            `;
+        } else {
+            html += renderRows(pageRows);
+        }
+
+        html += renderRows(footerRows);
 
         html += `
                 </tbody>
             </table>
         `;
-        previewBody.innerHTML = html;
+
+        const wrap = previewBody.querySelector('#preview-table-wrap');
+        wrap.innerHTML = html;
+        wrap.querySelectorAll('th[data-sort-idx]').forEach(th => {
+            th.addEventListener('click', () => sortPreview(parseInt(th.dataset.sortIdx, 10)));
+        });
+    }
+
+    // Sorting reorders the stored result so Excel/PDF exports match what the
+    // preview shows. Total rows stay pinned to the bottom.
+    function sortPreview(idx) {
+        const { headers, data, footerCount } = previewSource;
+        if (previewView.sortIdx === idx) {
+            previewView.sortDir = -previewView.sortDir;
+        } else {
+            previewView.sortIdx = idx;
+            previewView.sortDir = 1;
+        }
+
+        const bodyEnd = Math.max(0, data.length - footerCount);
+        const decorated = data.slice(0, bodyEnd).map(row => ({ row, cells: previewCells(row, headers) }));
+        decorated.sort((a, b) => {
+            const aTotal = isTotalRow(a.cells);
+            const bTotal = isTotalRow(b.cells);
+            if (aTotal !== bTotal) return aTotal ? 1 : -1;
+            if (aTotal) return 0;
+            return comparePreviewValues(a.cells[idx], b.cells[idx]) * previewView.sortDir;
+        });
+
+        previewSource = {
+            ...previewSource,
+            data: [...decorated.map(d => d.row), ...data.slice(bodyEnd)]
+        };
+        currentReportData.data = previewSource.data;
+        if (user.onReportsStateChange) {
+            user.onReportsStateChange({ currentReportData });
+        }
+        renderPreviewGrid(previewSource.headers, previewSource.data, footerCount);
     }
 }

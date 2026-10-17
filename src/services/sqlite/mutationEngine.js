@@ -219,7 +219,7 @@ export async function saveDoc(tableName, doc, skipEnqueue = false) {
     }
 
     if (!skipEnqueue) {
-        const topLevelCollections = ['enterprise', 'bank', 'members', 'remittance', 'users', 'notifications', 'cooperatives', 'transaction_types', 'bank_reconciliation_summary', 'feedback']
+        const topLevelCollections = ['enterprise', 'bank', 'members', 'remittance', 'users', 'notifications', 'cooperatives', 'transaction_types', 'bank_reconciliation_summary', 'feedback', 'membership_request']
         
         let targetQueue = null;
 

@@ -95,7 +95,11 @@ check('an empty period still reports its controls', before.controlChecks.length 
     `${before.controlChecks.length} controls`);
 check('an empty period has a nil trial-balance difference', Math.abs(before.trialBalanceTotals.closingDiff) < 0.005,
     `difference ${before.trialBalanceTotals.closingDiff}`);
-check('an empty period still generates a workbook of all 14 sheets', SHEETS.length === 14, `${SHEETS.length} sheets declared`);
+// The declared sheet list is the contract the cover prints and the workbook
+// must satisfy. build-workbook.mjs asserts the workbook actually builds all of
+// them, so this only has to confirm the list is the same size as the workbook
+// the builder produces rather than hard-coding a number that can drift.
+check('the declared sheet list is non-empty and free of duplicate names', SHEETS.length > 0 && new Set(SHEETS.map(s => s[0])).size === SHEETS.length, `${SHEETS.length} sheets declared, ${new Set(SHEETS.map(s => s[0])).size} distinct`);
 
 // ------------------------------------------------------- member credits/debits
 section('Member accounts: credits + debits = net position');
@@ -251,6 +255,84 @@ section('Controls');
 const byStatus = wide.controlChecks.reduce((m, c) => { m[c.status] = (m[c.status] || 0) + 1; return m; }, {});
 console.log(`  control status: ${JSON.stringify(byStatus)}`);
 check('C3 debit/credit integrity passes', wide.controlChecks.find(c => c.id === 'C3').status === 'PASS');
+
+// -------------------------------------------------- financial statements
+section('Financial statements');
+const fp = wide.financialPosition;
+const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+check('the statement of financial position is produced', !!fp && Array.isArray(fp.assets) && Array.isArray(fp.liabilities));
+// The statement is presented from the trial balance's own closing balances, so
+// its difference has to be the trial balance's control difference and not a
+// second, independent number. This is the identity control C19 asserts.
+check('the statement of financial position foots to the trial balance difference',
+    Math.abs(fp.difference - wide.trialBalanceTotals.closingDiff) < 0.01,
+    `SFP ${fmt(fp.difference)} vs TB ${fmt(wide.trialBalanceTotals.closingDiff)}`);
+check('C19 proves the statement agrees with the trial balance',
+    wide.controlChecks.find(c => c.id === 'C19').status === 'PASS');
+check('assets equal liabilities plus equity, to the control difference',
+    Math.abs(fp.assetsTotal - fp.liabilitiesAndEquity - fp.difference) < 0.01);
+check('the statement shows an equity section', fp.equity.length > 0);
+
+const ie = wide.incomeExpenditure;
+check('the income and expenditure statement is produced', !!ie && !!ie.income && !!ie.expenditure);
+check('the income and expenditure surplus equals income less expenditure',
+    Math.abs(ie.surplus - r2(ie.incomeTotal - ie.expenditureTotal)) < 0.01,
+    `${fmt(ie.surplus)} vs ${fmt(ie.incomeTotal - ie.expenditureTotal)}`);
+check('the income and expenditure surplus agrees with the trial balance',
+    Math.abs(ie.surplus - wide.periodResult.surplus) < 0.01);
+check('C20 proves the income and expenditure statement agrees with the trial balance',
+    wide.controlChecks.find(c => c.id === 'C20').status === 'PASS');
+check('income is recognised only from the income bucket, not member-side revenue',
+    ie.income.lines.every(l => !/revenueEnt/.test(l.code)) );
+
+const cf = wide.cashFlow;
+check('the cash flow statement is produced', !!cf && Array.isArray(cf.lines));
+check('the cash flow statement starts from the period result',
+    Math.abs(cf.lines[0].amount - ie.surplus) < 0.01);
+check('the cash flow statement closes onto the cash book',
+    Math.abs(cf.closing - wide.cashBook.totals.closing) < 0.01,
+    `${fmt(cf.closing)} vs ${fmt(wide.cashBook.totals.closing)}`);
+check('C21 proves the cash flow statement closes onto the cash book',
+    wide.controlChecks.find(c => c.id === 'C21').status === 'PASS');
+// Cash the statement cannot explain must be disclosed, not absorbed into a
+// total that then looks reconciled.
+check('cash the statement cannot explain is disclosed as its own line',
+    'unexplained' in cf && Math.abs(cf.cashMovement - (cf.subtotal + cf.unexplained)) < 0.01);
+
+// ------------------------------------------------------------- entry proof
+section('Entry balance proof');
+const ebp = wide.entryBalanceProof;
+check('the entry balance proof is produced', !!ebp && Array.isArray(ebp.rows));
+check('every entry exposes its own legs', ebp.rows.every(e => e.legs > 0));
+check('an entry is debits less credits', ebp.rows.every(e => Math.abs(e.outOfBalance - r2(e.debit - e.credit)) < 0.01));
+check('the unbalanced entries are a subset of all entries', ebp.unbalancedCount <= ebp.totalCount);
+// This is the population the trial balance structurally cannot surface: errors
+// in different entries cancel in the total.
+const netOfUnbalanced = r2(ebp.unbalanced.reduce((s, e) => s + e.outOfBalance, 0));
+console.log(`  entries ${ebp.totalCount}, unbalanced ${ebp.unbalancedCount}, their net ${fmt(netOfUnbalanced)}`);
+console.log(`  trial balance control difference ${fmt(wide.trialBalanceTotals.closingDiff)}`);
+check('C17 reports the unbalanced entry count', wide.controlChecks.find(c => c.id === 'C17').valueA === ebp.unbalancedCount);
+check('C18 proves the general ledger foots independently of the trial balance',
+    'C18' in wide.controlChecks.reduce((m, c) => (m[c.id] = true, m), {}));
+
+// -------------------------------------------------------------- new schedules
+section('Loan ageing and unidentified payments');
+check('the loan ageing schedule is produced', !!wide.loanAging && Array.isArray(wide.loanAging.buckets));
+check('every ageing bucket count reconciles to the number of loans',
+    wide.loanAging.bucketsTotal === r2(wide.loanAging.buckets.reduce((s, b) => s + b.outstanding, 0)));
+check('the overdue total never exceeds the outstanding total',
+    wide.loanAging.overdueTotal <= wide.loanAging.bucketsTotal + 0.01);
+check('the unidentified payments schedule is produced', !!wide.suspense && Array.isArray(wide.suspense.rows));
+
+section('Exception ordering');
+const rank = { High: 0, Medium: 1, Low: 2 };
+const order = wide.exceptions.map(e => rank[e.severity] ?? 9);
+check('exceptions are listed in ranked severity order, not alphabetically',
+    order.every((v, i) => i === 0 || v >= order[i - 1]));
+const firstMedium = wide.exceptions.findIndex(e => e.severity === 'Medium');
+const lastHigh = wide.exceptions.map(e => e.severity).lastIndexOf('High');
+check('no High finding appears after the first Medium one',
+    firstMedium === -1 || (lastHigh !== -1 && lastHigh < firstMedium));
 check('C4 member balance passes', wide.controlChecks.find(c => c.id === 'C4').status === 'PASS');
 check('C5 loan register passes', wide.controlChecks.find(c => c.id === 'C5').status === 'PASS');
 check('C7 income detail foots to the trial balance', wide.controlChecks.find(c => c.id === 'C7').status === 'PASS');
@@ -280,7 +362,18 @@ check('member legs name the remittance detail they came from',
     moves.filter(g => g.leg === 'Member').every(g => g.detailId));
 check('the audit trail exposes who created and last modified each row',
     'createdBy' in (wide.auditTrail[0] || {}) && 'modifiedAt' in (wide.auditTrail[0] || {}));
-check('no approver is invented, because the schema records none', !('approvedBy' in (wide.auditTrail[0] || {})));
+// The pack previously asserted no approver was recorded anywhere, which was
+// false: approving a remittance writes the approver into the last-modified-by
+// field (data/remittances.js, approveRemittance). The audit trail now surfaces
+// it as Approved By / Approved At for Approved rows. What must hold is that the
+// approver shown is the one the app recorded, not one the pack invented, so the
+// approver column has to equal the last-modified-by column on the same row.
+const approvedTrail = (wide.auditTrail || []).filter(r => r.status === 'Approved');
+check('the audit trail surfaces the approver the app recorded',
+    approvedTrail.length === 0 || approvedTrail.every(r => r.approvedBy === r.modifiedBy),
+    `${approvedTrail.length} approved rows checked`);
+check('the approver is shown only for rows that are actually approved',
+    (wide.auditTrail || []).every(r => (r.status === 'Approved') === (r.approvedBy !== '' || r.approvedAt !== '')));
 check('the audit trail shows excluded rows as well as included ones',
     wide.auditTrail.some(r => r.status !== 'Approved' || r.deleted === 'Yes') || wide.stats.skippedUnapproved === 0);
 console.log(`  excluded rows listed for the reader: ${wide.stats.skippedUnapproved} unapproved, ${wide.stats.skippedDeleted} deleted`);

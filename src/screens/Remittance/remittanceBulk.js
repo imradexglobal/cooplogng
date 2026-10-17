@@ -71,13 +71,13 @@ export function showBulkRemittanceModal(deps) {
         const out = [];
         if (!ent) return out;
         if (ent.interest_rate !== undefined && ent.interest_rate !== null && ent.interest_rate !== '') {
-            out.push({ id: generateId(), name: 'Interest', value: Math.abs(parseFloat(ent.interest_rate) || 0), type: ent.interest_is_percent ? 'percentage' : 'fixed' });
+            out.push({ id: generateId(String(cooperativeId)), name: 'Interest', value: Math.abs(parseFloat(ent.interest_rate) || 0), type: ent.interest_is_percent ? 'percentage' : 'fixed' });
         }
         if (ent.form_fee !== undefined && ent.form_fee !== null && ent.form_fee !== '') {
-            out.push({ id: generateId(), name: 'Form Fee', value: Math.abs(parseFloat(ent.form_fee) || 0), type: ent.form_fee_is_percent ? 'percentage' : 'fixed' });
+            out.push({ id: generateId(String(cooperativeId)), name: 'Form Fee', value: Math.abs(parseFloat(ent.form_fee) || 0), type: ent.form_fee_is_percent ? 'percentage' : 'fixed' });
         }
         if (ent.admin_charge !== undefined && ent.admin_charge !== null && ent.admin_charge !== '') {
-            out.push({ id: generateId(), name: 'Admin Charge', value: Math.abs(parseFloat(ent.admin_charge) || 0), type: ent.admin_charge_is_percent ? 'percentage' : 'fixed' });
+            out.push({ id: generateId(String(cooperativeId)), name: 'Admin Charge', value: Math.abs(parseFloat(ent.admin_charge) || 0), type: ent.admin_charge_is_percent ? 'percentage' : 'fixed' });
         }
         return out;
     };
@@ -393,6 +393,7 @@ export function showBulkRemittanceModal(deps) {
         pickable.forEach(m => {
             if (!term || String(m.registration_no || '').toLowerCase().includes(term)
                 || String(m.name || '').toLowerCase().includes(term)
+                || String(m.special_id || '').toLowerCase().includes(term)
                 || String(m.mobile || '').includes(term)) checkedIds.add(String(m.id));
         });
         paintMembers();
@@ -404,7 +405,7 @@ export function showBulkRemittanceModal(deps) {
         refreshCounts();
     });
     overlay.querySelector('#bulk-charge-add').addEventListener('click', () => {
-        charges.push({ id: generateId(), name: 'Charge', value: 0, type: 'fixed' });
+        charges.push({ id: generateId(String(user.cooperativeId)), name: 'Charge', value: 0, type: 'fixed' });
         renderCharges();
     });
     overlay.querySelector('#bulk-charges-list').addEventListener('input', (e) => {
@@ -633,7 +634,7 @@ export function showBulkRemittanceModal(deps) {
                 if (isLoan) dueD.setMonth(dueD.getMonth() + duration);
 
                 if (isLoan) {
-                    const loanId = generateId();
+                    const loanId = generateId(String(coopId));
                     const loanInfo = {
                         loanData: {
                             principalAmount: curAmt,
@@ -663,7 +664,7 @@ export function showBulkRemittanceModal(deps) {
                             description: 'Loan Charge: ' + (c.name || 'Charge'),
                             autogen: 1,
                             loan_id: loanId,
-                            details: [{ id: generateId(), enterprise_id: ent.id, amount: neg, notes: c.name }]
+                            details: [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: neg, notes: c.name }]
                         });
                     });
 
@@ -681,7 +682,7 @@ export function showBulkRemittanceModal(deps) {
                         user_roles: [user.role || 'member'],
                         loan_status: status === 'Approved' ? 'Active' : 'Pending',
                         details: [{
-                            id: generateId(),
+id: generateId(String(coopId)),
                             enterprise_id: ent.id,
                             amount: -Math.abs(curAmt),
                             loan_info: loanInfo
@@ -782,7 +783,7 @@ export function showBulkRemittanceModal(deps) {
                         user_role: user.role || 'member',
                         user_roles: [user.role || 'member'],
                         loan_status: status === 'Approved' ? 'Active' : 'Pending',
-                        details: [{ id: generateId(), enterprise_id: ent.id, amount: neg, notes: `To ${pairToName}` }]
+                        details: [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: neg, notes: `To ${pairToName}` }]
                     }, createdBy);
                     if (isToAdmin) {
                         // Admin collection: House credit is header-only under
@@ -819,7 +820,7 @@ export function showBulkRemittanceModal(deps) {
                             status,
                             user_role: user.role || 'member',
                             user_roles: [user.role || 'member'],
-                            details: [{ id: generateId(), enterprise_id: creditEnt.id, amount: pos, notes: `From ${fromName}` }]
+                            details: [{ id: generateId(String(coopId)), enterprise_id: creditEnt.id, amount: pos, notes: `From ${fromName}` }]
                         }, createdBy);
                     }
                 } else if (!isDuePenalty) {
@@ -837,7 +838,7 @@ export function showBulkRemittanceModal(deps) {
                         user_role: user.role || 'member',
                         user_roles: [user.role || 'member'],
                         loan_status: status === 'Approved' ? 'Active' : 'Pending',
-                        details: [{ id: generateId(), enterprise_id: ent.id, amount: Math.abs(curAmt) }]
+                        details: [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: Math.abs(curAmt) }]
                     }, createdBy);
 
                     // Dues/penalty children (ask-once decision, per-member parents).
@@ -874,7 +875,7 @@ export function showBulkRemittanceModal(deps) {
                                         status,
                                 user_role: user.role || 'member',
                                 user_roles: [user.role || 'member'],
-                                details: [{ id: generateId(), enterprise_id: item.enterprise_id, amount: neg, notes: item.name }]
+                                details: [{ id: generateId(String(coopId)), enterprise_id: item.enterprise_id, amount: neg, notes: item.name }]
                             }, createdBy);
                         }
                          await createDuesIncomePickup({
@@ -943,7 +944,7 @@ export function showBulkRemittanceModal(deps) {
                         user_role: user.role || 'member',
                         user_roles: [user.role || 'member'],
                         loan_status: status === 'Approved' ? 'Active' : 'Pending',
-                        details: [{ id: generateId(), enterprise_id: ent.id, amount: chargeVal, notes: ent.account_name || ent.id }]
+                        details: [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: chargeVal, notes: ent.account_name || ent.id }]
                     }, createdBy);
                     const _elseValidItems = (duesDecision?.items || []).filter(it => parseFloat(it.amount || 0) > 0);
                     await createDuesIncomePickup({

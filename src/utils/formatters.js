@@ -142,13 +142,13 @@ export function escapeAttribute(value) {
 }
 
 export function generateId(cooperativeId) {
-    const prefix = cooperativeId ? cooperativeId.slice(0, 5) : '';
+    const prefix = cooperativeId ? cooperativeId : '';
     const uuid = crypto.randomUUID();
     return prefix ? `${prefix}-${uuid}` : uuid;
 }
 
 export function generateRemittanceId(cooperativeId, isAutogen = false) {
-    const prefix = cooperativeId.slice(0, 5);
+    const prefix = cooperativeId;
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const datetime = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;

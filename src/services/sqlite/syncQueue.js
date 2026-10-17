@@ -116,7 +116,8 @@ export async function healChildQueueItem(item) {
 const RECONCILE_COLLECTIONS = [
     'remittance', 'remittance_detail', 'loans', 'loan_guarantors', 'members',
     'payment_advise', 'enterprise', 'bank', 'users', 'transaction_types',
-    'bank_reconciliation_summary', 'cooperatives', 'notifications', 'feedback'
+    'bank_reconciliation_summary', 'cooperatives', 'notifications', 'feedback',
+    'membership_request'
 ];
 export async function reconcileUnsyncedQueue(cooperativeId) {
     const coopStr = cooperativeId != null ? String(cooperativeId) : null;
@@ -421,7 +422,7 @@ export async function clearAllSyncQueueItems() {
         'cooperatives', 'users', 'members', 'loans', 'loan_guarantors',
         'remittance', 'remittance_detail', 'bank', 'enterprise',
         'transaction_types', 'payment_advise', 'notifications',
-        'bank_reconciliation_summary', 'feedback'
+        'bank_reconciliation_summary', 'feedback', 'membership_request'
     ]
     for (const table of ENTITY_TABLES) {
         try {

@@ -186,7 +186,7 @@ export async function exportToPDF(cooperativeName, title, headers, data, orienta
                     acc[idx] = { cellWidth: 'auto', overflow: 'visible' };
                     return acc;
                 }
-                const noWrapHeaders = ["ID", "Date", "Amount", "Total", "Principal", "Bal B/F", "Status", "Reg No", "Mobile", "Sex"];
+                const noWrapHeaders = ["ID", "Date", "Amount", "Total", "Principal", "Bal B/F", "Status", "Reg No", "Member ID", "Mobile", "Sex"];
                 if (noWrapHeaders.includes(header)) {
                     acc[idx] = { cellWidth: 'wrap' };
                 } else if (header === 'Member Name' || header === 'Full Name') {

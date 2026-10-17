@@ -90,7 +90,7 @@ const FAQS = [
   },
   {
     q: 'How do we get started?',
-    a: 'Tap "Register New Cooperative" below, fill in your cooperative details, and sign in with the admin account created for you.',
+    a: 'Tap "Register" below, fill in your cooperative details, and sign in with the admin account created for you.',
   },
 ];
 
@@ -246,7 +246,7 @@ export function renderLanding(container, callbacks = {}) {
         <p class="lp-sub">cooplogNg (Cooperative Log App) puts your cooperative's savings, loans, remittances and reports in one fast app that works with or without internet — built for the way real cooperatives operate every day.</p>
         <div class="lp-cta">
           <button class="lp-btn lp-btn-primary" data-lp="login">Sign in →</button>
-          <button class="lp-btn lp-btn-ghost" data-lp="register">Register New Cooperative</button>
+          <button class="lp-btn lp-btn-ghost" data-lp="register">Register</button>
         </div>
         <div class="lp-stats">
           ${DEMO_STATS.map(s => `<div class="lp-stat reveal"><b><span data-count="${s.value}">0</span>${s.suffix}</b><span>${s.label}</span></div>`).join('')}
@@ -259,7 +259,7 @@ export function renderLanding(container, callbacks = {}) {
           <div class="lp-fake-input">Username, Mobile, or Special ID</div>
           <div class="lp-fake-btn lp-fake-primary">Next</div>
           <div class="lp-fake-btn lp-fake-white">Sign In with Google</div>
-          <div style="font-size:0.72rem;color:var(--lp-accent);font-weight:700;margin-top:0.6rem;">Register New Cooperative</div>
+          <div style="font-size:0.72rem;color:var(--lp-accent);font-weight:700;margin-top:0.6rem;">Register</div>
         </div>
       </div>
     </header>
@@ -378,7 +378,7 @@ export function renderLanding(container, callbacks = {}) {
       <h2>Ready to run your cooperative<br/>the smart way?</h2>
       <p>Join cooperatives already keeping clean, trustworthy books with cooplogNg.</p>
       <div class="lp-cta" style="justify-content:center;">
-        <button class="lp-btn lp-btn-primary" data-lp="register">Register New Cooperative</button>
+        <button class="lp-btn lp-btn-primary" data-lp="register">Register</button>
         <button class="lp-btn lp-btn-ghost" data-lp="login">Sign in</button>
       </div>
     </section>

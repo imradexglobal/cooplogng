@@ -15,16 +15,28 @@ export async function showWithdrawalWizard() {
   const existingModal = document.getElementById('withdrawal-wizard-modal');
   if (existingModal) existingModal.remove();
 
-  // Check if user is admin
-  const isAdmin = state.welcomeUser.role === 'admin' || 
-    (state.welcomeUser.permissions || []).includes('admin');
+  // This module keeps its own copy of app state which can be stale when the
+  // shell logs in without a page reload — refresh it from the stored session.
+  if (!state.welcomeUser) {
+    const { loadSavedSession } = await import('../services/offlineAuthService.js');
+    state.welcomeUser = loadSavedSession();
+  }
+  if (!state.welcomeUser) {
+    showToast('Your session has expired. Please log in again.', 'error');
+    return;
+  }
+
+  // Any non-member (staff/admin) can use this wizard and pick the member they
+  // are requesting for on their behalf. Members only ever request for
+  // themselves. This is deliberately not tied to dashboard access.
+  const canSelectMember = state.welcomeUser.role !== 'member';
 
   // Get required data first
   const enterprises = await fetchEnterprises(state.welcomeUser.cooperativeId, true);
   const allMembers = await fetchAllMembers(state.welcomeUser.cooperativeId, state.welcomeUser.username, true);
   
-  // Determine initial member ID
-  let memberId = isAdmin ? null : (state.welcomeUser.memberId || allMembers[0]?.id);
+  // Determine initial member ID — non-members must select one explicitly
+  let memberId = canSelectMember ? null : (state.welcomeUser.memberId || null);
   
   // Function to get member balances as a map (entId -> balance)
   const getMemberBalances = async (mId) => {
@@ -40,13 +52,14 @@ export async function showWithdrawalWizard() {
   let memberBalances = memberId ? await getMemberBalances(memberId) : {};
 
   // Modal state
-    let wizardStep = isAdmin ? 1 : 1; // 1: select member (admin only) or select type (member), 2: select type (admin), 3: select enterprise, 4: enter amount, 5: review
+    let wizardStep = canSelectMember ? 1 : 1; // 1: select member (staff/admin) or select type (member), 2: select type (non-member), 3: select enterprise, 4: enter amount, 5: review
     let selectedMemberId = memberId;
     let selectedEnterprise = null;
     let withdrawalAmount = 0;
     let loanDuration = 1;
     let guarantors = [];
-    let totalSteps = isAdmin ? 5 : 4;
+    let termsAccepted = false;
+    let totalSteps = canSelectMember ? 5 : 4;
 
   const filterEnterprise = (e) => {
     // Filter out if isCompulsoryDue or isPenalty is true
@@ -84,21 +97,41 @@ export async function showWithdrawalWizard() {
     return parseFloat(memberBalances[entId] || 0);
   };
 
+  const buildLoanCharges = (ent, principal) => {
+    const charges = [];
+    const add = (name, raw, isPercent) => {
+      if (raw === undefined || raw === null || raw === '') return;
+      const base = Math.abs(parseFloat(raw) || 0);
+      if (!base) return;
+      const value = isPercent ? (base / 100) * principal : base;
+      if (value <= 0) return;
+      charges.push({ name, value, rate: isPercent ? `${base}% of amount` : null });
+    };
+    add('Interest', ent?.interest_rate, !!ent?.interest_is_percent);
+    add('Form Fee', ent?.form_fee, !!ent?.form_fee_is_percent);
+    add('Admin Charge', ent?.admin_charge, !!ent?.admin_charge_is_percent);
+    return charges;
+  };
+
+  const getConfirmStepNo = () => selectedEnterprise?.type === 'loan'
+    ? (canSelectMember ? 7 : 6)
+    : (canSelectMember ? 5 : 4);
+
   const renderModal = () => {
     const modalContainer = document.getElementById('withdrawal-wizard-modal');
     if (!modalContainer) return;
     
     let stepContent = '';
     totalSteps = selectedEnterprise?.type === 'loan' 
-      ? (isAdmin ? 7 : 6) 
-      : (isAdmin ? 5 : 4);
+      ? (canSelectMember ? 7 : 6) 
+      : (canSelectMember ? 5 : 4);
     
     const wizardTitle = selectedEnterprise?.type === 'loan' 
       ? 'Loan Request' 
       : (selectedEnterprise?.type === 'savings' ? 'Savings Withdrawal Request' : 'Withdrawal Request');
     
-    if (isAdmin && wizardStep === 1) {
-      // Step 1: Select Member (Admin only) - searchable dropdown
+    if (canSelectMember && wizardStep === 1) {
+      // Step 1: Select Member (non-members only) - searchable dropdown
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Select Member</h4>
@@ -107,16 +140,55 @@ export async function showWithdrawalWizard() {
             <input type="text" id="wizard-member-search" placeholder="Search member by name or ID..." value="${escapeHtml(selectedMemberId ? (allMembers.find(m => m.id === selectedMemberId)?.name || '') : '')}" style="width: 100%; height: 2.75rem; padding: 0 0.75rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-sm);" autocomplete="off">
             <div id="wizard-member-suggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 999999; max-height: 250px; overflow-y: auto; margin-top: 0.25rem;"></div>
           </div>
-          ${selectedMemberId ? `
-            <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem; border: 1px solid var(--border-light);">
-              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Selected Member</span>
-              <div style="font-weight: 700; color: var(--accent-primary); font-size: 1.1rem; margin-top: 0.25rem;">${escapeHtml(allMembers.find(m => m.id === selectedMemberId)?.name || 'Unknown')}</div>
-            </div>
-          ` : ''}
+          ${selectedMemberId ? (() => {
+            const mem = allMembers.find(m => String(m.id) === String(selectedMemberId));
+            if (!mem) return '';
+            const networthVal = Object.values(memberBalances || {}).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+            const networthColor = networthVal < 0 ? 'var(--danger)' : 'var(--success)';
+            const initial = (mem.name || 'U').charAt(0).toUpperCase();
+            return `
+              <div style="margin-top: 1rem; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 0.75rem; padding: 0.85rem; box-shadow: var(--shadow-sm);">
+                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Selected Member</span>
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem;">
+                  <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--accent-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; flex-shrink: 0; letter-spacing: 0.02em;">
+                    ${escapeHtml(initial)}
+                  </div>
+                  <div style="min-width: 0; flex: 1;">
+                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); line-height: 1.3;">${escapeHtml(mem.name || 'Unknown')}</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">Member ID: ${escapeHtml(mem.id || '—')}</div>
+                  </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.45rem 0.6rem; margin-top: 0.65rem; font-size: 0.78rem;">
+                  ${mem.special_id ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                      <span style="font-weight: 700; color: var(--accent-primary); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Special ID</span>
+                      <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.special_id)}</span>
+                    </div>
+                  ` : ''}
+                  ${(mem.registration_no || mem.file_no) ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                      <span style="font-weight: 700; color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Reg No</span>
+                      <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.registration_no || mem.file_no)}</span>
+                    </div>
+                  ` : ''}
+                  ${mem.mobile ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                      <span style="font-weight: 700; color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Mobile</span>
+                      <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.mobile)}</span>
+                    </div>
+                  ` : ''}
+                  <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                    <span style="font-weight: 700; color: ${networthColor}; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Networth</span>
+                    <span style="font-weight: 700; color: ${networthColor};">${formatCurrency(networthVal)}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          })() : ''}
         </div>
       `;
-    } else if ((isAdmin && wizardStep === 2) || (!isAdmin && wizardStep === 1)) {
-      // Step 2 (Admin) / Step 1 (Member): Select Enterprise Type
+    } else if ((canSelectMember && wizardStep === 2) || (!canSelectMember && wizardStep === 1)) {
+      // Step 2 (non-member) / Step 1 (Member): Select Enterprise Type
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Select Request Type</h4>
@@ -132,8 +204,8 @@ export async function showWithdrawalWizard() {
           </div>
         </div>
       `;
-    } else if ((isAdmin && wizardStep === 3) || (!isAdmin && wizardStep === 2)) {
-      // Step 3 (Admin) / Step 2 (Member): Select Enterprise
+    } else if ((canSelectMember && wizardStep === 3) || (!canSelectMember && wizardStep === 2)) {
+      // Step 3 (non-member) / Step 2 (Member): Select Enterprise
       const ents = selectedEnterprise.type === 'savings' ? getSavingsEnterprises() : getLoanEnterprises();
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
@@ -154,8 +226,8 @@ export async function showWithdrawalWizard() {
           </div>
         </div>
       `;
-    } else if ((isAdmin && wizardStep === 4) || (!isAdmin && wizardStep === 3)) {
-      // Step 4 (Admin) / Step 3 (Member): Enter Withdrawal Amount
+    } else if ((canSelectMember && wizardStep === 4) || (!canSelectMember && wizardStep === 3)) {
+      // Step 4 (non-member) / Step 3 (Member): Enter Withdrawal Amount
       const ent = enterprises.find(e => e.id === selectedEnterprise.id);
       const maxWithdrawal = selectedEnterprise.type === 'savings' 
         ? Math.max(0, getEnterpriseBalance(ent.id)) 
@@ -182,8 +254,8 @@ export async function showWithdrawalWizard() {
           </div>
         </div>
       `;
-    } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 5) || (!isAdmin && wizardStep === 4))) {
-      // Loan only: Step 5 (Admin) / Step 4 (Member): Enter Duration
+    } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 5) || (!canSelectMember && wizardStep === 4))) {
+      // Loan only: Step 5 (non-member) / Step 4 (Member): Enter Duration
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Enter Duration</h4>
@@ -193,8 +265,8 @@ export async function showWithdrawalWizard() {
           </div>
         </div>
       `;
-    } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 6) || (!isAdmin && wizardStep === 5))) {
-      // Loan only: Step 6 (Admin) / Step 5 (Member): Select Guarantors
+    } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 6) || (!canSelectMember && wizardStep === 5))) {
+      // Loan only: Step 6 (non-member) / Step 5 (Member): Select Guarantors
       stepContent = `
         <div style="padding: 1rem 0; min-height: 400px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -226,15 +298,27 @@ export async function showWithdrawalWizard() {
           </div>
         </div>
       `;
-    } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 7) || (!isAdmin && wizardStep === 6))) {
-      // Loan only: Step 7 (Admin) / Step 6 (Member): Review and Confirm
+    } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 7) || (!canSelectMember && wizardStep === 6))) {
+      // Loan only: Step 7 (non-member) / Step 6 (Member): Review and Confirm
       const ent = enterprises.find(e => e.id === selectedEnterprise.id);
       const selectedMember = allMembers.find(m => m.id === selectedMemberId);
+      const principal = Math.abs(parseFloat(withdrawalAmount) || 0);
+      const months = Math.max(1, parseInt(loanDuration) || 1);
+      const monthlyRepayment = parseFloat((principal / months).toFixed(2));
+      const loanCharges = buildLoanCharges(ent, principal);
+      const totalCharges = loanCharges.reduce((sum, c) => sum + c.value, 0);
+      const totalRepayment = principal + totalCharges;
+      const maturityDate = (() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() + months);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      })();
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Confirm Loan Request</h4>
+          <p style="margin: 0; color: var(--text-muted); font-size: 0.85rem;">Please review the loan details below carefully before submitting.</p>
           <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem; border: 1px solid var(--border-light);">
-            ${isAdmin ? `
+            ${canSelectMember ? `
               <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                 <span style="color: var(--text-muted);">Member</span>
                 <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(selectedMember?.name || 'Unknown Member')}</span>
@@ -245,13 +329,53 @@ export async function showWithdrawalWizard() {
               <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(ent?.account_name)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-              <span style="color: var(--text-muted);">Amount</span>
+              <span style="color: var(--text-muted);">Loan Amount</span>
               <span style="font-weight: 700; font-size: 1.25rem; color: var(--danger);">${formatCurrency(-withdrawalAmount)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
               <span style="color: var(--text-muted);">Duration</span>
-              <span style="font-weight: 700; color: var(--text-primary);">${loanDuration} Months</span>
+              <span style="font-weight: 700; color: var(--text-primary);">${months} Month${months > 1 ? 's' : ''}</span>
             </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: var(--text-muted);">Instalments</span>
+              <span style="font-weight: 700; color: var(--text-primary);">${months} Monthly Payment${months > 1 ? 's' : ''}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Expected Completion</span>
+              <span style="font-weight: 700; color: var(--text-primary);">${maturityDate}</span>
+            </div>
+
+            <div style="margin-top: 0.85rem; padding: 0.9rem; background: var(--bg-card); border: 1px solid var(--accent-primary); border-radius: 0.6rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 700;">Monthly Repayment</span>
+                <span style="font-weight: 800; font-size: 1.35rem; color: var(--accent-primary);">${formatCurrency(monthlyRepayment)}</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem;">
+                ${formatCurrency(monthlyRepayment)} payable every month for ${months} month${months > 1 ? 's' : ''}, totalling ${formatCurrency(monthlyRepayment * months)} in principal repayments.
+              </div>
+            </div>
+
+            ${loanCharges.length > 0 ? `
+              <div style="border-top: 1px solid var(--border-medium); padding-top: 0.6rem; margin-top: 0.85rem;">
+                <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Applicable Charges</span>
+                ${loanCharges.map(c => `
+                  <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.5rem;">
+                    <span style="color: var(--text-primary);">${escapeHtml(c.name)}${c.rate ? ` <span style="color: var(--text-muted);">(${c.rate})</span>` : ''}</span>
+                    <span style="font-weight: 600; color: var(--danger);">${formatCurrency(c.value)}</span>
+                  </div>
+                `).join('')}
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.5rem; font-weight: 700;">
+                  <span style="color: var(--text-muted);">Total Charges</span>
+                  <span style="color: var(--danger);">${formatCurrency(totalCharges)}</span>
+                </div>
+              </div>
+            ` : ''}
+
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-medium); padding-top: 0.6rem; margin-top: 0.6rem;">
+              <span style="color: var(--text-muted); font-weight: 700;">Total Repayment</span>
+              <span style="font-weight: 800; color: var(--text-primary);">${formatCurrency(totalRepayment)}</span>
+            </div>
+
             ${guarantors.length > 0 ? `
               <div style="display: flex; flex-direction: column; gap: 0.5rem; border-top: 1px solid var(--border-medium); padding-top: 0.5rem; margin-top: 0.5rem;">
                 <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Guarantors:</span>
@@ -264,17 +388,29 @@ export async function showWithdrawalWizard() {
               </div>
             ` : ''}
           </div>
+
+          <div style="padding: 1rem; background: var(--bg-secondary); border-left: 4px solid var(--accent-primary); border-radius: 0.5rem;">
+            <div style="font-weight: 700; color: var(--text-primary); font-size: 0.9rem; margin-bottom: 0.4rem;">Important Notice</div>
+            <p style="margin: 0; color: var(--text-muted); font-size: 0.85rem; line-height: 1.5;">
+              By submitting this request, ${canSelectMember ? `the member (${escapeHtml(selectedMember?.name || 'the member')})` : 'you'} confirm that the details above are correct and agree to the terms guiding this loan or withdrawal request. This includes the obligation to repay the loan in monthly instalments of <strong style="color: var(--text-primary);">${formatCurrency(monthlyRepayment)}</strong>, the applicable charges, and all other cooperative loan/recovery policies. The request remains subject to approval by the cooperative.
+            </p>
+          </div>
+
+          <label for="wizard-terms-check" style="display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.85rem; background: var(--bg-card); border: 1px solid ${termsAccepted ? 'var(--accent-primary)' : 'var(--border-medium)'}; border-radius: 0.6rem; cursor: pointer;">
+            <input type="checkbox" id="wizard-terms-check" ${termsAccepted ? 'checked' : ''} style="margin-top: 0.2rem; width: 1.1rem; height: 1.1rem; accent-color: var(--accent-primary); flex-shrink: 0; cursor: pointer;">
+            <span style="font-size: 0.85rem; color: var(--text-primary); line-height: 1.45;">I have read and understood the details above, and I agree to the terms guiding this loan or withdrawal request.</span>
+          </label>
         </div>
       `;
-    } else if ((isAdmin && wizardStep === 5) || (!isAdmin && wizardStep === 4)) {
-      // Savings only: Step 5 (Admin) / Step 4 (Member): Review and Confirm
+    } else if ((canSelectMember && wizardStep === 5) || (!canSelectMember && wizardStep === 4)) {
+      // Savings only: Step 5 (non-member) / Step 4 (Member): Review and Confirm
       const ent = enterprises.find(e => e.id === selectedEnterprise.id);
       const selectedMember = allMembers.find(m => m.id === selectedMemberId);
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Confirm Savings Withdrawal</h4>
           <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem; border: 1px solid var(--border-light);">
-            ${isAdmin ? `
+            ${canSelectMember ? `
               <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                 <span style="color: var(--text-muted);">Member</span>
                 <span style="font-weight: 700; color: var(--text-primary);">${escapeHtml(selectedMember?.name || 'Unknown Member')}</span>
@@ -289,6 +425,18 @@ export async function showWithdrawalWizard() {
               <span style="font-weight: 700; font-size: 1.25rem; color: var(--danger);">${formatCurrency(-withdrawalAmount)}</span>
             </div>
           </div>
+
+          <div style="padding: 1rem; background: var(--bg-secondary); border-left: 4px solid var(--accent-primary); border-radius: 0.5rem;">
+            <div style="font-weight: 700; color: var(--text-primary); font-size: 0.9rem; margin-bottom: 0.4rem;">Important Notice</div>
+            <p style="margin: 0; color: var(--text-muted); font-size: 0.85rem; line-height: 1.5;">
+              By submitting this request, ${canSelectMember ? `the member (${escapeHtml(selectedMember?.name || 'the member')})` : 'you'} confirm that the details above are correct and agree to the terms guiding this loan or withdrawal request, including the cooperative's savings withdrawal and account policies. The request remains subject to approval by the cooperative.
+            </p>
+          </div>
+
+          <label for="wizard-terms-check" style="display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.85rem; background: var(--bg-card); border: 1px solid ${termsAccepted ? 'var(--accent-primary)' : 'var(--border-medium)'}; border-radius: 0.6rem; cursor: pointer;">
+            <input type="checkbox" id="wizard-terms-check" ${termsAccepted ? 'checked' : ''} style="margin-top: 0.2rem; width: 1.1rem; height: 1.1rem; accent-color: var(--accent-primary); flex-shrink: 0; cursor: pointer;">
+            <span style="font-size: 0.85rem; color: var(--text-primary); line-height: 1.45;">I have read and understood the details above, and I agree to the terms guiding this loan or withdrawal request.</span>
+          </label>
         </div>
       `;
     }
@@ -310,7 +458,7 @@ export async function showWithdrawalWizard() {
           ${stepContent}
         </div>
         <div class="modal-footer" style="display: flex; justify-content: space-between; gap: 0.75rem; padding: 1rem; border-top: 1px solid var(--border-light); flex-shrink: 0;">
-          ${wizardStep > (isAdmin ? 1 : 1) ? `
+          ${wizardStep > (canSelectMember ? 1 : 1) ? `
             <button type="button" class="secondary-button" id="wizard-back-btn" style="background: transparent; border: 1px solid var(--border-medium); color: var(--text-primary); padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer;">Back</button>
           ` : '<div></div>'}
           <button type="button" class="primary-button" id="wizard-next-btn" style="background: var(--accent-primary); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer; ${!isNextEnabled ? 'opacity: 0.5; pointer-events: none;' : ''}">
@@ -328,14 +476,19 @@ export async function showWithdrawalWizard() {
     const maxWithdrawal = selectedEnterprise?.type === 'savings' && ent 
       ? Math.max(0, getEnterpriseBalance(ent.id)) 
       : 999999999;
-    const isValidAmount = (selectedEnterprise?.type === 'loan' ? ((isAdmin && wizardStep === 4) || (!isAdmin && wizardStep === 3)) : ((isAdmin && wizardStep === 4) || (!isAdmin && wizardStep === 3)))
+    const isValidAmount = (selectedEnterprise?.type === 'loan' ? ((canSelectMember && wizardStep === 4) || (!canSelectMember && wizardStep === 3)) : ((canSelectMember && wizardStep === 4) || (!canSelectMember && wizardStep === 3)))
       ? withdrawalAmount > 0 && (selectedEnterprise.type !== 'savings' || withdrawalAmount <= maxWithdrawal)
       : true;
-    const isValidMember = !isAdmin || selectedMemberId;
-    const isValidDuration = selectedEnterprise?.type === 'loan' && ((isAdmin && wizardStep === 5) || (!isAdmin && wizardStep === 4))
+    const isValidMember = !canSelectMember || selectedMemberId;
+    const isValidDuration = selectedEnterprise?.type === 'loan' && ((canSelectMember && wizardStep === 5) || (!canSelectMember && wizardStep === 4))
       ? loanDuration >= 1
       : true;
-    return isValidAmount && isValidMember && isValidDuration;
+    const isValidTerms = wizardStep !== getConfirmStepNo() || termsAccepted;
+    const isTypeStep = (canSelectMember && wizardStep === 2) || (!canSelectMember && wizardStep === 1);
+    const isValidType = !isTypeStep || !!selectedEnterprise;
+    const isEnterpriseStep = (canSelectMember && wizardStep === 3) || (!canSelectMember && wizardStep === 2);
+    const isValidEnterprise = !isEnterpriseStep || !!selectedEnterprise?.id;
+    return isValidAmount && isValidMember && isValidDuration && isValidTerms && isValidType && isValidEnterprise;
   };
   
   const updateNextButton = () => {
@@ -359,7 +512,16 @@ export async function showWithdrawalWizard() {
       renderModal();
     });
 
-    if (isAdmin && wizardStep === 1) {
+    // Terms agreement checkbox (final confirm step)
+    const termsCheck = document.getElementById('wizard-terms-check');
+    termsCheck?.addEventListener('change', (e) => {
+      termsAccepted = !!e.target.checked;
+      const label = termsCheck.closest('label');
+      if (label) label.style.borderColor = termsAccepted ? 'var(--accent-primary)' : 'var(--border-medium)';
+      updateNextButton();
+    });
+
+    if (canSelectMember && wizardStep === 1) {
       // Setup searchable member dropdown
       const memberSearchInput = document.getElementById('wizard-member-search');
       const memberSuggestions = document.getElementById('wizard-member-suggestions');
@@ -374,14 +536,18 @@ export async function showWithdrawalWizard() {
           const matches = allMembers.filter(m => {
             const nameMatch = (m.name || '').toLowerCase().includes(text);
             const regMatch = String(m.registration_no || m.file_no || '').toLowerCase().includes(text);
-            return nameMatch || regMatch;
+            const specialIdMatch = String(m.special_id || '').toLowerCase().includes(text);
+            const mobileMatch = String(m.mobile || '').toLowerCase().includes(text);
+            return nameMatch || regMatch || specialIdMatch || mobileMatch;
           }).slice(0, 10);
 
           if (matches.length > 0) {
             memberSuggestions.innerHTML = matches.map(m => `
               <div class="wizard-member-suggestion" data-id="${m.id}" data-name="${escapeHtml(m.name)}" style="padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border-light);">
                 <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">${escapeHtml(m.name)}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">File/Reg: ${m.file_no || m.registration_no || 'N/A'}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                  ${m.special_id ? `ID: ${escapeHtml(m.special_id)}` : ''} ${m.special_id && (m.registration_no || m.file_no) ? ' • ' : ''} ${m.registration_no || m.file_no ? `Reg: ${m.registration_no || m.file_no}` : ''} ${(m.special_id || m.registration_no || m.file_no) && m.mobile ? ' • ' : ''} ${m.mobile ? `Mobile: ${m.mobile}` : ''}
+                </div>
               </div>
             `).join('');
             memberSuggestions.style.display = 'block';
@@ -395,6 +561,11 @@ export async function showWithdrawalWizard() {
                         ? await getMemberBalances(selectedMemberId) 
                         : {};
                     renderModal();
+                    const searchAgain = document.getElementById('wizard-member-search');
+                    if (searchAgain) {
+                      searchAgain.focus();
+                      searchAgain.select();
+                    }
                 });
             });
           } else {
@@ -407,7 +578,7 @@ export async function showWithdrawalWizard() {
           setTimeout(() => { memberSuggestions.style.display = 'none' }, 200);
         });
       }
-    } else if ((isAdmin && wizardStep === 2) || (!isAdmin && wizardStep === 1)) {
+    } else if ((canSelectMember && wizardStep === 2) || (!canSelectMember && wizardStep === 1)) {
       // Select type
       document.querySelectorAll('.wizard-type-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -415,39 +586,35 @@ export async function showWithdrawalWizard() {
           // Reset loan-specific state
           loanDuration = 1;
           guarantors = [];
-          // Get first available enterprise of this type
-          const ents = selectedEnterprise.type === 'savings' ? getSavingsEnterprises() : getLoanEnterprises();
-          if (ents.length > 0) {
-            selectedEnterprise.id = ents[0].id;
-          }
-          wizardStep = isAdmin ? 3 : 2;
+          termsAccepted = false;
+          wizardStep = canSelectMember ? 3 : 2;
           renderModal();
         });
       });
-    } else if ((isAdmin && wizardStep === 3) || (!isAdmin && wizardStep === 2)) {
+    } else if ((canSelectMember && wizardStep === 3) || (!canSelectMember && wizardStep === 2)) {
       // Select enterprise
       document.querySelectorAll('.wizard-enterprise-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           selectedEnterprise.id = btn.dataset.entid;
-          wizardStep = isAdmin ? 4 : 3;
+          wizardStep = canSelectMember ? 4 : 3;
           renderModal();
         });
       });
-    } else if ((isAdmin && wizardStep === 4) || (!isAdmin && wizardStep === 3)) {
+    } else if ((canSelectMember && wizardStep === 4) || (!canSelectMember && wizardStep === 3)) {
       // Capture amount input - update state and button without full re-render
       const amtInput = document.getElementById('wizard-withdrawal-amount');
       amtInput?.addEventListener('input', (e) => {
         withdrawalAmount = parseFloat(e.target.value || 0);
         updateNextButton();
       });
-    } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 5) || (!isAdmin && wizardStep === 4))) {
+    } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 5) || (!canSelectMember && wizardStep === 4))) {
       // Loan duration input
       const durationInput = document.getElementById('wizard-loan-duration');
       durationInput?.addEventListener('input', (e) => {
         loanDuration = parseInt(e.target.value || 1);
         updateNextButton();
       });
-    } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 6) || (!isAdmin && wizardStep === 5))) {
+    } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 6) || (!canSelectMember && wizardStep === 5))) {
       // Guarantor management
       const addGuarantorBtn = document.getElementById('wizard-add-guarantor-btn');
       const guarantorsList = document.getElementById('wizard-guarantors-list');
@@ -562,11 +729,11 @@ export async function showWithdrawalWizard() {
     // Next button
     document.getElementById('wizard-next-btn')?.addEventListener('click', async () => {
       totalSteps = selectedEnterprise?.type === 'loan' 
-        ? (isAdmin ? 7 : 6) 
-        : (isAdmin ? 5 : 4);
+        ? (canSelectMember ? 7 : 6) 
+        : (canSelectMember ? 5 : 4);
       if (wizardStep < totalSteps) {
         // Validation
-        if ((isAdmin && wizardStep === 4) || (!isAdmin && wizardStep === 3)) {
+        if ((canSelectMember && wizardStep === 4) || (!canSelectMember && wizardStep === 3)) {
           // Amount step
           if (!withdrawalAmount || withdrawalAmount <= 0) {
             showToast('Please enter a valid amount', 'warning');
@@ -580,7 +747,7 @@ export async function showWithdrawalWizard() {
               return;
             }
           }
-        } else if (isAdmin && wizardStep === 1) {
+        } else if (canSelectMember && wizardStep === 1) {
           // Member selection step
           if (!selectedMemberId) {
             showToast('Please select a member', 'warning');
@@ -591,10 +758,19 @@ export async function showWithdrawalWizard() {
         renderModal();
       } else {
         // Submit directly to database
+        if (!termsAccepted) {
+          showToast('Please accept the terms guiding this request before submitting', 'warning');
+          return;
+        }
         try {
           const ent = enterprises.find(e => e.id === selectedEnterprise.id);
           const selectedMember = allMembers.find(m => m.id === selectedMemberId);
           const transactionType = selectedEnterprise.type === 'loan' ? 'Member Loan' : 'Savings Withdrawal';
+          const requestBase = selectedEnterprise.type === 'loan' ? 'Loan Request' : 'Savings Withdrawal Request';
+          const requesterRef = selectedMember ? (selectedMember.file_no || selectedMember.registration_no) : '';
+          const description = (canSelectMember && selectedMember?.name)
+            ? `${requestBase} — Requested for ${selectedMember.name}${requesterRef ? ` (${requesterRef})` : ''}`
+            : requestBase;
           const amount = -Math.abs(withdrawalAmount);
           const details = [
             {
@@ -627,7 +803,7 @@ export async function showWithdrawalWizard() {
             member_id: selectedMemberId,
             amount: amount,
             bank_name: '',
-            description: selectedEnterprise.type === 'loan' ? 'Loan Request' : 'Savings Withdrawal Request',
+            description: description,
             transaction_type: transactionType,
             remittance_date: new Date().toISOString().split('T')[0],
             details: details,
@@ -649,7 +825,9 @@ export async function showWithdrawalWizard() {
 
           document.getElementById('withdrawal-wizard-modal').remove();
           
-          render();
+          // Refresh the current screen — this module has no direct access to
+          // the app renderer, so signal it instead of calling render().
+          window.dispatchEvent(new CustomEvent('remittance-saved'));
           showToast('Request submitted successfully!', 'success');
         } catch (err) {
           showToast('Error submitting request: ' + err.message, 'error');
@@ -672,6 +850,26 @@ export async function showWithdrawalWizard() {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });
+  const handleWizardEnter = (e) => {
+    if (!overlay.isConnected) {
+      document.removeEventListener('keydown', handleWizardEnter);
+      return;
+    }
+    if (e.key !== 'Enter') return;
+    const el = e.target;
+    const tag = (el?.tagName || '').toLowerCase();
+    if (tag === 'button') return;
+    const inModal = overlay.contains(el);
+    const isIdle = el === document.body || el === document.documentElement;
+    if (!inModal && !isIdle) return;
+    if (!isIdle && tag !== 'input' && tag !== 'textarea' && tag !== 'select') return;
+    if (!calculateIsNextEnabled()) return;
+    const nextBtn = document.getElementById('wizard-next-btn');
+    if (!nextBtn || nextBtn.style.pointerEvents === 'none') return;
+    e.preventDefault();
+    nextBtn.click();
+  };
+  document.addEventListener('keydown', handleWizardEnter);
   document.body.appendChild(overlay);
   renderModal();
 }

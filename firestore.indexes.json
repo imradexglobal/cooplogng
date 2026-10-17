@@ -788,6 +788,25 @@
         }
       ],
       "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "membership_request",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "cooperative_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sync_at",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
     }
   ],
   "fieldOverrides": []

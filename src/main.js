@@ -26,6 +26,7 @@ import { renderReports } from './screens/Reports.js'
 import { renderReconciliation } from './screens/Reconciliation.js'
 import { renderRegistration } from './screens/Registration.js'
 import { renderLanding } from './screens/Landing.js'
+import { renderJoinCooperative } from './screens/JoinCooperative.js'
 import { fetchAllMembers, fetchMembersBySearch, isNotDeleted } from './services/dataService.js'
 import { hashPassword, escapeHtml, escapeAttribute, generateId, getInitials, wrapDateInput } from './utils/formatters.js'
 import { initializeSyncService, syncCooperativeData, performHardRestore } from './services/syncService.js'
@@ -194,6 +195,9 @@ const state = {
   members: [], // List of all members for Admins
   memberCoops: [], // Member's cooperatives for the in-app switcher dropdown
   isRegistering: false,
+  showRegisterChoice: false, // pre-login choice screen: Create vs Join cooperative
+  isJoining: false, // true = the Join Existing Cooperative screen is rendered
+  preSelectedCoopShortName: '', // coop short_name from direct join link (#/join/:shortName)
   publicView: loadPersistedPublicView(), // logged-out view: 'landing' | 'login' (resolved lazily, survives reload)
   coopSearchQuery: _savedWizard?.coopSearchQuery || '',
   googleLinkEmail: _savedWizard?.googleLinkEmail || '',
@@ -276,7 +280,8 @@ window.onerror = (message, source, lineno, colno, error) => {
 };
 
 function handleRouting() {
-  const hash = window.location.hash.substring(1)
+  let hash = window.location.hash.substring(1)
+  while (hash.startsWith('/')) hash = hash.substring(1)
   if (!hash) {
     if (state.welcomeUser) {
       window.location.hash = state.activeTab
@@ -285,6 +290,18 @@ function handleRouting() {
   }
 
   const [tab, ...parts] = hash.split('/')
+
+  // Direct join link: #/join/:shortName — pre-select coop and skip dropdown
+  if (tab === 'join' && parts.length > 0 && parts[0]) {
+    state.isJoining = true
+    state.showRegisterChoice = false
+    state.preSelectedCoopShortName = parts[0]
+    state.activeTab = 'join'
+    state.routeParts = parts
+    document.body.className = 'tab-join'
+    return
+  }
+
   // Remittance is available to all staff/admin on every device.
   // Only members are bounced back to the dashboard.
   if (tab === 'payments' && state.welcomeUser?.role === 'member') {
@@ -1155,10 +1172,54 @@ app.addEventListener('click', async (event) => {
     return
   }
 
+  if (action === 'choice-create') {
+    state.showRegisterChoice = false
+    state.isRegistering = true
+    render()
+    return
+  }
+
+  if (action === 'choice-join') {
+    state.showRegisterChoice = false
+    state.isJoining = true
+    render()
+    return
+  }
+
+  if (action === 'join-back') {
+    state.isJoining = false
+    state.showRegisterChoice = true
+    render()
+    return
+  }
+
+  if (action === 'go-login') {
+    persistPublicView('login')
+    state.stage = 1
+    state.errorMessage = ''
+    state.showRegisterChoice = false
+    state.isRegistering = false
+    state.isJoining = false
+    state.preSelectedCoopShortName = ''
+    if (window.location.hash) {
+      let hash = window.location.hash.substring(1)
+      while (hash.startsWith('/')) hash = hash.substring(1)
+      const [tab] = hash.split('/')
+      if (tab === 'join' || tab === 'register') {
+        window.location.hash = 'login'
+        // hashchange listener will call handleRouting + render; return to avoid double-render
+        return
+      }
+    }
+    render()
+    return
+  }
+
   // Select-member global action removed
 
   if (action === 'show-registration') {
-    state.showActivationKeyPrompt = true
+    state.showRegisterChoice = true
+    state.showActivationKeyPrompt = false
     state.activationKeyInput = ''
     state.activationKeyError = ''
     render()
@@ -1169,6 +1230,19 @@ app.addEventListener('click', async (event) => {
     persistPublicView('login')
     state.stage = 1
     state.errorMessage = ''
+    state.showRegisterChoice = false
+    state.isRegistering = false
+    state.isJoining = false
+    state.preSelectedCoopShortName = ''
+    if (window.location.hash) {
+      let hash = window.location.hash.substring(1)
+      while (hash.startsWith('/')) hash = hash.substring(1)
+      const [tab] = hash.split('/')
+      if (tab === 'join' || tab === 'register') {
+        window.location.hash = 'login'
+        return
+      }
+    }
     render()
     return
   }
@@ -1176,16 +1250,9 @@ app.addEventListener('click', async (event) => {
   if (action === 'go-landing') {
     if (state.welcomeUser) return
     persistPublicView('landing')
-    state.showActivationKeyPrompt = false
+    state.showRegisterChoice = false
     state.isRegistering = false
-    render()
-    return
-  }
-  
-  if (action === 'activation-key-back') {
-    state.showActivationKeyPrompt = false
-    state.activationKeyInput = ''
-    state.activationKeyError = ''
+    state.isJoining = false
     render()
     return
   }
@@ -1451,7 +1518,9 @@ syncBus.on(SyncEvents.BULK_MEMBERS_LOADED, () => {
     // Only refresh members data state, don't re-render
     import('./screens/members/membersState.js').then(m => m.loadMembersData({
       ...state.welcomeUser,
-      isAdmin: hasPermission(state.welcomeUser.permissions, 'admin') || state.welcomeUser.username?.toLowerCase() === 'admin'
+      isAdmin: hasPermission(state.welcomeUser.permissions, 'admin') 
+    || state.welcomeUser.username?.toLowerCase() === 'admin' 
+    || state.welcomeUser.username?.toLowerCase() === state.welcomeUser.coopShortName?.toLowerCase()
     })).catch(e => console.warn('[Sync] Failed to reload members state:', e))
   }
 })
@@ -1701,77 +1770,124 @@ app.addEventListener('input', (event) => {
 })
 
 function render() {
-  console.log(`[DEBUG] [${Date.now()}] render: Called. stage=${state.stage}, welcomeUser=${!!state.welcomeUser}, isRegistering=${state.isRegistering}, showActivationKeyPrompt=${state.showActivationKeyPrompt}`);
+  // Defensive hydration: if the URL hash contains a direct join link (#/join/:shortname or #join/:shortname)
+  // but isJoining or preSelectedCoopShortName got out of sync, forcibly re-sync them before dispatching.
+  if (!state.isJoining || !state.preSelectedCoopShortName) {
+    let rawHash = window.location.hash.substring(1)
+    while (rawHash.startsWith('/')) rawHash = rawHash.substring(1)
+    const [tab, ...rest] = rawHash.split('/')
+    if (tab === 'join' && rest.length > 0 && rest[0]) {
+      state.isJoining = true
+      state.showRegisterChoice = false
+      state.preSelectedCoopShortName = rest[0]
+      state.activeTab = 'join'
+    }
+  }
+
+  console.log(`[DEBUG] [${Date.now()}] render: Called. stage=${state.stage}, welcomeUser=${!!state.welcomeUser}, isRegistering=${state.isRegistering}, isJoining=${state.isJoining}, showRegisterChoice=${state.showRegisterChoice}`);
 
   // Still resolving the session/Remember-me state: never paint the logged-out
   // screens here, or a restored session would flash the login page first.
-  if (!_bootComplete && !state.welcomeUser && !state.isRegistering && !state.showActivationKeyPrompt) {
+  if (!_bootComplete && !state.welcomeUser && !state.isRegistering && !state.isJoining && !state.showRegisterChoice) {
     showBootSplash('Checking your session...')
     return
   }
 
-  if (state.showActivationKeyPrompt) {
+  if (state.showRegisterChoice) {
     app.innerHTML = `
-      <main class="shell">
-        <section class="card" style="animation: fadeIn 0.5s ease-out;">
-          <div class="brand">COOPERATIVE LOG APP</div>
-          <h1 style="font-weight: 800; font-size: 1.75rem; color: var(--text-primary); margin-top: 0; text-align: center;">Activation Key</h1>
-          <p style="color: var(--text-muted); text-align: center; margin-bottom: 2rem; font-size: 0.95rem;">Please enter the activation key to proceed</p>
-          ${state.activationKeyError ? `<div class="alert" style="margin-bottom: 1.5rem;">${escapeHtml(state.activationKeyError)}</div>` : ''}
-          <form class="form" id="activation-key-form" style="text-align: left;">
-            <label class="field">
-              <span>Activation Key</span>
-              <input
-                name="activation_key"
-                type="text"
-                placeholder="Enter activation key"
-                value="${escapeAttribute(state.activationKeyInput)}"
-                autocomplete="off"
-                autofocus
-              />
-              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">Hint: (YDM)</p>
-            </label>
-            <div class="actions">
-              <button type="button" class="secondary-button" data-action="activation-key-back">Back</button>
-              <button type="submit" class="primary-button">Continue</button>
+      <main id="choice-wrap">
+        <style>
+          #choice-wrap { padding: 1rem 0.75rem 2.5rem; max-width: 820px; margin: 0 auto; animation: fadeIn 0.5s ease-out; }
+          #choice-wrap .brand { text-align: center; font-weight: 800; letter-spacing: 0.12em; color: var(--accent-primary); text-transform: uppercase; font-size: 0.75rem; margin-bottom: 0.75rem; }
+          #choice-wrap .page-title { text-align: center; margin: 0 0 0.25rem; font-size: 1.45rem; font-weight: 800; color: var(--text-primary); }
+          #choice-wrap .page-sub { text-align: center; color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1.75rem; }
+          #choice-wrap .wide-card { border-radius: var(--radius-lg); padding: 1.5rem 1.75rem; }
+          #choice-wrap .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+          #choice-wrap .choice-card {
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem 1.25rem;
+            background: var(--bg-card);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 0.65rem;
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+            min-height: 230px;
+          }
+          #choice-wrap .choice-card:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px -12px rgba(var(--accent-primary-rgb, 79, 70, 229), 0.35);
+          }
+          #choice-wrap .choice-icon {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: var(--accent-soft); color: var(--accent-primary);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 1.75rem; margin-bottom: 0.25rem;
+          }
+          #choice-wrap .choice-card.secondary .choice-icon {
+            background: #eef2ff; color: #4f46e5;
+          }
+          #choice-wrap .choice-title { font-weight: 800; font-size: 1.1rem; color: var(--text-primary); }
+          #choice-wrap .choice-desc { color: var(--text-muted); font-size: 0.85rem; margin: 0; line-height: 1.5; }
+          #choice-wrap .choice-cta { margin-top: auto; width: 100%; }
+          #choice-wrap .choice-cta button { width: 100%; min-height: 44px; font-weight: 600; cursor: pointer; }
+          #choice-wrap .bottom-actions { margin-top: 2rem; display: flex; justify-content: center; }
+          #choice-wrap .bottom-actions button { min-height: 44px; padding: 0 1.5rem; font-weight: 600; }
+          @media (max-width: 720px) {
+            #choice-wrap .wide-card { padding: 1rem 1rem 1.25rem; border-radius: var(--radius-md); }
+            #choice-wrap .choice-grid { grid-template-columns: 1fr; gap: 1rem; }
+            #choice-wrap .choice-card { min-height: 0; padding-bottom: 1.25rem; }
+            #choice-wrap .bottom-actions button { width: 100%; }
+          }
+        </style>
+        <div class="shell">
+          <section class="card wide-card">
+            <div class="brand">COOPERATIVE LOG APP</div>
+            <div>
+              <h1 class="page-title">Getting Started</h1>
+              <p class="page-sub">Choose the option that best describes you.</p>
             </div>
-          </form>
-        </section>
+            <div class="choice-grid">
+              <div class="choice-card primary">
+                <div class="choice-icon">✨</div>
+                <div class="choice-title">Create a New Cooperative</div>
+                <p class="choice-desc">Start a brand new cooperative and become the first admin. You'll set up the account and manage members.</p>
+                <div class="choice-cta">
+                  <button type="button" class="primary-button" data-action="choice-create">Create Cooperative</button>
+                </div>
+              </div>
+              <div class="choice-card secondary">
+                <div class="choice-icon">🤝</div>
+                <div class="choice-title">Join an Existing Cooperative</div>
+                <p class="choice-desc">Apply to an existing cooperative as a new member. An admin will review and approve your application.</p>
+                <div class="choice-cta">
+                  <button type="button" class="secondary-button" data-action="choice-join">Join Cooperative</button>
+                </div>
+              </div>
+            </div>
+            <div class="bottom-actions">
+              <button type="button" class="ghost-button" data-action="go-login">← Back to Login</button>
+            </div>
+          </section>
+        </div>
       </main>
     `;
-    
-    // Attach listeners
-    const form = document.getElementById('activation-key-form');
-    form.addEventListener('input', (e) => {
-      if (e.target.name === 'activation_key') {
-        state.activationKeyInput = e.target.value;
-        state.activationKeyError = '';
-      }
-    });
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      // Generate expected key in YYDDMM format
-      const today = new Date();
-      const yy = String(today.getFullYear()).slice(-2);
-      const dd = String(today.getDate()).padStart(2, '0');
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const expectedKey = `${yy}${dd}${mm}`;
-      
-      if (state.activationKeyInput.trim() === expectedKey) {
-        // Success! Proceed to registration
-        state.showActivationKeyPrompt = false;
-        state.activationKeyInput = '';
-        state.activationKeyError = '';
-        state.isRegistering = true;
-        render();
-      } else {
-        state.activationKeyError = 'Invalid activation key. Please try again.';
-        render();
-      }
-    });
     return;
   }
-  
+
+  if (state.isJoining) {
+    renderJoinCooperative(app, () => {
+      state.isJoining = false
+      state.showRegisterChoice = true
+      state.preSelectedCoopShortName = ''
+      render()
+    }, state.preSelectedCoopShortName)
+    return
+  }
+
   if (state.isRegistering) {
     renderRegistration(app, () => {
       state.isRegistering = false
@@ -1807,13 +1923,13 @@ function render() {
 
   // Logged out: landing page for first-timers, login screen otherwise.
   // (Auto/manual logout always lands on login — see performLogout.)
-  if (!state.isRegistering && !state.showActivationKeyPrompt && resolvePublicView() === 'landing') {
+  if (!state.isRegistering && !state.isJoining && !state.showRegisterChoice && resolvePublicView() === 'landing') {
     renderLanding(app, {
       onLogin: () => { persistPublicView('login'); state.stage = 1; state.errorMessage = ''; render(); },
       onRegister: () => {
-        state.showActivationKeyPrompt = true
-        state.activationKeyInput = ''
-        state.activationKeyError = ''
+        state.showRegisterChoice = true
+        state.isRegistering = false
+        state.isJoining = false
         render()
       },
     })
@@ -2065,7 +2181,7 @@ function render() {
 
           <div style="margin-top: 2.5rem; border-top: 1px solid var(--border-light); padding-top: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
             <button type="button" data-action="show-registration" style="background: none; border: none; padding: 0.5rem 0.25rem; min-height: 2.75rem; font-size: 0.85rem; font-weight: 600; color: var(--accent-primary); cursor: pointer; text-align: left;">
-                Register New Cooperative
+                Register/Join One
             </button>
             <button type="button" data-action="go-landing" style="background: none; border: none; padding: 0.5rem 0.25rem; min-height: 2.75rem; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; text-align: right;">
                 ← Back to home
@@ -2436,7 +2552,9 @@ function updateMobileFab() {
   
   if (window.innerWidth >= 1000) return; // Only show on mobile (<1000px)
   
-  const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') || String(state.welcomeUser.username || '').toLowerCase() === 'admin';
+  const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') 
+    || String(state.welcomeUser.username || '').toLowerCase() === 'admin' 
+    || String(state.welcomeUser.username || '').toLowerCase() === state.welcomeUser.coopShortName?.toLowerCase()
   
   if (state.activeTab === 'members') {
     const canCreate = isAdmin || hasPermission(state.welcomeUser.permissions, 'create_member');
@@ -2636,7 +2754,7 @@ function updateNavSelection() {
 function isSubscriptionActive() {
   const u = state.welcomeUser
   if (!u) return false
-  if (String(u.username || '').toLowerCase() === 'admin') return true
+  if (String(u.username || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === String(u.coopShortName || '').toLowerCase()) return true
   const status = u.subscriptionStatus
   if (status === undefined || status === null || status === '') return true
   if (status === 0 || status === '0') return false
@@ -2754,7 +2872,9 @@ async function _renderDashboardContentInner() {
   const container = document.getElementById('dashboard-main-content')
   if (!container) return
 
-  const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') || String(state.welcomeUser.username || '').toLowerCase() === 'admin'
+  const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') 
+    || String(state.welcomeUser.username || '').toLowerCase() === 'admin' 
+    || String(state.welcomeUser.username || '').toLowerCase() === state.welcomeUser.coopShortName?.toLowerCase()
   const subActive = isSubscriptionActive()
 
   if (!subActive && !isAdmin) {
@@ -2991,9 +3111,9 @@ app.addEventListener('click', (e) => {
   
   // Issue 2: Make date pickers open when clicking anywhere on the input
   const dateInput = e.target.closest('input[type="date"]')
-  if (dateInput && typeof dateInput.showPicker === 'function') {
+  if (dateInput) {
     e.preventDefault()
-    dateInput.showPicker()
+    dateInput.click()
   }
 })
 
@@ -3170,7 +3290,9 @@ window.showTransactionModal = async (remittance) => {
     }
 
     // --- Approval Section ---
-    const isActualAdmin = hasPermission(state.welcomeUser.permissions, 'admin') || state.welcomeUser.username.toLowerCase() === 'admin';
+    const isActualAdmin = hasPermission(state.welcomeUser.permissions, 'admin') 
+    || state.welcomeUser.username.toLowerCase() === 'admin' 
+    || state.welcomeUser.username.toLowerCase() === state.welcomeUser.coopShortName?.toLowerCase()
     if (isActualAdmin && remittance.status === 'Pending') {
       const allGuarantorsApproved = (remittance.details || []).every(d => {
         if (!d.loan_info || !d.loan_info.guarantors) return true;
@@ -4083,7 +4205,7 @@ async function handlePasswordStage() {
           } else if (existingBanner) {
             // Remove banner if subscription is now active
             existingBanner.remove();
-          } else if (!isSubscriptionActive() && String(state.welcomeUser.username || '').toLowerCase() !== 'admin') {
+          } else if (!isSubscriptionActive() && String(state.welcomeUser.username || '').toLowerCase() !== 'admin' && String(state.welcomeUser.username || '').toLowerCase() !== String(state.welcomeUser.coopShortName || '').toLowerCase()) {
             // Add banner if missing
             const sidebar = document.querySelector('.sidebar');
             const header = sidebar?.querySelector('.sidebar-header');
@@ -4449,9 +4571,10 @@ function setupForcePwdListeners() {
  */
 
 async function showLoanRequestModal() {
-  const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') ||
-    hasPermission(state.welcomeUser.permissions, 'read_member') ||
-    state.welcomeUser.username.toLowerCase() === 'admin';
+  const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') 
+    || hasPermission(state.welcomeUser.permissions, 'read_member') 
+    || state.welcomeUser.username.toLowerCase() === 'admin' 
+    || state.welcomeUser.username.toLowerCase() === state.welcomeUser.coopShortName?.toLowerCase()
 
   state.modal.isOpen = true;
   state.modal.title = "Withdrawal Request";
@@ -4524,15 +4647,23 @@ async function renderLoanRequestStep() {
 
   // Load all members specifically for this modal to avoid race conditions with RBAC-filtered state.members
   const { fetchAllMembers } = await import('./services/dataService.js');
+  let allMembersLR = [];
+  let networthValLR = 0;
+  if (state.loanRequest.memberId) {
+    try { allMembersLR = await fetchAllMembers(state.welcomeUser.cooperativeId, state.welcomeUser.username, true); } catch(e){}
+    const fullBal = await buildAccountBalance(state.welcomeUser.cooperativeId, { ...state.welcomeUser, memberId: state.loanRequest.memberId });
+    networthValLR = (fullBal?.accountBalance || []).reduce((s, ab) => s + (parseFloat(ab.sum_of_amount) || 0), 0);
+  }
   let content = '';
   let adjustedStep = step;
   if (isSavingsEnterprise && step > 3) {
     adjustedStep = step + 2; // Skip steps 4 (duration) and 5 (guarantors) for savings
   }
 
-  const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') ||
-    hasPermission(state.welcomeUser.permissions, 'read_member') ||
-    state.welcomeUser.username.toLowerCase() === 'admin';
+  const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') 
+    || hasPermission(state.welcomeUser.permissions, 'read_member') 
+    || state.welcomeUser.username.toLowerCase() === 'admin' 
+    || state.welcomeUser.username.toLowerCase() === state.welcomeUser.coopShortName?.toLowerCase()
 
   if (adjustedStep === 1) {
     content = `
@@ -4543,12 +4674,50 @@ async function renderLoanRequestStep() {
           <input type="text" id="loan-member-search" placeholder="Search member by name or ID..." value="${escapeHtml(state.loanRequest.memberName || '')}" style="width: 100%; height: 2.75rem; padding: 0 0.75rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-sm);" autocomplete="off">
           <div id="loan-member-suggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 999999; max-height: 200px; overflow-y: auto; margin-top: 0.25rem;"></div>
         </div>
-        ${state.loanRequest.memberId ? `
-          <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem; border: 1px solid var(--border-light);">
-             <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Selected Member</span>
-             <div style="font-weight: 700; color: var(--accent-primary); font-size: 1.1rem; margin-top: 0.25rem;">${escapeHtml(state.loanRequest.memberName)}</div>
-          </div>
-        ` : ''}
+        ${state.loanRequest.memberId ? (() => {
+          const mem = allMembersLR.find(m => String(m.id) === String(state.loanRequest.memberId)) ||
+                       state.members?.find(m => String(m.id) === String(state.loanRequest.memberId));
+          const initial = (state.loanRequest.memberName || state.loanRequest.memberId || 'U').charAt(0).toUpperCase();
+          const networthColor = networthValLR < 0 ? 'var(--danger)' : 'var(--success)';
+          return `
+            <div style="margin-top: 1rem; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 0.75rem; padding: 0.85rem; box-shadow: var(--shadow-sm);">
+              <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Selected Member</span>
+              <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--accent-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; flex-shrink: 0; letter-spacing: 0.02em;">
+                  ${escapeHtml(initial)}
+                </div>
+                <div style="min-width: 0; flex: 1;">
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); line-height: 1.3;">${escapeHtml(state.loanRequest.memberName || mem?.name || 'Unknown')}</div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">Member ID: ${escapeHtml(state.loanRequest.memberId || '—')}</div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.45rem 0.6rem; margin-top: 0.65rem; font-size: 0.78rem;">
+                ${mem?.special_id ? `
+                  <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                    <span style="font-weight: 700; color: var(--accent-primary); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Special ID</span>
+                    <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.special_id)}</span>
+                  </div>
+                ` : ''}
+                ${(mem?.registration_no || mem?.file_no) ? `
+                  <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                    <span style="font-weight: 700; color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Reg No</span>
+                    <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.registration_no || mem.file_no)}</span>
+                  </div>
+                ` : ''}
+                ${mem?.mobile ? `
+                  <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                    <span style="font-weight: 700; color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Mobile</span>
+                    <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.mobile)}</span>
+                  </div>
+                ` : ''}
+                <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                  <span style="font-weight: 700; color: ${networthColor}; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Networth</span>
+                  <span style="font-weight: 700; color: ${networthColor};">${formatCurrency(networthValLR)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        })() : ''}
       </div>
     `;
   } else if (adjustedStep === 2) {
@@ -4991,14 +5160,18 @@ async function setupLoanRequestListeners() {
       const matches = allMembers.filter(m => {
         const nameMatch = (m.name || '').toLowerCase().includes(text);
         const regMatch = String(m.registration_no || m.file_no || '').toLowerCase().includes(text);
-        return nameMatch || regMatch;
+        const specialIdMatch = String(m.special_id || '').toLowerCase().includes(text);
+        const mobileMatch = String(m.mobile || '').toLowerCase().includes(text);
+        return nameMatch || regMatch || specialIdMatch || mobileMatch;
       }).slice(0, 10);
 
       if (matches.length > 0) {
         memberSuggestions.innerHTML = matches.map(m => `
           <div class="m-suggestion" data-id="${m.id}" data-name="${escapeHtml(m.name)}" style="padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border-light);">
             <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">${escapeHtml(m.name)}</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted);">File/Reg: ${m.file_no || m.registration_no || 'N/A'}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">
+              ${m.special_id ? `ID: ${escapeHtml(m.special_id)}` : ''} ${m.special_id && (m.registration_no || m.file_no) ? ' • ' : ''} ${m.registration_no || m.file_no ? `Reg: ${m.registration_no || m.file_no}` : ''} ${(m.special_id || m.registration_no || m.file_no) && m.mobile ? ' • ' : ''} ${m.mobile ? `Mobile: ${m.mobile}` : ''}
+            </div>
           </div>
         `).join('');
         memberSuggestions.style.display = 'block';
@@ -5264,12 +5437,51 @@ async function showWithdrawalWizard() {
             <input type="text" id="wizard-member-search" placeholder="Search member by name or ID..." value="${escapeHtml(selectedMemberId ? (allMembers.find(m => m.id === selectedMemberId)?.name || '') : '')}" style="width: 100%; height: 2.75rem; padding: 0 0.75rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-sm);" autocomplete="off">
             <div id="wizard-member-suggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 999999; max-height: 250px; overflow-y: auto; margin-top: 0.25rem;"></div>
           </div>
-          ${selectedMemberId ? `
-            <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 0.5rem; border: 1px solid var(--border-light);">
-              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Selected Member</span>
-              <div style="font-weight: 700; color: var(--accent-primary); font-size: 1.1rem; margin-top: 0.25rem;">${escapeHtml(allMembers.find(m => m.id === selectedMemberId)?.name || 'Unknown')}</div>
-            </div>
-          ` : ''}
+          ${selectedMemberId ? (() => {
+            const mem = allMembers.find(m => String(m.id) === String(selectedMemberId));
+            if (!mem) return '';
+            const networthVal = Object.values(memberBalances || {}).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+            const networthColor = networthVal < 0 ? 'var(--danger)' : 'var(--success)';
+            const initial = (mem.name || 'U').charAt(0).toUpperCase();
+            return `
+              <div style="margin-top: 1rem; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 0.75rem; padding: 0.85rem; box-shadow: var(--shadow-sm);">
+                <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Selected Member</span>
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem;">
+                  <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--accent-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; flex-shrink: 0; letter-spacing: 0.02em;">
+                    ${escapeHtml(initial)}
+                  </div>
+                  <div style="min-width: 0; flex: 1;">
+                    <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); line-height: 1.3;">${escapeHtml(mem.name || 'Unknown')}</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">Member ID: ${escapeHtml(mem.id || '—')}</div>
+                  </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.45rem 0.6rem; margin-top: 0.65rem; font-size: 0.78rem;">
+                  ${mem.special_id ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                      <span style="font-weight: 700; color: var(--accent-primary); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Special ID</span>
+                      <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.special_id)}</span>
+                    </div>
+                  ` : ''}
+                  ${(mem.registration_no || mem.file_no) ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                      <span style="font-weight: 700; color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Reg No</span>
+                      <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.registration_no || mem.file_no)}</span>
+                    </div>
+                  ` : ''}
+                  ${mem.mobile ? `
+                    <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                      <span style="font-weight: 700; color: var(--text-muted); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Mobile</span>
+                      <span style="font-weight: 600; color: var(--text-primary); word-break: break-word;">${escapeHtml(mem.mobile)}</span>
+                    </div>
+                  ` : ''}
+                  <div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                    <span style="font-weight: 700; color: ${networthColor}; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;">Networth</span>
+                    <span style="font-weight: 700; color: ${networthColor};">${formatCurrency(networthVal)}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          })() : ''}
         </div>
       `;
     } else if ((isAdmin && wizardStep === 2) || (!isAdmin && wizardStep === 1)) {
@@ -5531,14 +5743,18 @@ async function showWithdrawalWizard() {
           const matches = allMembers.filter(m => {
             const nameMatch = (m.name || '').toLowerCase().includes(text);
             const regMatch = String(m.registration_no || m.file_no || '').toLowerCase().includes(text);
-            return nameMatch || regMatch;
+            const specialIdMatch = String(m.special_id || '').toLowerCase().includes(text);
+            const mobileMatch = String(m.mobile || '').toLowerCase().includes(text);
+            return nameMatch || regMatch || specialIdMatch || mobileMatch;
           }).slice(0, 10);
 
           if (matches.length > 0) {
             memberSuggestions.innerHTML = matches.map(m => `
               <div class="wizard-member-suggestion" data-id="${m.id}" data-name="${escapeHtml(m.name)}" style="padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border-light);">
                 <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">${escapeHtml(m.name)}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">File/Reg: ${m.file_no || m.registration_no || 'N/A'}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                  ${m.special_id ? `ID: ${escapeHtml(m.special_id)}` : ''} ${m.special_id && (m.registration_no || m.file_no) ? ' • ' : ''} ${m.registration_no || m.file_no ? `Reg: ${m.registration_no || m.file_no}` : ''} ${(m.special_id || m.registration_no || m.file_no) && m.mobile ? ' • ' : ''} ${m.mobile ? `Mobile: ${m.mobile}` : ''}
+                </div>
               </div>
             `).join('');
             memberSuggestions.style.display = 'block';

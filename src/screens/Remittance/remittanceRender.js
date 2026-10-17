@@ -3,7 +3,7 @@ import { getAvatarColor, isMobile } from './constants.js';
 import { attachEventListeners } from './remittanceEventListeners.js';
 
 export function render(container, deps) {
-    const { formData, historyState, enterpriseData, members, selectorMembers, banks, transactionTypes, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, isAdmin, isMember, canApprove, canDelete, canReverse, trackFocus, restoreFocus, getFormattedName, attachHistoryEventListeners } = deps;
+    const { formData, historyState, enterpriseData, members, selectorMembers, banks, transactionTypes, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, sealLocked = false, isAdmin, isMember, canApprove, canDelete, canReverse, trackFocus, restoreFocus, getFormattedName, attachHistoryEventListeners, user } = deps;
     trackFocus();
     const selectedMember = formData.member_id ? historyState.membersMap[formData.member_id] : null;
 
@@ -635,17 +635,22 @@ export function render(container, deps) {
                 </div>
               ` : ''}
             </div>
+            ${editMode && sealLocked ? `
+              <div class="seal-lock-notice" style="margin: 0 0 0.5rem; padding: 0.5rem 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-left: 3px solid var(--accent-primary); border-radius: var(--radius-sm); font-size: 0.78rem; font-weight: 600; color: var(--text-muted); line-height: 1.45;">
+                Reconciled record: Bank, Date and Amount are locked. Member, breakdown and note remain editable.
+              </div>
+            ` : ''}
             <div class="form-content">
               <form id="payment-form" onsubmit="return false;">
                 <!-- Row 1: Date, Bank, Amount -->
                 <div class="form-grid-3">
                   <div class="field">
                     <label>Transaction Date</label>
-                    <input type="date" name="remittance_date" value="${formatDateForInput(formData.remittance_date)}" required ${previewMode && !editMode ? 'disabled' : ''}>
+                    <input type="date" name="remittance_date" value="${formatDateForInput(formData.remittance_date)}" required ${(previewMode && !editMode) || sealLocked ? 'disabled' : ''}>
                   </div>
                   <div class="field">
                     <label>Bank or Payment Method</label>
-                    <select name="bank_name" required ${previewMode && !editMode ? 'disabled' : ''}>
+                    <select name="bank_name" required ${(previewMode && !editMode) || sealLocked ? 'disabled' : ''}>
                       <option value="">-- Select Bank --</option>
                       ${(() => {
                         let bankOptions = [...banks];
@@ -658,7 +663,7 @@ export function render(container, deps) {
                   </div>
                   <div class="field">
                     <label>Total Amount (₦)</label>
-                    <input type="number" step="0.01" name="amount" id="total-amount-input" value="${formData.amount}" required style="font-size: 1.25rem; font-weight: 700;" class="clear-on-zero" ${previewMode && !editMode ? 'disabled' : ''}>
+                    <input type="number" step="0.01" name="amount" id="total-amount-input" value="${formData.amount}" required style="font-size: 1.25rem; font-weight: 700;" class="clear-on-zero" ${(previewMode && !editMode) || sealLocked ? 'disabled' : ''}>
                   </div>
                 </div>
 
@@ -670,7 +675,7 @@ export function render(container, deps) {
 
                 <!-- Row 3: Member Name (full width) -->
                 ${isAdmin ? `
-                  <div class="member-row" style="display: ${formData.member_id === '0000000000' ? 'none' : 'flex'}; margin-top: 0.5rem;">
+                  <div class="member-row" style="display: ${formData.member_id === '0000000000' && !editMode ? 'none' : 'flex'}; margin-top: 0.5rem;">
                     <div class="member-avatar-wrap" id="up-avatar-wrap" ${selectedMember && !selectedMember.image_path ? 'style="background-color: ${getAvatarColor(selectedMember.name)}"' : ''}">
                       ${selectedMember && selectedMember.image_path
                         ? `<img src="${selectedMember.image_path}" alt="${escapeHtml(selectedMember.name)}">`
@@ -685,18 +690,43 @@ export function render(container, deps) {
                           <input type="text" name="member_id" value="${formData.member_id}" placeholder="Enter Member ID manually" required>
                         ` : `
                           <div class="member-search-row">
-                            <input type="text" id="member-search-input" class="member-search-input" placeholder="Search by Reg No, Name, or Mobile..." value="${escapeHtml(selectedMember ? selectedMember.name : '')}" ${previewMode && !editMode ? 'disabled' : ''}>
+                            <input type="text" id="member-search-input" class="member-search-input" placeholder="Search by Reg No, Name, Mobile, or Special ID..." value="${escapeHtml(selectedMember ? selectedMember.name : '')}" ${previewMode && !editMode ? 'disabled' : ''}>
                             ${(previewMode && !editMode) ? '' : `<button type="button" id="reset-member-btn" class="btn btn-ghost">Reset</button>`}
                           </div>
                           <div id="member-search-suggestions" class="search-suggestions" style="display: none; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: var(--radius-sm); box-shadow: var(--shadow-xl); z-index: 999999; max-height: 200px; overflow-y: auto;"></div>
                           <input type="hidden" name="member_id" id="member-id-select" value="${formData.member_id}" required>
-                          <div class="selected-member-display" id="selected-member-display">
+                          <div class="selected-member-display" id="selected-member-display" style="border: 2px solid var(--accent-primary); margin-top: 0.5rem; padding: 0.5rem; border-radius: var(--radius-sm);">
                             ${formData.member_id ? (() => {
                               const mem = selectorMembers.find(m => String(m.id) === String(formData.member_id)) || members.find(m => String(m.id) === String(formData.member_id));
-                              if (!mem) return 'Selected: <strong>Unknown</strong>';
-                              const parts = [mem.name, mem.special_id, mem.registration_no].filter(p => p && String(p).trim() !== '');
-                              return `Selected: <strong>${escapeHtml(parts.join(' / '))}</strong>`;
-                            })() : 'No member selected'}
+                              if (!mem) {
+                                if (String(formData.member_id) === '0000000000') {
+                                  return '<div class="selected-member-card" style="color: var(--text-muted); font-style: italic; padding: 0.5rem;">No member assigned (Admin Mode). Search above to assign this transaction to a member.</div>';
+                                }
+                                return '<div class="selected-member-card" style="color: var(--danger); font-weight: 700;">⚠ Member ID found but no member data: ' + escapeHtml(formData.member_id) + '</div>';
+                              }
+                              const networthVal = Object.values(openingBalances || {}).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+                              const networth = networthVal !== 0 ? networthVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+                              const networthColor = networthVal < 0 ? 'var(--danger)' : 'var(--success)';
+                              return `
+                                <div class="selected-member-card" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 0.85rem; margin-top: 0.5rem;">
+                                  <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                    <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--accent-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; flex-shrink: 0;">
+                                      ${escapeHtml((mem.name || 'U').charAt(0).toUpperCase())}
+                                    </div>
+                                    <div>
+                                      <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary);">${escapeHtml(mem.name || 'Unknown')}</div>
+                                      <div style="font-size: 0.75rem; color: var(--text-muted);">Member ID: ${escapeHtml(mem.id || '—')}</div>
+                                    </div>
+                                  </div>
+                                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; font-size: 0.8rem;">
+                                    ${mem.special_id ? `<div style="display: flex; flex-direction: column; gap: 0.15rem;"><span style="font-weight: 700; color: var(--accent-primary); font-size: 0.7rem; text-transform: uppercase;">Special ID</span><span style="font-weight: 600; color: var(--text-primary);">${escapeHtml(mem.special_id)}</span></div>` : ''}
+                                    ${mem.registration_no ? `<div style="display: flex; flex-direction: column; gap: 0.15rem;"><span style="font-weight: 700; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Reg No</span><span style="font-weight: 600; color: var(--text-primary);">${escapeHtml(mem.registration_no)}</span></div>` : ''}
+                                    ${mem.mobile ? `<div style="display: flex; flex-direction: column; gap: 0.15rem;"><span style="font-weight: 700; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">Mobile</span><span style="font-weight: 600; color: var(--text-primary);">${escapeHtml(mem.mobile)}</span></div>` : ''}
+                                    <div style="display: flex; flex-direction: column; gap: 0.15rem;"><span style="font-weight: 700; color: ${networthColor}; font-size: 0.7rem; text-transform: uppercase;">Networth</span><span style="font-weight: 700; color: ${networthColor};">${networth !== '—' ? escapeHtml(networth) : '—'}</span></div>
+                                  </div>
+                                </div>
+                              `;
+                            })() : '<div class="selected-member-card" style="color: var(--text-muted); font-style: italic; padding: 0.5rem;">No member selected (formData.member_id: ' + escapeHtml(formData.member_id || 'empty') + ')</div>'}
                           </div>
                         `}
                       </div>
@@ -772,7 +802,7 @@ export function render(container, deps) {
                         const isLoanCondition = isLoan && !isInternalTransfer && !isCoopWide && (inputAmt < 0 || hasLoanInfo);
                         if (!showAllZeros && opening === 0 && advise === 0 && inputAmt === 0 && !hasLoanInfo && !e.compulsory_due) return;
                         rowsHtml += `
-                          <tr class="detail-item-row" data-entid="${e.id}" data-id="${existingDetail?.id || generateId()}" data-loaninfo='${JSON.stringify(existingDetail?.loan_info || {})}' data-row-index="${idx}">
+                          <tr class="detail-item-row" data-entid="${e.id}" data-id="${existingDetail?.id || generateId(String(user.cooperativeId))}" data-loaninfo='${JSON.stringify(existingDetail?.loan_info || {})}' data-row-index="${idx}">
                             <td style="padding: 0.4rem 0.6rem; text-align: left; ${isLoanCondition || hasLoanInfo ? 'color: var(--accent-primary); font-weight: 600; text-decoration: underline;' : ''}">
                               <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                                 <span style="display: flex; align-items: center; gap: 0.35rem;">
@@ -866,6 +896,8 @@ export function render(container, deps) {
                 <option value="Member Name" ${historyState.searchColumn === 'Member Name' ? 'selected' : ''}>Member Name</option>
                 <option value="Member Number" ${historyState.searchColumn === 'Member Number' ? 'selected' : ''}>Member Number</option>
                 <option value="Special ID" ${historyState.searchColumn === 'Special ID' ? 'selected' : ''}>Special ID</option>
+                <option value="Mobile" ${historyState.searchColumn === 'Mobile' ? 'selected' : ''}>Mobile</option>
+                <option value="Registration No" ${historyState.searchColumn === 'Registration No' ? 'selected' : ''}>Registration No</option>
                 <option value="Transaction Date" ${historyState.searchColumn === 'Transaction Date' ? 'selected' : ''}>Transaction Date</option>
                 <option value="Bank" ${historyState.searchColumn === 'Bank' ? 'selected' : ''}>Bank</option>
                 <option value="Amount" ${historyState.searchColumn === 'Amount' ? 'selected' : ''}>Amount</option>

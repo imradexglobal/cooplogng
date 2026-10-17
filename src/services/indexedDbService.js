@@ -6,7 +6,7 @@
  */
 
 const DB_NAME = 'CoopLogIDB_v3';
-const DB_VERSION = 7; // v7: add parent_remittance_id index for grouping autogen children
+const DB_VERSION = 9; // v9: heal stores missing on intermediate-version DBs (see v9 block)
 
 // Object stores mapped to application tables
 const STORES = {
@@ -26,7 +26,8 @@ const STORES = {
     payment_advise: { keyPath: 'id' },
     bank_reconciliation_summary: { keyPath: 'id' },
     feedback: { keyPath: 'id' },
-    app_settings: { keyPath: 'key' }
+    app_settings: { keyPath: 'key' },
+    membership_request: { keyPath: 'id' }
 };
 
 let dbInstance = null;
@@ -231,6 +232,7 @@ export function initIndexedDb() {
           transaction_types: ['cooperative_id'],
           bank_reconciliation_summary: ['cooperative_id'],
           feedback: ['cooperative_id'],
+          membership_request: ['cooperative_id'],
         };
         for (const [storeName, config] of Object.entries(STORES)) {
           try {
@@ -271,11 +273,106 @@ export function initIndexedDb() {
           }
         }
       }
+
+      // ── Version 8: membership_request store for self-registration ────
+      if (oldVersion < 8) {
+        if (!db.objectStoreNames.contains('membership_request')) {
+          const mrStore = db.createObjectStore('membership_request', { keyPath: 'id' });
+          mrStore.createIndex('cooperative_id', 'cooperative_id', { unique: false });
+          console.log('[IndexedDB] Created membership_request store');
+        } else {
+          const tx = e.target.transaction;
+          const mrStore = tx.objectStore('membership_request');
+          if (!mrStore.indexNames.contains('cooperative_id')) {
+            mrStore.createIndex('cooperative_id', 'cooperative_id', { unique: false });
+            console.log('[IndexedDB] Added membership_request.cooperative_id index');
+          }
+        }
+      }
+
+      // ── Version 9: heal ANY store/index missing on stale or intermediate DBs ──
+      // A device that ran an intermediate build (version bumped before a
+      // store's creation code shipped) can be stuck at the current version
+      // WITHOUT the store — onupgradeneeded never fires again, and every
+      // write to that store throws NotFoundError. Detect and recreate
+      // anything missing. Non-destructive: existing data is preserved.
+      if (oldVersion < 9) {
+        const tx = e.target.transaction;
+        const INDEXES = {
+          members: ['cooperative_id'],
+          remittance: ['cooperative_id', 'member_id', 'loan_id', 'parent_remittance_id'],
+          loans: ['cooperative_id', 'member_id', 'remittance_id'],
+          remittance_detail: ['remittance_id'],
+          sync_queue: ['status', 'cooperative_id'],
+          loan_guarantors: ['loan_id', 'cooperative_id'],
+          payment_advise: ['member_id', 'cooperative_id'],
+          notifications: ['cooperative_id'],
+          users: ['cooperative_id'],
+          bank: ['cooperative_id'],
+          enterprise: ['cooperative_id'],
+          transaction_types: ['cooperative_id'],
+          bank_reconciliation_summary: ['cooperative_id'],
+          feedback: ['cooperative_id'],
+          membership_request: ['cooperative_id'],
+        };
+        for (const [storeName, config] of Object.entries(STORES)) {
+          try {
+            let store = null;
+            if (!db.objectStoreNames.contains(storeName)) {
+              store = db.createObjectStore(storeName, {
+                keyPath: config.keyPath,
+                autoIncrement: config.autoIncrement || false
+              });
+              console.log(`[IndexedDB] v9 healed missing store: ${storeName}`);
+            } else {
+              store = tx.objectStore(storeName);
+            }
+            for (const idx of (INDEXES[storeName] || [])) {
+              if (!store.indexNames.contains(idx)) {
+                store.createIndex(idx, idx, { unique: false });
+                console.log(`[IndexedDB] v9 healed missing index: ${storeName}.${idx}`);
+              }
+            }
+            if (storeName === 'sync_queue' && !store.indexNames.contains('collection_document')) {
+              store.createIndex('collection_document', ['collection_name', 'document_id'], { unique: false });
+              console.log('[IndexedDB] v9 healed missing index: sync_queue.collection_document');
+            }
+          } catch (err) {
+            console.warn(`[IndexedDB] v9 heal skipped ${storeName}:`, err && err.message);
+          }
+        }
+      }
     };
 
     req.onsuccess = (e) => {
       dbInstance = e.target.result;
-      console.log('[IndexedDB] Database opened successfully.');
+
+      // ── Self-heal: missing stores on stale/intermediate DBs ────────────
+      // A DB can end up at the current version WITHOUT a store if it was
+      // created by an intermediate build (version bumped before the store's
+      // creation code shipped) — onupgradeneeded never fires again, so the
+      // version-gated heal blocks can't help. Detect any missing store after
+      // a successful open and recreate the database fresh. A DB missing stores
+      // is already broken (every write to them throws NotFoundError), so
+      // recreation is strictly better. Same nuclear option as resetDatabase().
+      const missingStores = Object.keys(STORES).filter(s => !dbInstance.objectStoreNames.contains(s));
+      if (missingStores.length > 0) {
+        console.warn('[IndexedDB] Missing stores after open — recreating database. version:', dbInstance.version, 'missing:', missingStores);
+        dbInstance.close();
+        dbInstance = null;
+        initPromise = null;
+        try {
+          const delReq = indexedDB.deleteDatabase(DB_NAME);
+          delReq.onsuccess = () => { initIndexedDb().then(resolve, reject); };
+          delReq.onerror = () => reject(delReq.error);
+          delReq.onblocked = () => reject(new Error('IndexedDB delete blocked — close other tabs/windows using this app.'));
+        } catch (err) {
+          reject(err);
+        }
+        return;
+      }
+
+      console.log('[IndexedDB] Database opened successfully. version:', dbInstance.version);
 
       dbInstance.onclose = () => {
         console.warn('[IndexedDB] Database connection closed unexpectedly. Cache cleared.');
@@ -433,6 +530,7 @@ export async function deleteItem(storeName, key) {
  */
 export async function getAllItems(storeName) {
     const db = await initIndexedDb();
+    if (!db.objectStoreNames.contains(storeName)) return [];
     return new Promise((resolve, reject) => {
         const tx = db.transaction(storeName, 'readonly');
         const store = tx.objectStore(storeName);
@@ -451,6 +549,7 @@ export async function getAllItems(storeName) {
  */
 export async function getAllByIndex(storeName, indexName, key) {
     const db = await initIndexedDb();
+    if (!db.objectStoreNames.contains(storeName)) return [];
     return new Promise((resolve, reject) => {
         const tx = db.transaction(storeName, 'readonly');
         const store = tx.objectStore(storeName);
