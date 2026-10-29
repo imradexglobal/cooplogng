@@ -1,4 +1,12 @@
 import { getAllItems, getAllByIndex, getItem } from '../indexedDbService.js'
+export function formatMemberFullName(m) {
+    if (!m) return ''
+    return [m.first_name, m.middle_name, m.last_name]
+        .map(s => String(s || '').trim())
+        .filter(Boolean)
+        .join(' ')
+}
+
 export async function getAllForCoop(cooperativeId, tableName) {
     let results
     if (tableName === 'cooperatives') {
@@ -38,7 +46,7 @@ export async function getAllForCoop(cooperativeId, tableName) {
             adviseByMember = null
         }
         for (const member of results) {
-            member.name = `${member.first_name || ''} ${member.last_name || ''}`.trim()
+            member.name = formatMemberFullName(member)
             if (adviseByMember) {
                 member.payment_advise = adviseByMember[String(member.id)] || []
             } else {
@@ -58,6 +66,7 @@ export async function getAllForCoop(cooperativeId, tableName) {
 export async function getDocById(cooperativeId, tableName, id) {
     const doc = await getItem(tableName, String(id))
     if (!doc || doc.cooperative_id !== String(cooperativeId) || doc.is_deleted) return null
+    if (tableName === 'members' && !doc.name) doc.name = formatMemberFullName(doc)
     return doc
 }
 
@@ -65,7 +74,7 @@ export async function getDocById_Global(tableName, id) {
     const doc = await getItem(tableName, String(id))
     if (!doc) return null
     if (tableName === 'members' && !doc.name) {
-        doc.name = `${doc.first_name || ''} ${doc.last_name || ''}`.trim()
+        doc.name = formatMemberFullName(doc)
     }
     return doc
 }
@@ -326,7 +335,7 @@ export async function getMemberLoans(cooperativeId, memberId = null) {
         loan.enterprise_name = entMap[loan.enterprise_id] || ''
         const member = memberMap[loan.member_id]
         if (member) {
-            loan.member_name = `${member.first_name || ''} ${member.last_name || ''}`.trim()
+            loan.member_name = formatMemberFullName(member)
             loan.member_registration_no = member.registration_no || ''
         }
 

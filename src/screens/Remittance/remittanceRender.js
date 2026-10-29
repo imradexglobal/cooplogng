@@ -690,7 +690,7 @@ export function render(container, deps) {
                           <input type="text" name="member_id" value="${formData.member_id}" placeholder="Enter Member ID manually" required>
                         ` : `
                           <div class="member-search-row">
-                            <input type="text" id="member-search-input" class="member-search-input" placeholder="Search by Reg No, Name, Mobile, or Special ID..." value="${escapeHtml(selectedMember ? selectedMember.name : '')}" ${previewMode && !editMode ? 'disabled' : ''}>
+                            <input type="text" id="member-search-input" class="member-search-input" placeholder="Search by Reg No, Name, Mobile, or Special ID..." value="${escapeHtml(selectedMember ? (selectedMember.name || [selectedMember.first_name, selectedMember.middle_name, selectedMember.last_name].filter(Boolean).join(' ')) : '')}" ${previewMode && !editMode ? 'disabled' : ''}>
                             ${(previewMode && !editMode) ? '' : `<button type="button" id="reset-member-btn" class="btn btn-ghost">Reset</button>`}
                           </div>
                           <div id="member-search-suggestions" class="search-suggestions" style="display: none; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: var(--radius-sm); box-shadow: var(--shadow-xl); z-index: 999999; max-height: 200px; overflow-y: auto;"></div>
@@ -714,7 +714,7 @@ export function render(container, deps) {
                                       ${escapeHtml((mem.name || 'U').charAt(0).toUpperCase())}
                                     </div>
                                     <div>
-                                      <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary);">${escapeHtml(mem.name || 'Unknown')}</div>
+                                      <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary);">${escapeHtml(mem.name || [mem.first_name, mem.middle_name, mem.last_name].filter(Boolean).join(' ') || 'Unknown')}</div>
                                       <div style="font-size: 0.75rem; color: var(--text-muted);">Member ID: ${escapeHtml(mem.id || '—')}</div>
                                     </div>
                                   </div>

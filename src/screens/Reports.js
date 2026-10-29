@@ -477,6 +477,13 @@ export async function renderReports(container, user) {
                         </div>
                     </div>
 
+                    <div class="control-group filter-zero-columns" style="display: none;">
+                        <label>Options</label>
+                        <label class="checkbox-item" for="hide-zero-columns">
+                            <input type="checkbox" id="hide-zero-columns">
+                            <span>Hide zero columns</span>
+                        </label>
+                    </div>
                     <div class="control-group">
                         <button id="btn-generate" class="btn-generate">Generate Preview</button>
                     </div>
@@ -672,6 +679,7 @@ export async function renderReports(container, user) {
                 entDateTo: container.querySelector('#ent-date-to').value,
                 entShowName: container.querySelector('#ent-show-name').checked,
                 entIncludeInactive: container.querySelector('#ent-include-inactive').checked,
+                hideZeroColumns: container.querySelector('#hide-zero-columns')?.checked === true,
                 monthlySummaryFy: container.querySelector('#monthly-summary-fy').value,
                 monthlySummaryType: container.querySelector('#monthly-summary-type').value,
                 scheduleMonth: container.querySelector('#schedule-month').value,
@@ -814,11 +822,14 @@ export async function renderReports(container, user) {
     if (filters.entDateTo) container.querySelector('#ent-date-to').value = filters.entDateTo;
     container.querySelector('#ent-show-name').checked = !!filters.entShowName;
     container.querySelector('#ent-include-inactive').checked = !!filters.entIncludeInactive;
+    const hideZeroCheckbox = container.querySelector('#hide-zero-columns');
+    if (hideZeroCheckbox) hideZeroCheckbox.checked = !!filters.hideZeroColumns;
     if (filters.monthlySummaryType) container.querySelector('#monthly-summary-type').value = filters.monthlySummaryType;
     
     // Report results are never persisted (they are large), so the preview always
     // starts empty on a fresh visit.
     let currentReportData = null;
+    let lastRawResult = null;
 
     const buildCtx = () => ({
         cooperativeId,
@@ -859,6 +870,76 @@ export async function renderReports(container, user) {
         }
     };
 
+    const filterZeroColumns = (headers, data) => {
+        if (!headers || headers.length === 0 || !data || data.length === 0) return { headers, data };
+
+        const protectedPatterns = [
+            's/n', 'sn', 'no', 'no.', 'id', 'member id', 'reg no', 'reg no.', 'reg. no.',
+            'registration no', 'account number', 'account no', 'account no.', 'member name',
+            'full name', 'name', 'member', 'type', 'transaction type', 'trans type',
+            'date', 'transaction date', 'remittance date', 'description', 'narration',
+            'particulars', 'note', 'category', 'status', 'bank', 'bank name',
+            'total', 'grand total', 'balance', 'bal b/f'
+        ];
+
+        const isFooter = (row) => {
+            if (!row) return false;
+            const firstCell = Array.isArray(row) ? row[0] : row[headers[0]];
+            const s = String(firstCell || '').trim().toUpperCase();
+            return s === 'TOTAL' || s === 'GRAND TOTAL' || s === 'TOTALS';
+        };
+
+        const dataRows = data.filter(row => !isFooter(row));
+        if (dataRows.length === 0) return { headers, data };
+
+        const zeroIdx = new Set();
+        for (let c = 0; c < headers.length; c++) {
+            const h = String(headers[c] || '').trim().toLowerCase();
+            if (protectedPatterns.includes(h)) continue;
+
+            let allZero = true;
+            let hasNumeric = false;
+            let colSum = 0;
+
+            for (const row of dataRows) {
+                const val = Array.isArray(row) ? row[c] : row[headers[c]];
+                if (val == null || String(val).trim() === '') {
+                    continue;
+                }
+                const num = Number(String(val).replace(/,/g, '').trim());
+                if (isNaN(num)) {
+                    allZero = false;
+                    break;
+                }
+                hasNumeric = true;
+                colSum += num;
+                if (Math.abs(num) > 0.0001) {
+                    allZero = false;
+                    break;
+                }
+            }
+
+            if (allZero && (hasNumeric || Math.abs(colSum) < 0.0001)) {
+                zeroIdx.add(c);
+            }
+        }
+
+        if (zeroIdx.size === 0) return { headers, data };
+
+        const fh = headers.filter((_, i) => !zeroIdx.has(i));
+        const fd = data.map(row => {
+            if (Array.isArray(row)) {
+                return row.filter((_, i) => !zeroIdx.has(i));
+            }
+            const f = {};
+            fh.forEach(headerName => {
+                f[headerName] = row[headerName];
+            });
+            return f;
+        });
+        return { headers: fh, data: fd };
+    };
+
     // Types flagged autoGenerate (Member Register) refresh themselves when a
     // filter or field selection changes, so the preview never goes stale.
     const maybeAutoGenerate = () => {
@@ -874,6 +955,26 @@ export async function renderReports(container, user) {
     container.querySelectorAll('select, input').forEach(el => {
         el.addEventListener('change', updateGlobalState);
     });
+    container.querySelector('#hide-zero-columns')?.addEventListener('change', () => {
+        updateGlobalState();
+        if (lastRawResult && lastRawResult.headers && lastRawResult.data) {
+            const hideZero = container.querySelector('#hide-zero-columns')?.checked === true;
+            let r = lastRawResult;
+            if (hideZero && r.headers && r.data.length > 0) {
+                const zc = filterZeroColumns(lastRawResult.headers, lastRawResult.data);
+                r = { ...lastRawResult, headers: zc.headers, data: zc.data };
+            }
+            const cfg = REPORT_TYPES[reportTypeSelect.value];
+            const title = cfg?.title || r.title || 'Report';
+            currentReportData = { ...r, title };
+            previewTitle.textContent = title;
+            btnExport.style.display = 'block';
+            btnPdf.style.display = 'block';
+            renderPreviewTable(r.headers, r.data, r.footerCount || 0);
+        } else {
+            maybeAutoGenerate();
+        }
+    });
     container.querySelector('#member-status')?.addEventListener('change', maybeAutoGenerate);
 
     reportTypeSelect.addEventListener('change', () => {
@@ -886,6 +987,7 @@ export async function renderReports(container, user) {
             : '<div class="preview-placeholder">Select filters and click Generate Preview</div>';
         previewTitle.textContent = 'Report Preview';
         currentReportData = null;
+        lastRawResult = null;
         updateGlobalState();
         if (cfg?.autoGenerate) btnGenerate.click();
     });
@@ -951,12 +1053,20 @@ export async function renderReports(container, user) {
                 return;
             }
 
-            const title = cfg.title || result.title || 'Report';
-            currentReportData = { ...result, title };
+            lastRawResult = result;
+            const hideZero = container.querySelector('#hide-zero-columns')?.checked === true;
+            let r = result;
+            if (hideZero && result.headers && result.data.length > 0) {
+                const zc = filterZeroColumns(result.headers, result.data);
+                r = { ...result, headers: zc.headers, data: zc.data };
+            }
+
+            const title = cfg.title || r.title || 'Report';
+            currentReportData = { ...r, title };
             previewTitle.textContent = title;
             btnExport.style.display = 'block';
             btnPdf.style.display = 'block';
-            renderPreviewTable(result.headers, result.data, result.footerCount || 0);
+            renderPreviewTable(r.headers, r.data, r.footerCount || 0);
             updateGlobalState();
 
         } catch (err) {

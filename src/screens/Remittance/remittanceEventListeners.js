@@ -99,11 +99,20 @@ export function attachEventListeners(container, deps) {
       const resetMemberBtn = container.querySelector('#reset-member-btn');
       const memberRow = container.querySelector('.member-row');
       if (memSearch && memSuggestions && selectorMembers.length > 0) {
+        const getFullName = (m) => {
+          if (!m) return '';
+          return [m.first_name, m.middle_name, m.last_name].map(s => String(s || '').trim()).filter(Boolean).join(' ') || m.name || '';
+        };
         const renderSuggestions = (term) => {
           if (!term) { memSuggestions.style.display = 'none'; return; }
           const filtered = selectorMembers.filter(m =>
             (String(m.registration_no || '').toLowerCase().includes(term)) ||
             (String(m.name || '').toLowerCase().includes(term)) ||
+            (getFullName(m).toLowerCase().includes(term)) ||
+            ([m.last_name, m.first_name, m.middle_name].map(s => String(s || '').trim()).filter(Boolean).join(' ').toLowerCase().includes(term)) ||
+            (String(m.first_name || '').toLowerCase().includes(term)) ||
+            (String(m.middle_name || '').toLowerCase().includes(term)) ||
+            (String(m.last_name || '').toLowerCase().includes(term)) ||
             (String(m.mobile || '').includes(term)) ||
             (String(m.special_id || '').toLowerCase().includes(term))
           ).slice(0, 10);
@@ -112,7 +121,7 @@ export function attachEventListeners(container, deps) {
           } else {
             memSuggestions.innerHTML = filtered.map(m => `
               <div class="suggestion-item" data-id="${m.id}" style="padding: 0.6rem 0.75rem; font-size: 0.825rem; cursor: pointer; border-bottom: 1px solid var(--border-light);">
-                <div style="font-weight: 600; color: var(--text-primary);">${escapeHtml(m.name)}</div>
+                <div style="font-weight: 600; color: var(--text-primary);">${escapeHtml(getFullName(m))}</div>
                 <div style="font-size: 0.7rem; color: var(--text-muted);">
                   ${m.special_id ? `ID: ${escapeHtml(m.special_id)}` : ''} ${m.special_id && (m.registration_no || m.mobile) ? ' • ' : ''} ${m.registration_no ? `Reg: ${m.registration_no}` : ''} ${(m.special_id || m.registration_no) && m.mobile ? ' • ' : ''} ${m.mobile ? `Mobile: ${m.mobile}` : ''}
                 </div>
@@ -132,7 +141,7 @@ export function attachEventListeners(container, deps) {
               const mid = item.dataset.id;
               const m = members.find(m => m.id === mid);
               memSelect.value = mid;
-              memSearch.value = m ? m.name : '';
+              memSearch.value = m ? getFullName(m) : '';
               memSuggestions.style.display = 'none';
               if (typeof syncFormData === 'function') syncFormData();
               await handleMemberChange(mid);

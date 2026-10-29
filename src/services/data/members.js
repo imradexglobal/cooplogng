@@ -20,6 +20,7 @@ export async function fetchMembersBySearch(cooperativeId, searchTerm) {
     if (!searchTerm) return members
     const term = String(searchTerm).toLowerCase()
     return members.filter(m =>
+        String(m.name || '').toLowerCase().includes(term) ||
         String(m.last_name || '').toLowerCase().includes(term) ||
         String(m.first_name || '').toLowerCase().includes(term) ||
         String(m.middle_name || '').toLowerCase().includes(term) ||

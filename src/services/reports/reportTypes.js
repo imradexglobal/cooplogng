@@ -88,7 +88,7 @@ export const REPORT_TYPES = {
     enterprise_account: {
         label: 'Member Remittance Record (by Account)',
         title: null,
-        filterGroups: ['.filter-enterprise', '.filter-fiscal-year', '.filter-ent-date', '.filter-ent-options'],
+        filterGroups: ['.filter-enterprise', '.filter-fiscal-year', '.filter-ent-date', '.filter-ent-options', '.filter-zero-columns'],
         validate: (ctx) => {
             const from = ctx.read('#ent-date-from');
             const to = ctx.read('#ent-date-to');
@@ -108,7 +108,7 @@ export const REPORT_TYPES = {
     remittance_schedule: {
         label: 'Monthly Deduction Schedule',
         title: null,
-        filterGroups: ['.filter-schedule-month', '.filter-schedule-year', '.filter-schedule-type', '.filter-schedule-member-name'],
+        filterGroups: ['.filter-schedule-month', '.filter-schedule-year', '.filter-schedule-type', '.filter-schedule-member-name', '.filter-zero-columns'],
         build: async (ctx) => {
             const month = parseInt(ctx.read('#schedule-month'));
             const year = parseInt(ctx.read('#schedule-year'));
@@ -149,13 +149,13 @@ export const REPORT_TYPES = {
     member_performance_aging: {
         label: 'Loan Aging Analysis',
         title: null,
-        filterGroups: [],
+        filterGroups: ['.filter-zero-columns'],
         build: (ctx) => getMemberPerformanceAgingData(ctx.cooperativeId)
     },
     general_networth: {
         label: 'Member Balances Summary (As At Date)',
         title: null,
-        filterGroups: ['.filter-networth-date'],
+        filterGroups: ['.filter-networth-date', '.filter-zero-columns'],
         prefill: prefillToday('#networth-date'),
         validate: (ctx) => (ctx.read('#networth-date') ? null : 'Please select an As At date'),
         build: (ctx) => getGeneralNetworthData(ctx.cooperativeId, ctx.user, ctx.read('#networth-date'))
@@ -163,7 +163,7 @@ export const REPORT_TYPES = {
     member_monthly_summary: {
         label: 'Member Monthly Transaction Summary',
         title: null,
-        filterGroups: ['.filter-monthly-summary-fy', '.filter-monthly-summary-type'],
+        filterGroups: ['.filter-monthly-summary-fy', '.filter-monthly-summary-type', '.filter-zero-columns'],
         build: (ctx) => getMemberMonthlyTransactionSummaryData(
             ctx.cooperativeId,
             ctx.user,
