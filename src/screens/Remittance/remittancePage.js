@@ -1081,7 +1081,11 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
     // First, sync form data from DOM to formData!
     syncFormData();
 
-    if (!editMode && formData.remittance_date) {
+    const devBypass = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    if (devBypass) {
+      showToast('Developer mode active: remittance date rules skipped.', 'info');
+    }
+    else if (!editMode && formData.remittance_date) {
       const selected = new Date(formData.remittance_date);
       selected.setHours(0,0,0,0);
       const today = new Date();

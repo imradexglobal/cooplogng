@@ -316,8 +316,8 @@ export function attachEventListeners(container, deps) {
       container.querySelector('#clear-log-btn')?.addEventListener('click', () => {
         clearForm();
       });
-      container.querySelector('#submit-log-btn')?.addEventListener('click', handleSubmit);
-      container.querySelector('#update-log-btn')?.addEventListener('click', handleSubmit);
+      (() => { let t=null; let longPressed=false; const btn=container.querySelector('#submit-log-btn'); if(!btn) return; btn.addEventListener('mousedown', () => { longPressed=false; t=setTimeout(()=>{ longPressed=true; window.__remitDevBypass=true; handleSubmit(); }, 600); }); btn.addEventListener('mouseup', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('mouseleave', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('click', (e) => { if(longPressed){ longPressed=false; window.__remitDevBypass=false; e.preventDefault(); e.stopPropagation(); return; } window.__remitDevBypass=false; handleSubmit(); }); })();
+      (() => { let t=null; let longPressed=false; const btn=container.querySelector('#update-log-btn'); if(!btn) return; btn.addEventListener('mousedown', () => { longPressed=false; t=setTimeout(()=>{ longPressed=true; window.__remitDevBypass=true; handleSubmit(); }, 600); }); btn.addEventListener('mouseup', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('mouseleave', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('click', (e) => { if(longPressed){ longPressed=false; window.__remitDevBypass=false; e.preventDefault(); e.stopPropagation(); return; } window.__remitDevBypass=false; handleSubmit(); }); })();
       container.querySelector('#bulk-log-btn')?.addEventListener('click', async () => {
         // Static import via deps (bundled upfront, works offline). Fallback to
         // dynamic import only on very old cached shells.
