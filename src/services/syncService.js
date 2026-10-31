@@ -275,7 +275,7 @@ const withTimeout = (promise, ms, description = 'Operation') => {
 let _isPushing = false
 let _reconcileRanThisSession = false
 
-const FIRESTORE_BATCH_SIZE = 500
+const FIRESTORE_BATCH_SIZE = 100
 const PUSH_CONCURRENCY = 8
 const BATCH_RATE_LIMIT_MS = 50
 

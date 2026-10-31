@@ -643,7 +643,8 @@ function buildRegistrationHtml(ctx) {
         isSubmitting,
         topError,
         registrationSuccess,
-        successPassword
+        successPassword,
+        selectedLogo
     } = ctx
     const v = formValues || {}
     const errs = errors || {}
@@ -675,6 +676,24 @@ function buildRegistrationHtml(ctx) {
     const LOGO_AVATAR_INNER = v.logo_path
         ? `<img src="${escapeAttribute(v.logo_path)}" alt="Logo preview" />`
         : `<span class="logo-ph-ico">🏢</span>`
+
+    const LOGO_REMOVE_BTN = selectedLogo
+        ? `<button type="button" class="logo-remove-btn" aria-label="Remove logo" style="
+            position: absolute;
+            top: 4px; right: 4px;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 2px solid var(--accent-primary);
+            color: var(--accent-primary);
+            font-size: 0.7rem;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+            z-index: 10;
+            padding: 0;
+          ">&times;</button>`
+        : ''
 
     return SYS_CSS + `
         <div id="registration-wrap">
@@ -717,6 +736,7 @@ function buildRegistrationHtml(ctx) {
                         <div class="logo-avatar-wrap" id="logo-trigger" title="${logoErr ? 'Logo is required — tap to upload' : 'Tap to upload or change logo'}"${logoBorderStyle ? ` style="${logoBorderStyle}"` : ''}>
                             <div class="logo-avatar" id="logo-preview">
                                 ${LOGO_AVATAR_INNER}
+                                ${LOGO_REMOVE_BTN}
                             </div>
                             <span class="logo-edit-badge">
                                 <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
@@ -983,7 +1003,8 @@ export async function renderRegistration(container, onBack, onSuccess) {
             isSubmitting: state.isSubmitting,
             topError: state.topError,
             registrationSuccess: state.registrationSuccess,
-            successPassword: state.successPassword
+            successPassword: state.successPassword,
+            selectedLogo: state.selectedLogo
         })
         bindEvents()
     }
@@ -1078,6 +1099,20 @@ export async function renderRegistration(container, onBack, onSuccess) {
                     }
                 }
             })
+
+            // Handle remove logo button
+            const logoRemoveBtn = container.querySelector('.logo-remove-btn')
+            if (logoRemoveBtn) {
+                logoRemoveBtn.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    state.selectedLogo = null
+                    if (logoPreview) logoPreview.innerHTML = `<span class="logo-ph-ico">🏢</span>`
+                    // Reset the file input value
+                    const logoInput = container.querySelector('#logo-input')
+                    if (logoInput) logoInput.value = ''
+                    saveDraft()
+                })
+            }
         }
 
         if (form) {
@@ -1086,11 +1121,6 @@ export async function renderRegistration(container, onBack, onSuccess) {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault()
                 if (state.isSubmitting) return
-                if (!form.reportValidity()) {
-                    showToast('Submit failed: please fill in all required fields highlighted below.', 'warning')
-                    return
-                }
-
                 const formData = new FormData(form)
                 const submitted = {
                     full_name: formData.get('full_name') ? String(formData.get('full_name')).trim() : '',

@@ -2,6 +2,10 @@ import { fetchEnterprises, buildAccountBalance, fetchMemberDoc, fetchMemberPayme
 import { showToast } from '../services/toastService.js';
 import { formatCurrency, escapeHtml, escapeAttribute, generateId } from '../utils/formatters.js';
 
+function roundUpTo100(val) {
+  return Math.ceil(Number(val) / 100) * 100
+}
+
 export async function renderPaymentAdvice(container, user) {
   const cooperativeId = user.cooperativeId;
   const isMember = user.role === 'member' || !!user.memberId;
@@ -250,7 +254,7 @@ export async function renderPaymentAdvice(container, user) {
   const calcTotal = () => {
     let total = 0, savings = 0, loans = 0, count = 0;
     rows.forEach(r => {
-      const amt = parseFloat(r.amount) || 0;
+      const amt = roundUpTo100(parseFloat(r.amount) || 0);
       total += amt;
       if (amt > 0) count++;
       if (r.type === 'loan') loans += amt; else savings += amt;

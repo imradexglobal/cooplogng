@@ -322,17 +322,16 @@ export function isSha256Hex(val) {
 
 /**
  * Force-change evaluation AFTER credentials have verified.
- * Returns true when the user must set a new 6-digit PIN:
- *  1. explicit force_password_change flag, or empty/missing stored hash
- *  2. stored value is plain text (not SHA-256) — ALWAYS forces,
- *     even if the typed password looks like a legacy-complex password
- *  3. stored hash verifies but the typed password is neither a 6-digit
- *     PIN nor a legacy-complex password (catches old <6-digit PINs like
- *     '1234', whose hashes are valid hex and otherwise indistinguishable).
- * Grandfathered legacy-complex passwords (e.g. "Adex@1234") pass ONLY
- * when stored as a hash.
+ * Returns true when the user must set a new password:
+ *  1. the typed password is exactly 123456, the explicit force-change flag is set,
+ *     or the stored hash is empty/missing;
+ *  2. the stored value is plain text rather than a SHA-256 hash;
+ *  3. a verified hash belongs to a password that is neither an allowed PIN nor
+ *     a grandfathered legacy-complex password.
+ * The exact PIN 123456 always requires replacement, regardless of storage format.
  */
 export function needsForceChangeAfterMatch(stored, typedInput, forceFlag) {
+  if (String(typedInput ?? '') === '123456') return true;
   if (forceFlag === true) return true;
   if (!stored) return true;
   if (!isSha256Hex(stored)) return true;

@@ -684,9 +684,9 @@ export async function validateOfflineLogin(username, passwordHash, cooperativeId
             console.warn('[OfflineAuth] Subscription gate check skipped:', e?.message)
         }
 
-        // Same 6-digit PIN policy as online login (see formatters.js):
-        // 6-digit PINs pass, grandfathered legacy-complex passwords pass,
-        // plain-text non-legacy and old <6-digit PINs must change.
+        // Same PIN policy as online login (see formatters.js): 123456 always
+        // requires a change, regardless of whether its stored value is hashed.
+        // Other valid PINs and grandfathered passwords keep existing behavior.
         const { needsForceChangeAfterMatch } = await import('../utils/formatters.js')
         if (needsForceChangeAfterMatch(userDoc.password_hash || '', plaintextPassword, userDoc.force_password_change === true)) {
             return { forceChange: true, userDoc, collection };
@@ -1276,16 +1276,15 @@ export function sessionToWelcomeUser(session) {
 /**
  * Policy check: must this session set a new password before ANY dashboard
  * access — including session restores, which skip password entry?
- * Plaintext (non-SHA-256) stored hash or an explicit flag is sufficient
- * evidence on its own (mirrors needsForceChangeAfterMatch cases 1-2, which
- * need no typed input). Fail-open on lookup errors so a broken DB never
+ * Plaintext storage, a stored hash of 123456, or an explicit flag is
+ * sufficient evidence on its own. Fail-open on lookup errors so a broken DB never
  * bricks logins; callers run this only after initDb.
  */
 export async function sessionRequiresPasswordChange(welcomeUser) {
     try {
         if (!welcomeUser) return false
         const { getDocById_Global } = await import('./sqliteService.js')
-        const { isSha256Hex } = await import('../utils/formatters.js')
+        const { isSha256Hex, hashPassword } = await import('../utils/formatters.js')
         const isMember = welcomeUser.role === 'member' || welcomeUser.userCollection === 'members'
         const collection = isMember ? 'members' : 'users'
         const id = welcomeUser.userId || welcomeUser.memberId
@@ -1294,7 +1293,10 @@ export async function sessionRequiresPasswordChange(welcomeUser) {
         if (!row || row.is_deleted) return false
         const flag = row.force_password_change
         if (flag === true || flag === 1 || flag === '1') return true
-        if (!isSha256Hex(row.password_hash || '')) return true
+        const stored = String(row.password_hash || '')
+        if (!isSha256Hex(stored)) return true
+        const defaultPinHash = await hashPassword('123456')
+        if (stored.toLowerCase() === defaultPinHash.toLowerCase()) return true
         return false
     } catch {
         return false

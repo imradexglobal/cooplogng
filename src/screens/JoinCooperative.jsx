@@ -563,7 +563,7 @@ function buildJoinHtml(ctx) {
         coops, coopsLoading, coopsError,
         submitted, selectedCoopName,
         formValues, errors, topError, submitError,
-        isSubmitting, photoPreviewHtml, preSelectedCoopShortName
+        isSubmitting, photoPreviewHtml, preSelectedCoopShortName, selectedPhoto
     } = ctx
     const v = formValues || {}
     const errs = errors || {}
@@ -720,6 +720,23 @@ function buildJoinHtml(ctx) {
                         <div class="photo-avatar-wrap" id="photo-trigger" title="${photoErr ? 'Photo is required — tap to upload' : 'Tap to upload or change photo'}"${photoBorderStyle ? ` style="${photoBorderStyle}"` : ''}>
                             <div class="photo-avatar" id="join-photo-preview">
                                 ${PHOTO_INNER}
+                                ${ctx.selectedPhoto ? `
+                                    <button type="button" class="photo-remove-btn" aria-label="Remove photo" style="
+                                        position: absolute;
+                                        top: 4px; right: 4px;
+                                        width: 28px; height: 28px;
+                                        border-radius: 50%;
+                                        background: var(--bg-card);
+                                        border: 2px solid var(--accent-primary);
+                                        color: var(--accent-primary);
+                                        font-size: 0.7rem;
+                                        display: grid;
+                                        place-items: center;
+                                        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+                                        z-index: 10;
+                                        padding: 0;
+                                    ">&times;</button>
+                                ` : ''}
                             </div>
                             <span class="photo-edit-badge">
                                 <svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
@@ -907,6 +924,7 @@ export async function renderJoinCooperative(container, onBack, preSelectedCoopSh
             selectedCoopName: state.selectedCoopName,
             formValues: state.formValues,
             preSelectedCoopShortName: state.preSelectedCoopShortName,
+            selectedPhoto: state.selectedPhoto,
             errors: state.errors,
             topError: state.topError,
             submitError: state.submitError,
@@ -997,6 +1015,21 @@ export async function renderJoinCooperative(container, onBack, preSelectedCoopSh
                     saveDraft()
                 }
             })
+
+            // Handle remove photo button
+            const photoRemoveBtn = container.querySelector('.photo-remove-btn')
+            if (photoRemoveBtn) {
+                photoRemoveBtn.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    state.selectedPhoto = null
+                    state.photoPreviewHtml = null
+                    if (photoPreview) photoPreview.innerHTML = `<span class="photo-ph-ico">👤</span>`
+                    // Reset the file input value
+                    const photoInput = container.querySelector('#join-photo-input')
+                    if (photoInput) photoInput.value = ''
+                    saveDraft()
+                })
+            }
         }
 
         if (photoInput) {
@@ -1059,18 +1092,9 @@ export async function renderJoinCooperative(container, onBack, preSelectedCoopSh
                     : (state.topError || '')
                 state.submitError = ''
 
-                if (!state.selectedPhoto) {
-                    errors.image_path = 'Passport photo is required.'
-                    state.errors = errors
-                    state.topError = 'Please fix the errors below.'
-                    render()
-                    try {
-                        const wrap = document.getElementById('join-coop-wrap')
-                        if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                    } catch (_) { /* ignore */ }
-                    showToast('Submit failed: please add your passport photo (tap the circular avatar to upload).', 'error')
-                    return
-                }
+                // Photo is optional — allow submission without a selected image.
+                // The image_path will be null if no photo was selected or was removed.
+                // If a photo was previously selected and removed, it should not be submitted.
 
                 if (Object.keys(errors).length > 0) {
                     render()

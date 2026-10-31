@@ -42,8 +42,10 @@ export function isSubscriptionBlocked(doc, usernameOverride, nowIso = new Date()
   try {
     if (!doc) return false;
     const username = usernameOverride ?? doc.username ?? doc.mobile ?? '';
-    // Exempt 'admin' username and coop short name from subscription blocking
+    // Exempt administrator accounts by role, even when their login name is
+    // not literally "admin". Also retain the legacy username exemptions.
     const isAdminUsername = String(username || '').toLowerCase() === 'admin'
+      || String(doc.role || '').toLowerCase() === 'admin'
       || (usernameOverride && String(usernameOverride).toLowerCase() === (doc.coopShortName || '').toLowerCase())
     if (isAdminUsername) return false;
     const status = doc.subscriptionStatus;
@@ -54,7 +56,9 @@ export function isSubscriptionBlocked(doc, usernameOverride, nowIso = new Date()
       if (n !== 1) return true;
     }
     const expiry = getExpiry(doc) ?? doc.subscriptionExpiry ?? null;
-    if (expiry && String(expiry) < nowIso) return true;
+    const expiryDate = expiry ? new Date(expiry) : null;
+    if (expiryDate && isNaN(expiryDate.getTime())) return true;
+    if (expiryDate && expiryDate < new Date(nowIso)) return true;
     return false;
   } catch {
     return false;
@@ -76,7 +80,9 @@ function isActiveDoc(doc, nowIso) {
   if (!subscribed) return false;
   const expiry = getExpiry(doc);
   if (!expiry) return true; // subscribed with no expiry counts as active (legacy)
-  return String(expiry) >= nowIso;
+  const expiryDate = new Date(expiry);
+  if (isNaN(expiryDate.getTime())) return true;
+  return expiryDate >= new Date(nowIso);
 }
 
 /**
@@ -92,7 +98,9 @@ export function getSubscriptionState(doc, nowIso = new Date().toISOString()) {
     doc?.subscriptionStatus === 1;
   if (!subscribed) return 'inactive';
   const expiry = getExpiry(doc);
-  if (expiry && String(expiry) < nowIso) return 'expired';
+  const expiryDate = expiry ? new Date(expiry) : null;
+  if (expiryDate && isNaN(expiryDate.getTime())) return 'expired';
+  if (expiryDate && expiryDate < new Date(nowIso)) return 'expired';
   return 'active';
 }
 

@@ -831,10 +831,9 @@ export async function validateLogin(username, password, cooperativeId) {
         throw new Error(SUBSCRIPTION_BLOCKED_MSG);
       }
 
-      // Force-change is decided AFTER the password verifies, using the typed
-      // input: 6-digit PINs pass, grandfathered legacy-complex passwords
-      // (e.g. "Adex@1234") pass, plain-text non-legacy and old <6-digit
-      // PINs (e.g. '1234') must change. Explicit flag always forces.
+      // The temporary PIN 123456 always forces a password change, even if its
+      // stored hash verifies. Other valid PINs and grandfathered passwords
+      // pass unless the explicit force-change flag requires a change.
       if (needsForceChangeAfterMatch(stored, normalizedPassword, docForceFlagSet(foundDoc))) {
         return { forceChange: true, userDoc: foundDoc, collection: collectionName, subscriptionStatus: foundDoc.subscriptionStatus, subscriptionExpiry: foundDoc.expiry_date };
       }
