@@ -1,20 +1,39 @@
-import { getRemittances, queryRows } from '../sqliteService.js'
+import { getRemittances, queryRows, getLocalDateString } from '../sqliteService.js'
 
-// Cutoff key for "balance up to this entry" previews. Cutoffs use creation
-// order: { ts, id }.
+// Cutoff key for "balance up to this entry" previews.
+//
+// Total order: remittance_date -> created_at -> id. This is the same order the
+// history table and the DB page use, so "Opening" always matches the rows
+// shown above the selected entry. A backdated record therefore takes its
+// Opening from its own date position, not from the moment it was typed in.
+//
+// `date` is optional: older callers that only pass { ts, id } keep the exact
+// creation-order behaviour they had before.
 function normalizeCutoff(limit) {
     if (!limit || typeof limit !== 'object') return null
-    return { ts: String(limit.ts || ''), id: String(limit.id || '') }
+    return {
+        date: String(limit.date || ''),
+        ts: String(limit.ts || ''),
+        id: String(limit.id || '')
+    }
+}
+// Signed comparison against the cutoff: <0 before, 0 at, >0 after.
+function compareCutoff(rem, key) {
+    if (key.date) {
+        const remDate = getLocalDateString(rem.remittance_date || rem.created_at)
+        const dc = remDate.localeCompare(key.date)
+        if (dc !== 0) return dc
+    }
+    const tc = String(rem.created_at || '').localeCompare(key.ts)
+    if (tc !== 0) return tc
+    return String(rem.id).localeCompare(key.id)
 }
 // true when rem is at/after the cutoff (caller decides inclusive/exclusive
 // via the `strict` flag: balance preview excludes the entry itself).
 function pastCutoff(rem, key, strict) {
     if (!key) return false
-    const ts = String(rem.created_at || '')
-    const c = ts.localeCompare(key.ts)
-    if (c !== 0) return strict ? c > 0 : c >= 0
-    const ic = String(rem.id).localeCompare(key.id)
-    return strict ? ic > 0 : ic >= 0
+    const c = compareCutoff(rem, key)
+    return strict ? c > 0 : c >= 0
 }
 
 export async function buildAccountBalance(cooperativeId, user = null, limitRid = null, preloaded = null) {

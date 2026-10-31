@@ -137,8 +137,8 @@ export async function getRemittances(cooperativeId, user = null) {
     }
 
     remittances.sort((a, b) => {
-        const dateStrA = getLocalDateString(a.remittance_date)
-        const dateStrB = getLocalDateString(b.remittance_date)
+        const dateStrA = getLocalDateString(a.remittance_date || a.created_at)
+        const dateStrB = getLocalDateString(b.remittance_date || b.created_at)
 
         const dateCmp = dateStrB.localeCompare(dateStrA)
         if (dateCmp !== 0) return dateCmp
@@ -366,8 +366,8 @@ export async function getRemittancesPage(cooperativeId, user = null, offset = 0,
     remittances = buildRemittanceFilter(remittances, options, memberMap)
 
     remittances.sort((a, b) => {
-        const dateStrA = getLocalDateString(a.remittance_date)
-        const dateStrB = getLocalDateString(b.remittance_date)
+        const dateStrA = getLocalDateString(a.remittance_date || a.created_at)
+        const dateStrB = getLocalDateString(b.remittance_date || b.created_at)
 
         const dateCmp = dateStrB.localeCompare(dateStrA)
         if (dateCmp !== 0) return dateCmp

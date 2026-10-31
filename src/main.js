@@ -30,7 +30,7 @@ import { renderJoinCooperative } from './screens/JoinCooperative.js'
 import { fetchAllMembers, fetchMembersBySearch, isNotDeleted } from './services/dataService.js'
 import { hashPassword, escapeHtml, escapeAttribute, generateId, getInitials, wrapDateInput } from './utils/formatters.js'
 import { initializeSyncService, syncCooperativeData, performHardRestore } from './services/syncService.js'
-import { getAllForCoop, loadDoc, isSynced, queryOne } from './services/sqliteService.js'
+import { getAllForCoop, loadDoc, isSynced, queryOne, getLocalDateString } from './services/sqliteService.js'
 import { validateLogin } from './services/authService.js'
 
 import { attemptOfflineLogin, saveSessionLocally as saveSession, loadSavedSession, clearSavedSession, clearOfflineSession, clearAllOfflineSessions, recordActivity, startInactivityWatcher, persistActiveTab, sessionRequiresPasswordChange, maybeCountMemberReturnVisit, restoreSessionFromIndexedDB } from './services/offlineAuthService.js'
@@ -3158,7 +3158,13 @@ window.showTransactionModal = async (remittance) => {
 
     if (isSavingsRequest && remittance.member_id) {
       const { buildAccountBalance } = await import('./services/dataService.js');
-      const limitKey = remittance && remittance.created_at ? { ts: remittance.created_at, id: remittance.id } : null;
+      const limitKey = remittance && (remittance.remittance_date || remittance.created_at)
+        ? {
+            date: getLocalDateString(remittance.remittance_date || remittance.created_at),
+            ts: remittance.created_at || '',
+            id: remittance.id
+          }
+        : null;
       const { accountBalance } = await buildAccountBalance(state.welcomeUser.cooperativeId, { memberId: remittance.member_id }, limitKey);
       const balObj = accountBalance.find(b => b.id === targetEntId);
       balanceBefore = balObj ? parseFloat(balObj.sum_of_amount || 0) : 0;

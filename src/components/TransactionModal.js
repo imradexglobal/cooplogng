@@ -2,6 +2,7 @@ import { state } from '../state/appState.js'
 import { escapeHtml, escapeAttribute, formatCurrency, formatDate, wrapDateInput, shortRef } from '../utils/formatters.js'
 import { showToast } from '../services/toastService.js'
 import { hasPermission } from '../services/permissionService.js'
+import { getLocalDateString } from '../services/sqliteService.js'
 
 window.showTransactionModal = async (remittance) => {
   const overlay = document.getElementById('modal-overlay')
@@ -54,7 +55,13 @@ window.showTransactionModal = async (remittance) => {
 
     if (isSavingsRequest && remittance.member_id) {
       const { buildAccountBalance } = await import('../services/dataService.js');
-      const limitKey = remittance && remittance.created_at ? { ts: remittance.created_at, id: remittance.id } : null;
+      const limitKey = remittance && (remittance.remittance_date || remittance.created_at)
+        ? {
+            date: getLocalDateString(remittance.remittance_date || remittance.created_at),
+            ts: remittance.created_at || '',
+            id: remittance.id
+          }
+        : null;
       const { accountBalance } = await buildAccountBalance(state.welcomeUser.cooperativeId, { memberId: remittance.member_id }, limitKey);
       const balObj = accountBalance.find(b => b.id === targetEntId);
       balanceBefore = balObj ? parseFloat(balObj.sum_of_amount || 0) : 0;

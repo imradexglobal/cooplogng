@@ -272,6 +272,7 @@ export async function approveLoanRequest(remittanceId, approvedBy, options = {})
                     remittance_date: remittance_date || remittance.remittance_date,
                     bank_name: 'Internal Transfer',
                     transaction_type: 'Loan Charges',
+                    category: 'Loan Income',
                     description: `Auto Loan Charges Income - ${pickupMemberName}`,
                     autogen: 1,
                     loan_id: loan.id || remittanceId,

@@ -3,7 +3,7 @@ import { createDuesTransfer, createDuesIncomePickup } from '../../services/data/
 import { hasPermission } from '../../services/permissionService.js';
 import { formatCurrency, formatDate, formatDateForInput, escapeHtml, getTimestampMs, generateId, generateRemittanceId, wrapDateInput, formatDateTime, getInitials, timestampTail } from '../../utils/formatters.js';
 import { showToast } from '../../services/toastService.js';
-import { getAllForCoop, queryOne } from '../../services/sqliteService.js';
+import { getAllForCoop, queryOne, getLocalDateString } from '../../services/sqliteService.js';
 import { getAvatarColor, isMobile } from './constants.js';
 import { applyLoanRequestPrefillInternal, applyWithdrawalRequestPrefillInternal } from './remittancePrefill.js';
 import { showLoanConfigModal } from './remittanceLoanConfig.js';
@@ -374,12 +374,17 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
     }
     historyState.allRemittances = [...parentMap.values(), ...orphans];
 
-    // Sort: newest first by creation time, fallback to remittance_date (desc), then id.
+    // Sort: remittance_date desc, then created_at desc, then id desc.
+    // This mirrors the DB page sort in sqlite/remittances.js exactly, so a
+    // backdated entry sits in its date row and already-rendered pages do not
+    // reshuffle when the next page arrives.
     historyState.allRemittances.sort((a, b) => {
+      const dateA = getLocalDateString(a.remittance_date || a.created_at);
+      const dateB = getLocalDateString(b.remittance_date || b.created_at);
+      const dateCmp = dateB.localeCompare(dateA);
+      if (dateCmp !== 0) return dateCmp;
       const createdCmp = String(b.created_at || '').localeCompare(String(a.created_at || ''));
       if (createdCmp !== 0) return createdCmp;
-      const dateCmp = new Date(b.remittance_date || 0) - new Date(a.remittance_date || 0);
-      if (dateCmp !== 0) return dateCmp;
       return String(b.id).localeCompare(String(a.id));
     });
     calculateStats();
@@ -420,7 +425,16 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
       return;
     }
     try {
-      const limitKey = formData.id && formData.created_at ? { ts: formData.created_at, id: formData.id } : null;
+      // Opening follows the same date -> created_at -> id order as the table:
+      // a backdated record opens at its own date position, and same-day
+      // entries are separated by their individual record order.
+      const limitKey = formData.id && (formData.remittance_date || formData.created_at)
+        ? {
+            date: getLocalDateString(formData.remittance_date || formData.created_at),
+            ts: formData.created_at || '',
+            id: formData.id
+          }
+        : null;
       const balData = await buildAccountBalance(cooperativeId, { ...user, memberId }, limitKey);
       openingBalances = {};
       balData.accountBalance.forEach(b => openingBalances[b.id] = b.sum_of_amount);
@@ -1066,7 +1080,32 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
   const handleSubmit = async () => {
     // First, sync form data from DOM to formData!
     syncFormData();
-    
+
+    if (!editMode && formData.remittance_date) {
+      const selected = new Date(formData.remittance_date);
+      selected.setHours(0,0,0,0);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      if (selected > today) {
+        showToast('Validation Error: Remittance date cannot be in the future.', 'error');
+        return;
+      }
+      const sixMonthsAgo = new Date(today);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      if (selected < sixMonthsAgo) {
+        showToast('Validation Error: Remittance date cannot be more than 6 months in the past.', 'error');
+        return;
+      }
+      const mid = formData.member_id;
+      const laterExists = (historyState.allRemittances || []).some(r => String(r.member_id) === String(mid) && r.remittance_date && new Date(r.remittance_date) > selected);
+      if (laterExists) {
+        const ok = confirm('This member already has a remittance dated after the selected date. Do you want to proceed?');
+        if (!ok) {
+          return;
+        }
+      }
+    }
+
     const clearHighlights = () => {
       container.querySelectorAll('.field-invalid').forEach(el => el.classList.remove('field-invalid'));
     };
@@ -1093,7 +1132,10 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
        // Locked types are disabled in the dropdown, so during an EDIT the only
        // way txType is locked is that the existing record already carries it
        // (e.g. 'Member Deposit'). Reject only manual selection on new records.
-       if (!editMode && lockedTypes.includes(txType)) {
+       // Bank = Internal Transfer derives the locked type itself (set below),
+       // so a carried-over/draft value must not block the save.
+       const isInternalTransferBank = (formData.bank_name || '').toLowerCase() === 'internal transfer';
+       if (!editMode && lockedTypes.includes(txType) && !isInternalTransferBank) {
         showToast('Validation Error: This transaction type is system-managed and cannot be manually selected.', 'error');
         if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = editMode ? 'Update Remittance' : 'Save Remittance'; }
         highlightField('transaction_type');
@@ -1154,13 +1196,6 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
           return;
         }
         if ((bankName || '').toLowerCase() === 'internal transfer') {
-          const lockedTxTypes = transactionTypes.filter(t => t.is_locked === 1 || t.is_locked === true).map(t => t.transaction_type);
-          if (lockedTxTypes.includes('Internal Transfer')) {
-            showToast('Validation Error: Internal Transfer is system-managed and cannot be manually used.', 'error');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = editMode ? 'Update Remittance' : 'Save Remittance'; }
-            highlightField('bank_name');
-            return;
-          }
           if (!formData.description.trim()) {
             highlightField('description');
             showToast('Validation Error: Note / Description is required for Internal Transfer.', 'error');
@@ -1176,12 +1211,6 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
         } else {
           if (amountVal === 0) {
             if (formData.details.length > 1 && Math.abs(detailsSum) < 0.01) {
-              const lockedTxTypes = transactionTypes.filter(t => t.is_locked === 1 || t.is_locked === true).map(t => t.transaction_type);
-              if (lockedTxTypes.includes('Internal Transfer')) {
-                showToast('Validation Error: Internal Transfer is system-managed and cannot be manually used.', 'error');
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = editMode ? 'Update Remittance' : 'Save Remittance'; }
-                return;
-              }
               txType = 'Internal Transfer';
             } else {
               showToast('Validation Error: Amount cannot be zero except for balanced Internal Transfers.', 'error');
@@ -1501,9 +1530,9 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
 
       // Loan income pickup (one per loan): +ve Internal Transfer to admin
       // 0000000000 totalling that loan's charges above. Header only (no
-      // details on admin remittances); classification resolves inside
-      // addRemittance like the dues pickup. Ids/status flow through the
-      // same autogen save loop below.
+      // details on admin remittances). Category is stamped explicitly so the
+      // row always counts as coop income, even if the coop's "Loan Charges"
+      // transaction type has been re-classified.
       for (const [pickupLoanId, pickupTotal] of Object.entries(loanPickupTotals)) {
         if (!(pickupTotal > 0)) continue;
         autogenRemittances.push({
@@ -1512,6 +1541,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
           remittance_date: formData.remittance_date,
           bank_name: 'Internal Transfer',
           transaction_type: 'Loan Charges',
+          category: 'Loan Income',
           description: `Auto Loan Charges Income - ${pickupMemberName}`,
           autogen: 1,
           loan_id: pickupLoanId,

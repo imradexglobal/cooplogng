@@ -1,5 +1,6 @@
 import { escapeHtml, generateId, wrapDateInput, formatDate, formatDateForInput, formatCurrency } from '../../utils/formatters.js';
 import { showToast } from '../../services/toastService.js';
+import { getLocalDateString } from '../../services/sqliteService.js';
 
 export function showSimpleReviewModal(
   formData,
@@ -66,7 +67,13 @@ export function showSimpleReviewModal(
       if (isSavingsRequest && cooperativeId && formData.member_id) {
         const { buildAccountBalance } = await import('../../services/dataService.js');
         const memberIdString = typeof formData.member_id === 'object' ? formData.member_id.id : formData.member_id;
-        const limitKey = formData.id && formData.created_at ? { ts: formData.created_at, id: formData.id } : null;
+        const limitKey = formData.id && (formData.remittance_date || formData.created_at)
+          ? {
+              date: getLocalDateString(formData.remittance_date || formData.created_at),
+              ts: formData.created_at || '',
+              id: formData.id
+            }
+          : null;
         const { accountBalance } = await buildAccountBalance(cooperativeId, { memberId: memberIdString }, limitKey);
         const balObj = accountBalance.find(b => b.id === targetEntId);
         balanceBefore = balObj ? parseFloat(balObj.sum_of_amount || 0) : 0;
