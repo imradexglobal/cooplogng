@@ -1,5 +1,5 @@
 import { state } from '../../state/appState.js'
-import { escapeHtml, escapeAttribute, getInitials, formatCurrency } from '../../utils/formatters.js'
+import { escapeHtml, escapeAttribute, getInitials, formatCurrency, getTimestampMs } from '../../utils/formatters.js'
 import { hasPermission } from '../../services/permissionService.js'
 import { networkIndicatorClass, networkIndicatorLabel, networkIndicatorIcon } from '../../services/networkService.js'
 import { getAllForCoop, loadDoc, isSynced } from '../../services/sqliteService.js'
@@ -241,7 +241,10 @@ function isSubscriptionActive() {
   if (status === undefined || status === null || status === '') return true
   const n = Number(status)
   if (n !== 1) return false
-  if (u.subscriptionExpiry && u.subscriptionExpiry < new Date().toISOString()) return false
+  if (u.subscriptionExpiry) {
+    const expiryMs = getTimestampMs(u.subscriptionExpiry)
+    if (expiryMs > 0 && expiryMs < Date.now()) return false
+  }
   return true
 }
 

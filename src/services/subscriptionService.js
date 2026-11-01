@@ -13,6 +13,7 @@ import {
   enqueueWrite,
 } from './sqliteService.js';
 import { getDb, doc, updateDoc } from '../firebase.js';
+import { getTimestampMs } from '../utils/formatters.js';
 
 // Subscription status constants (matches members.js / users.js usage)
 export const SUBSCRIPTION_STATUS = {
@@ -67,10 +68,19 @@ export function isSubscriptionBlocked(doc, usernameOverride, nowIso = new Date()
 }
 
 /**
- * Get the expiry date from a document (handles expiry_date / subscriptionExpiry).
+ * Get the expiry date from a document as an ISO string (handles expiry_date /
+ * subscriptionExpiry, including Firestore Timestamp objects).
  */
 export function getExpiry(doc) {
-  return doc?.expiry_date ?? doc?.subscriptionExpiry ?? null;
+  const raw = doc?.expiry_date ?? doc?.subscriptionExpiry ?? null;
+  if (!raw) return null;
+  // Convert Firestore Timestamp objects to ISO strings so new Date() parses them.
+  if (typeof raw === 'object') {
+    const ms = getTimestampMs(raw);
+    if (ms === 0) return null;
+    return new Date(ms).toISOString();
+  }
+  return String(raw);
 }
 
 function isActiveDoc(doc, nowIso) {

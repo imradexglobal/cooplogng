@@ -28,7 +28,7 @@ import { renderRegistration } from './screens/Registration.js'
 import { renderLanding } from './screens/Landing.js'
 import { renderJoinCooperative } from './screens/JoinCooperative.jsx'
 import { fetchAllMembers, fetchMembersBySearch, isNotDeleted } from './services/dataService.js'
-import { hashPassword, escapeHtml, escapeAttribute, generateId, getInitials, wrapDateInput } from './utils/formatters.js'
+import { hashPassword, escapeHtml, escapeAttribute, generateId, getInitials, wrapDateInput, getTimestampMs } from './utils/formatters.js'
 import { initializeSyncService, syncCooperativeData, performHardRestore } from './services/syncService.js'
 import { getAllForCoop, loadDoc, isSynced, queryOne, getLocalDateString } from './services/sqliteService.js'
 import { validateLogin } from './services/authService.js'
@@ -2757,8 +2757,12 @@ function isSubscriptionActive() {
   if (String(u.username || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === String(u.coopShortName || '').toLowerCase()) return true
   const status = u.subscriptionStatus
   if (status === undefined || status === null || status === '') return true
-  if (status === 0 || status === '0') return false
-  if (u.subscriptionExpiry && u.subscriptionExpiry < new Date().toISOString()) return false
+  const n = Number(status)
+  if (n !== 1) return false
+  if (u.subscriptionExpiry) {
+    const expiryMs = getTimestampMs(u.subscriptionExpiry)
+    if (expiryMs > 0 && expiryMs < Date.now()) return false
+  }
   return true
 }
 
