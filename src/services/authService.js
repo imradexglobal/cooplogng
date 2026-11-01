@@ -828,7 +828,7 @@ export async function validateLogin(username, password, cooperativeId) {
 
       // Block unsubscribed/expired accounts completely (admin exempt).
       if (isSubscriptionBlocked(foundDoc)) {
-        throw new Error(SUBSCRIPTION_BLOCKED_MSG);
+        throw new Error(SUBSCRIPTION_BLOCKED_MSG)
       }
 
       // The temporary PIN 123456 always forces a password change, even if its

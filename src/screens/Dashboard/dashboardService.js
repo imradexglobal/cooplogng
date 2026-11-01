@@ -239,7 +239,8 @@ function isSubscriptionActive() {
   if (String(u.username || '').toLowerCase() === 'admin') return true
   const status = u.subscriptionStatus
   if (status === undefined || status === null || status === '') return true
-  if (status === 0 || status === '0') return false
+  const n = Number(status)
+  if (n !== 1) return false
   if (u.subscriptionExpiry && u.subscriptionExpiry < new Date().toISOString()) return false
   return true
 }

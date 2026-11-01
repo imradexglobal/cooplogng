@@ -12,6 +12,7 @@ import {
   saveDoc,
   enqueueWrite,
 } from './sqliteService.js';
+import { getDb, doc, updateDoc } from '../firebase.js';
 
 // Subscription status constants (matches members.js / users.js usage)
 export const SUBSCRIPTION_STATUS = {
@@ -249,6 +250,19 @@ export async function activateSubscription(collectionName, docId, username, coop
     modified_by: username || 'system',
   });
 
+  // Also write directly to Firestore so the activation is immediately
+  // visible to devices doing fresh online logins (not just via the async
+  // sync queue). Best-effort: never blocks the activation result.
+  try {
+    const db = getDb()
+    await updateDoc(doc(db, collectionName, String(docId)), {
+      subscriptionStatus: SUBSCRIPTION_STATUS.SUBSCRIBED,
+      expiry_date: expiryIso,
+      modified_at: nowIso,
+      modified_by: username || 'system',
+    }).catch(() => {})
+  } catch {}
+
   return { success: true, expiry: expiryIso };
 }
 
@@ -276,6 +290,18 @@ export async function deactivateSubscription(collectionName, docId, username, co
     modified_at: nowIso,
     modified_by: username || 'system',
   });
+
+  // Also write directly to Firestore so the deactivation is immediately
+  // visible to devices doing fresh online logins. Best-effort only.
+  try {
+    const db = getDb()
+    await updateDoc(doc(db, collectionName, String(docId)), {
+      subscriptionStatus: SUBSCRIPTION_STATUS.UNSUBSCRIBED,
+      expiry_date: null,
+      modified_at: nowIso,
+      modified_by: username || 'system',
+    }).catch(() => {})
+  } catch {}
 
   return { success: true };
 }

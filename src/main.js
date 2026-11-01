@@ -4075,6 +4075,24 @@ async function handlePasswordStage() {
         startLockoutCountdown(username.toLowerCase(), cooperativeId)
         return
       }
+      // Subscription/extracted errors from online auth must not fall back to
+      // stale local data — the server is the source of truth for these blocks.
+      if (loginError?.type === 'subscription' || loginError?.type === 'extracted') {
+        state.errorMessage = loginError.message
+        state.isSubmitting = false
+        render()
+        return
+      }
+      // Network errors and timeouts: for actual login, require internet (don't use stale offline data)
+      if (loginError?.type === 'network' || loginError?.type === 'timeout' || loginError?.type === 'server' || loginError?.type === 'database') {
+        if (!loginError.message) {
+          loginError.message = 'No internet connection. Actual login requires online connection. Please connect to the internet and try again.'
+        }
+        state.errorMessage = loginError.message
+        state.isSubmitting = false
+        render()
+        return
+      }
       console.log(`[Login] [${Date.now()}] Attempting offline authentication...`);
       try {
         session = await attemptOfflineLogin(username, password, cooperativeId, onlineRecordedFail)
@@ -4087,13 +4105,24 @@ async function handlePasswordStage() {
           } catch {}
         }
       } catch (offlineErr) {
-        if (!loginError) loginError = classifyLoginError(offlineErr)
+        const classified = classifyLoginError(offlineErr)
+        if (!loginError || classified.type === 'subscription' || classified.type === 'extracted' || classified.type === 'lockout') {
+          loginError = classified
+        }
         console.warn(`[Login] [${Date.now()}] Offline authentication failed:`, offlineErr.message)
       }
     }
 
     // ── No session — show specific error ──────────────────────────────
     if (!session) {
+      // If we classified a subscription error, always prefer it
+      if (loginError?.type === 'subscription') {
+        state.errorMessage = loginError.message
+        state.isSubmitting = false
+        render()
+        console.log(`[Login] -------- LOGIN FAILED: ${loginError.message} -------- [${Date.now()}]`);
+        return
+      }
       const errorMsg = loginError?.message || 'Invalid username or password.'
       console.log(`[Login] [${Date.now()}] No session returned. Error: "${errorMsg}"`);
       // After recording this failure, report the enforced delay (if any) so
@@ -4131,6 +4160,30 @@ async function handlePasswordStage() {
       return
     }
 
+    // Defense-in-depth: a subscription revoked between auth and session
+    // build (or a stale offline row) must still block here with the same
+    // polite message — before the session is persisted. Admin is exempt
+    // inside the helper.
+    try {
+      const { isSubscriptionBlocked, SUBSCRIPTION_BLOCKED_MSG } = await import('./services/subscriptionService.js')
+      const docForGate = session.userDoc || session
+      if (isSubscriptionBlocked(docForGate, session.username)) {
+        state.errorMessage = SUBSCRIPTION_BLOCKED_MSG
+        state.isSubmitting = false
+        render()
+        console.log(`[Login] -------- LOGIN BLOCKED (subscription) -------- [${Date.now()}]`);
+        return
+      }
+    } catch (e) {
+      if (e && /subscription is inactive/i.test(e.message || '')) {
+        state.errorMessage = e.message
+        state.isSubmitting = false
+        render()
+        return
+      }
+      // helper-load failure: fail-open, auth layer already enforced
+    }
+
     // Save for future offline access (non-blocking - session already in sessionStorage)
     saveSession(session, password, state.rememberMe).catch(err => console.warn('[Login] Offline save failed:', err))
     _clearLoginWizard()
@@ -4165,8 +4218,11 @@ async function handlePasswordStage() {
       enterprise_rights: session.enterprise_rights || session.enterprises || '',
       cooperativeId: session.cooperativeId,
       cooperativeName,
-      subscriptionStatus: 1,
-      subscriptionExpiry: null,
+      coopShortName: session.cooperativeName?.split('-')[0] || session.cooperativeName || '',
+      subscriptionStatus: session.userDoc?.subscriptionStatus ?? session.subscriptionStatus ?? 1,
+      subscriptionExpiry: session.userDoc?.expiry_date ?? session.userDoc?.subscriptionExpiry ?? session.subscriptionExpiry ?? null,
+      userDoc: session.userDoc,
+      collection: session.collection,
     }
 
     // Save to sessionStorage synchronously
@@ -4197,9 +4253,10 @@ async function handlePasswordStage() {
     // ── Background: Load subscription info (non-blocking) ────────────
     (async () => {
       try {
+        const table = session.collection === 'members' ? 'members' : 'users'
         const userRecord = await queryOne(
-          'SELECT subscriptionStatus, expiry_date FROM users WHERE id = ?',
-          [session.userDoc?.id || '']
+          `SELECT subscriptionStatus, expiry_date FROM ${table} WHERE id = ?`,
+          [session.userDoc?.id || session.memberId || '']
         );
         if (userRecord) {
           state.welcomeUser.subscriptionStatus = userRecord.subscriptionStatus;
