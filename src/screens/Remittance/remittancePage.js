@@ -14,6 +14,7 @@ import { showReverseModal } from './remittanceReverse.js';
 import { showBulkRemittanceModal } from './remittanceBulk.js';
 import { showWorkspaceSpinner } from '../../components/workspaceSpinner.js';
 import { save as persistState, load as loadPersisted } from '../../services/statePersistence.js';
+import { previewAutoShare, confirmAutoShare, allocateAutoShare, validateAllocation } from '../../services/autoShare/index.js';
 
     export async function renderUnifiedPayment(container, user) {
     const isActualAdmin = hasPermission(user.permissions, 'admin') || (user.username || '').toLowerCase() === 'admin';
@@ -1077,7 +1078,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
   }
 
   // --- Handle Submit ---
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     // First, sync form data from DOM to formData!
     syncFormData();
 
@@ -1108,6 +1109,12 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
           return;
         }
       }
+    }
+
+    // Check if Auto Share was triggered
+    if (formData.autoShareTriggered) {
+      // Auto Share was already run, proceed with saving the preview
+      // The form data should already have the Auto Share details set
     }
 
     const clearHighlights = () => {

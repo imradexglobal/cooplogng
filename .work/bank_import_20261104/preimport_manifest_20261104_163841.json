@@ -1,0 +1,31 @@
+{
+  "created_at": "2026-11-04T15:38:41.912069+00:00",
+  "source_db": "C:\\Users\\User\\Documents\\Radio Project\\new_file.db",
+  "backup_db": "C:\\Users\\User\\Documents\\Radio Project\\new_file.preimport_20261104_163841.db",
+  "source_sha256_before_import": "c05b21b3702eeff61069d3b4df1eacb1437fa118147427f5c13e04e708e1b9bd",
+  "backup_sha256": "34a36e37570df25001125a1160c79571d55789f9b3eed52f151d28411e289fdb",
+  "source_size_bytes": 356352,
+  "source_mtime_ns": 1793802324242220000,
+  "integrity": "ok",
+  "table_counts": {
+    "app_settings": 0,
+    "bank": 2,
+    "bank_reconciliation_summary": 0,
+    "cooperatives": 1,
+    "enterprise": 2,
+    "feedback": 0,
+    "loan_guarantors": 0,
+    "loans": 0,
+    "members": 84,
+    "membership_request": 0,
+    "notifications": 0,
+    "payment_advise": 0,
+    "remittance": 0,
+    "remittance_detail": 0,
+    "sync_queue": 0,
+    "sync_state": 1,
+    "transaction_types": 0,
+    "users": 1
+  },
+  "authorized_scope": "142 READY FOR APPROVAL rows only; SQLite file only"
+}

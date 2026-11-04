@@ -1,0 +1,1205 @@
+
+### src\main.js
+222: enterpriseId: '',
+860: enterpriseId: '',
+966: enterpriseId: '',
+1637: const hasAllEnts = String(state.welcomeUser.enterprise_rights || state.welcomeUser.enterprises || '').toLowerCase().includes('all')
+3139: const { fetchEnterprises, fetchAllMembers } = await import('./services/dataService.js')
+3146: const enterprisesArray = await fetchEnterprises(state.welcomeUser.cooperativeId, true)
+3147: const enterpriseNames = {}
+3148: enterprisesArray.forEach(e => { enterpriseNames[e.id] = e.account_name })
+3156: const targetEntId = detail.enterprise_id || detail.item;
+3157: const targetEnt = targetEntId ? enterprisesArray.find(e => e.id === targetEntId) : null;
+3164: const { buildAccountBalance } = await import('./services/dataService.js');
+3172: const { accountBalance } = await buildAccountBalance(state.welcomeUser.cooperativeId, { memberId: remittance.member_id }, limitKey);
+3198: <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Enterprise</span>
+3227: const name = enterpriseNames[d.enterprise_id] || d.enterprise_name || d.item || 'General Contribution'
+3414: const { approveRemittance } = await import('./services/dataService.js');
+3415: await approveRemittance(remittance.id, state.welcomeUser.username, resolvedBankName, resolvedDate);
+4207: enterpriseId: '',
+4221: enterprises: session.enterprises || '',
+4222: enterprise_rights: session.enterprise_rights || session.enterprises || '',
+4589: enterprises: userDoc.enterprise_rights || userDoc.enterprises || '',
+4590: enterprise_rights: userDoc.enterprise_rights || userDoc.enterprises || '',
+4651: step: isAdmin ? 1 : 2, // Admins start at Step 1 (Member Select), Members start at Step 2 (Enterprise)
+4654: enterpriseId: '',
+4672: const { fetchEnterprises, buildAccountBalance } = await import('./services/dataService.js');
+4673: const enterprisesFull = await fetchEnterprises(state.welcomeUser.cooperativeId, true);
+4675: // Get all enterprises, filter out compulsory due and penalty!
+4676: const allEnterprises = enterprisesFull
+4684: // Determine if selected enterprise is savings (skip duration and guarantors)
+4685: const selectedEnterprise = allEnterprises.find(e => e.id === state.loanRequest.enterpriseId);
+4686: const isSavingsEnterprise = selectedEnterprise?.type === 'savings';
+4688: // Get member's opening balance for selected enterprise if savings
+4690: if (isSavingsEnterprise && state.loanRequest.memberId) {
+4691: const { accountBalance } = await buildAccountBalance(
+4695: const entBalance = accountBalance.find(ab => ab.id === state.loanRequest.enterpriseId);
+4721: const fullBal = await buildAccountBalance(state.welcomeUser.cooperativeId, { ...state.welcomeUser, memberId: state.loanRequest.memberId });
+4726: if (isSavingsEnterprise && step > 3) {
+4793: <h4 style="margin-top: 0;">Step ${isAdmin ? '2' : '1'}: Select Enterprise</h4>
+4794: <p style="color: var(--text-muted); font-size: 0.9rem;">Choose the enterprise for your withdrawal.</p>
+4796: ${allEnterprises.map(ent => `
+4797: <button class="ghost-button enterprise-option ${state.loanRequest.enterpriseId === ent.id ? 'active' : ''}"
+4799: style="text-align: left; padding: 1rem; border: 2px solid ${state.loanRequest.enterpriseId === ent.id ? 'var(--accent-primary)' : 'var(--border-medium)'}; justify-content: flex-start; height: auto;">
+4812: ${isSavingsEnterprise && maxAmount !== null ? `
+4820: <input type="number" id="loan-amount-input" value="${state.loanRequest.amount || ''}" placeholder="0.00" ${isSavingsEnterprise && maxAmount !== null ? `max="${maxAmount}"` : ''} style="width: 100%; font-size: 1.25rem; font-weight: 700; padding: 0.75rem;" />
+4824: } else if (adjustedStep === 4 && !isSavingsEnterprise) {
+4835: } else if (adjustedStep === 5 && !isSavingsEnterprise) {
+4875: <h4 style="margin-top: 0;">Step ${isAdmin ? '6' : (isSavingsEnterprise ? '3' : '5')}: Bank Details</h4>
+4894: const entName = allEnterprises.find(e => e.id === state.loanRequest.enterpriseId)?.name || 'Unknown';
+4897: <h4 style="margin-top: 0;">Step ${isAdmin ? '7' : (isSavingsEnterprise ? '4' : '6')}: Confirmation</h4>
+4907: <span style="color: var(--text-muted);">Enterprise:</span>
+4944: let isNextDisabled = (step === 1 && !state.loanRequest.memberId) || (step === 2 && !state.loanRequest.enterpriseId);
+4947: if (step === 3 && isSavingsEnterprise && maxAmount !== null) {
+4974: // Step 1: Enterprise Selection
+4975: body.querySelectorAll('.enterprise-option').forEach(btn => {
+4977: state.loanRequest.enterpriseId = btn.dataset.id;
+5157: // Check if selected enterprise is savings
+5158: const { fetchEnterprises: fetchEntsBack } = await import('./services/dataService.js');
+5165: const selEntBack = allEntsBack.find(e => e.id === state.loanRequest.enterpriseId);
+5170: // If going back from Bank Details step and it's a savings enterprise, go back to Enterprise selection
+5172: const enterpriseStep = isAdmin ? 2 : 1;
+5174: prevStep = enterpriseStep;
+5187: // Check if selected enterprise is savings
+5188: const { fetchEnterprises: fetchEnts } = await import('./services/dataService.js');
+5195: const selEnt = allEnts.find(e => e.id === state.loanRequest.enterpriseId);
+5202: // If current step is Enterprise selection and it's a savings enterprise, skip to Bank Details step
+5203: const enterpriseStep = isAdmin ? 2 : 1;
+5205: if (state.loanRequest.step === enterpriseStep && isSavings) {
+5266: // Setup Step 2 Enterprise Selection (auto-advance)
+5267: const enterpriseOptions = body.querySelectorAll('.enterprise-option');
+5268: enterpriseOptions.forEach(option => {
+5271: state.loanRequest.enterpriseId = id;
+5278: // Check if selected enterprise is savings
+5279: const { fetchEnterprises: fetchEntsAuto } = await import('./services/dataService.js');
+5296: // First, determine enterprise type
+5298: fetchEnterprises,
+5300: addRemittance,
+5305: const enterprisesFull = await fetchEnterprises(state.welcomeUser.cooperativeId, true);
+5306: const selectedEnterprise = enterprisesFull.find(e => e.id === state.loanRequest.enterpriseId);
+5307: const isSavingsEnterprise = (selectedEnterprise?.account_type || '').toLowerCase() === 'savings';
+5324: let transactionType = isSavingsEnterprise ? 'Savings Withdrawal' : 'Member Loan';
+5325: let amount = isSavingsEnterprise ? -Math.abs(state.loanRequest.amount) : -Math.abs(state.loanRequest.amount);
+5328: const description = isSavingsEnterprise ? 'Savings Withdrawal Request' : 'Loan Request';
+5342: isLoanRequest: !isSavingsEnterprise,
+5353: item: state.loanRequest.enterpriseId,
+5355: auto_description: `${transactionType} - ${selectedEnterprise?.account_name || 'Unknown'}`,
+5356: ...(isSavingsEnterprise ? {} : {
+5380: await addRemittance(remittanceData, state.welcomeUser.username);
+5387: enterpriseId: '',
+5404: fetchEnterprises,
+5406: addRemittance,
+5407: buildAccountBalance
+5420: const enterprises = await fetchEnterprises(state.welcomeUser.cooperativeId, true);
+5429: const result = await buildAccountBalance(state.welcomeUser.cooperativeId, { ...state.welcomeUser, memberId: mId });
+5440: let wizardStep = isAdmin ? 1 : 1; // 1: select member (admin only) or select type (member), 2: select type (admin), 3: select enterprise, 4: enter amount, 5: review
+5442: let selectedEnterprise = null;
+5448: const filterEnterprise = (e) => {
+5466: const getSavingsEnterprises = () => {
+5467: return enterprises.filter(e =>
+5469: filterEnterprise(e)
+5473: const getLoanEnterprises = () => {
+5474: return enterprises.filter(e =>
+5476: filterEnterprise(e)
+5480: const getEnterpriseBalance = (entId) => {
+5489: totalSteps = selectedEnterprise?.type === 'loan'
+5493: const wizardTitle = selectedEnterprise?.type === 'loan'
+5495: : (selectedEnterprise?.type === 'savings' ? 'Savings Withdrawal Request' : 'Withdrawal Request');
+5555: // Step 2 (Admin) / Step 1 (Member): Select Enterprise Type
+5572: // Step 3 (Admin) / Step 2 (Member): Select Enterprise
+5573: const ents = selectedEnterprise.type === 'savings' ? getSavingsEnterprises() : getLoanEnterprises();
+5579: <button type="button" class="wizard-enterprise-btn" data-entid="${e.id}" style="padding: 1.25rem; border: 1px solid var(--border-medium); border-radius: 0.75rem; background: var(--bg-card); cursor: pointer; text-align: left; transition: all 0.2s;">
+5584: Balance: ${formatCurrency(getEnterpriseBalance(e.id))}
+5595: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+5596: const maxWithdrawal = selectedEnterprise.type === 'savings'
+5597: ? Math.max(0, getEnterpriseBalance(ent.id))
+5607: Current Balance: ${formatCurrency(getEnterpriseBalance(ent?.id))}
+5609: ${selectedEnterprise.type === 'savings' ? `
+5617: <input type="number" id="wizard-withdrawal-amount" step="0.01" min="0" ${selectedEnterprise.type === 'savings' ? `max="${maxWithdrawal}"` : ''} value="${withdrawalAmount || ''}" style="padding: 0.85rem; font-size: 1.1rem; font-weight: 700;">
+5621: } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 5) || (!isAdmin && wizardStep === 4))) {
+5632: } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 6) || (!isAdmin && wizardStep === 5))) {
+5665: } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 7) || (!isAdmin && wizardStep === 6))) {
+5667: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+5707: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+5763: const ent = enterprises.find(e => e.id === selectedEnterprise?.id);
+5764: const maxWithdrawal = selectedEnterprise?.type === 'savings' && ent
+5765: ? Math.max(0, getEnterpriseBalance(ent.id))
+5767: const isValidAmount = (selectedEnterprise?.type === 'loan' ? ((isAdmin && wizardStep === 4) || (!isAdmin && wizardStep === 3)) : ((isAdmin && wizardStep === 4) || (!isAdmin && wizardStep === 3)))
+5768: ? withdrawalAmount > 0 && (selectedEnterprise.type !== 'savings' || withdrawalAmount <= maxWithdrawal)
+5771: const isValidDuration = selectedEnterprise?.type === 'loan' && ((isAdmin && wizardStep === 5) || (!isAdmin && wizardStep === 4))
+5854: selectedEnterprise = { type: btn.dataset.type };
+5858: // Get first available enterprise of this type
+5859: const ents = selectedEnterprise.type === 'savings' ? getSavingsEnterprises() : getLoanEnterprises();
+5861: selectedEnterprise.id = ents[0].id;
+5868: // Select enterprise
+5869: document.querySelectorAll('.wizard-enterprise-btn').forEach(btn => {
+5871: selectedEnterprise.id = btn.dataset.entid;
+5883: } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 5) || (!isAdmin && wizardStep === 4))) {
+5890: } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 6) || (!isAdmin && wizardStep === 5))) {
+6004: totalSteps = selectedEnterprise?.type === 'loan'
+6015: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+6016: if (selectedEnterprise.type === 'savings') {
+6017: const maxWithdrawal = Math.max(0, getEnterpriseBalance(ent.id));
+6035: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+6037: const transactionType = selectedEnterprise.type === 'loan' ? 'Member Loan' : 'Savings Withdrawal';
+6042: enterprise_id: ent.id,
+6045: ...(selectedEnterprise.type === 'loan' ? {
+6070: description: selectedEnterprise.type === 'loan' ? 'Loan Request' : 'Savings Withdrawal Request',
+6074: isLoanRequest: selectedEnterprise.type === 'loan',
+6088: await addRemittance(remittanceData, state.welcomeUser.username);
+
+### src\components\LoanWizard.js
+17: step: isAdmin ? 1 : 2, // Admins start at Step 1 (Member Select), Members start at Step 2 (Enterprise)
+20: enterpriseId: '',
+36: const { fetchEnterprises, buildAccountBalance } = await import('../services/dataService.js');
+37: const enterprisesFull = await fetchEnterprises(state.welcomeUser.cooperativeId, true);
+39: // Get all enterprises, filter out compulsory due and penalty!
+40: const allEnterprises = enterprisesFull
+48: // Determine if selected enterprise is savings (skip duration and guarantors)
+49: const selectedEnterprise = allEnterprises.find(e => e.id === state.loanRequest.enterpriseId);
+50: const isSavingsEnterprise = selectedEnterprise?.type === 'savings';
+52: // Get member's opening balance for selected enterprise if savings
+54: if (isSavingsEnterprise && state.loanRequest.memberId) {
+55: const { accountBalance } = await buildAccountBalance(
+59: const entBalance = accountBalance.find(ab => ab.id === state.loanRequest.enterpriseId);
+83: if (isSavingsEnterprise && step > 3) {
+111: <h4 style="margin-top: 0;">Step ${isAdmin ? '2' : '1'}: Select Enterprise</h4>
+112: <p style="color: var(--text-muted); font-size: 0.9rem;">Choose the enterprise for your withdrawal.</p>
+114: ${allEnterprises.map(ent => `
+115: <button class="ghost-button enterprise-option ${state.loanRequest.enterpriseId === ent.id ? 'active' : ''}"
+117: style="text-align: left; padding: 1rem; border: 2px solid ${state.loanRequest.enterpriseId === ent.id ? 'var(--accent-primary)' : 'var(--border-medium)'}; justify-content: flex-start; height: auto;">
+130: ${isSavingsEnterprise && maxAmount !== null ? `
+138: <input type="number" id="loan-amount-input" value="${state.loanRequest.amount || ''}" placeholder="0.00" ${isSavingsEnterprise && maxAmount !== null ? `max="${maxAmount}"` : ''} style="width: 100%; font-size: 1.25rem; font-weight: 700; padding: 0.75rem;" />
+142: } else if (adjustedStep === 4 && !isSavingsEnterprise) {
+153: } else if (adjustedStep === 5 && !isSavingsEnterprise) {
+193: <h4 style="margin-top: 0;">Step ${isAdmin ? '6' : (isSavingsEnterprise ? '3' : '5')}: Bank Details</h4>
+212: const entName = allEnterprises.find(e => e.id === state.loanRequest.enterpriseId)?.name || 'Unknown';
+215: <h4 style="margin-top: 0;">Step ${isAdmin ? '7' : (isSavingsEnterprise ? '4' : '6')}: Confirmation</h4>
+225: <span style="color: var(--text-muted);">Enterprise:</span>
+262: let isNextDisabled = (step === 1 && !state.loanRequest.memberId) || (step === 2 && !state.loanRequest.enterpriseId);
+265: if (step === 3 && isSavingsEnterprise && maxAmount !== null) {
+292: // Step 1: Enterprise Selection
+293: body.querySelectorAll('.enterprise-option').forEach(btn => {
+295: state.loanRequest.enterpriseId = btn.dataset.id;
+475: // Check if selected enterprise is savings
+476: const { fetchEnterprises: fetchEntsBack } = await import('../services/dataService.js');
+483: const selEntBack = allEntsBack.find(e => e.id === state.loanRequest.enterpriseId);
+488: // If going back from Bank Details step and it's a savings enterprise, go back to Enterprise selection
+490: const enterpriseStep = isAdmin ? 2 : 1;
+492: prevStep = enterpriseStep;
+505: // Check if selected enterprise is savings
+506: const { fetchEnterprises: fetchEnts } = await import('../services/dataService.js');
+513: const selEnt = allEnts.find(e => e.id === state.loanRequest.enterpriseId);
+520: // If current step is Enterprise selection and it's a savings enterprise, skip to Bank Details step
+521: const enterpriseStep = isAdmin ? 2 : 1;
+523: if (state.loanRequest.step === enterpriseStep && isSavings) {
+584: // Setup Step 2 Enterprise Selection (auto-advance)
+585: const enterpriseOptions = body.querySelectorAll('.enterprise-option');
+586: enterpriseOptions.forEach(option => {
+589: state.loanRequest.enterpriseId = id;
+596: // Check if selected enterprise is savings
+597: const { fetchEnterprises: fetchEntsAuto } = await import('../services/dataService.js');
+614: // First, determine enterprise type
+616: fetchEnterprises,
+618: addRemittance,
+623: const enterprisesFull = await fetchEnterprises(state.welcomeUser.cooperativeId, true);
+624: const selectedEnterprise = enterprisesFull.find(e => e.id === state.loanRequest.enterpriseId);
+625: const isSavingsEnterprise = (selectedEnterprise?.account_type || '').toLowerCase() === 'savings';
+642: let transactionType = isSavingsEnterprise ? 'Savings Withdrawal' : 'Member Loan';
+643: let amount = isSavingsEnterprise ? -Math.abs(state.loanRequest.amount) : -Math.abs(state.loanRequest.amount);
+646: const description = isSavingsEnterprise ? 'Savings Withdrawal Request' : 'Loan Request';
+660: isLoanRequest: !isSavingsEnterprise,
+671: item: state.loanRequest.enterpriseId,
+673: auto_description: `${transactionType} - ${selectedEnterprise?.account_name || 'Unknown'}`,
+674: ...(isSavingsEnterprise ? {} : {
+698: await addRemittance(remittanceData, state.welcomeUser.username);
+705: enterpriseId: '',
+
+### src\components\TransactionModal.js
+21: const { fetchEnterprises, fetchAllMembers } = await import('../services/dataService.js')
+28: const enterprisesArray = await fetchEnterprises(state.welcomeUser.cooperativeId, true)
+29: const enterpriseNames = {}
+30: enterprisesArray.forEach(e => { enterpriseNames[e.id] = e.account_name })
+49: const targetEntId = detail.enterprise_id || detail.item;
+50: const targetEnt = targetEntId ? enterprisesArray.find(e => e.id === targetEntId) : null;
+57: const { buildAccountBalance } = await import('../services/dataService.js');
+65: const { accountBalance } = await buildAccountBalance(state.welcomeUser.cooperativeId, { memberId: remittance.member_id }, limitKey);
+138: <span style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Enterprise</span>
+167: const name = enterpriseNames[d.enterprise_id] || d.enterprise_name || d.item || 'General Contribution'
+358: const { approveRemittance } = await import('../services/dataService.js');
+359: await approveRemittance(remittance.id, state.welcomeUser.username, resolvedBankName, resolvedDate);
+
+### src\components\weeklyChart.js
+5: * (remittance_date + detail amounts per enterprise). No new dependency:
+100: // dashboard cards). Details feed only the enterprise savings/loans
+112: const entObj = (entObjMap || {})[d.enterprise_id];
+
+### src\components\WithdrawalWizard.js
+7: fetchEnterprises,
+9: addRemittance,
+10: buildAccountBalance
+35: const enterprises = await fetchEnterprises(state.welcomeUser.cooperativeId, true);
+44: const result = await buildAccountBalance(state.welcomeUser.cooperativeId, { ...state.welcomeUser, memberId: mId });
+55: let wizardStep = canSelectMember ? 1 : 1; // 1: select member (staff/admin) or select type (member), 2: select type (non-member), 3: select enterprise, 4: enter amount, 5: review
+57: let selectedEnterprise = null;
+64: const filterEnterprise = (e) => {
+82: const getSavingsEnterprises = () => {
+83: return enterprises.filter(e =>
+85: filterEnterprise(e)
+89: const getLoanEnterprises = () => {
+90: return enterprises.filter(e =>
+92: filterEnterprise(e)
+96: const getEnterpriseBalance = (entId) => {
+116: const getConfirmStepNo = () => selectedEnterprise?.type === 'loan'
+125: totalSteps = selectedEnterprise?.type === 'loan'
+129: const wizardTitle = selectedEnterprise?.type === 'loan'
+131: : (selectedEnterprise?.type === 'savings' ? 'Savings Withdrawal Request' : 'Withdrawal Request');
+191: // Step 2 (non-member) / Step 1 (Member): Select Enterprise Type
+208: // Step 3 (non-member) / Step 2 (Member): Select Enterprise
+209: const ents = selectedEnterprise.type === 'savings' ? getSavingsEnterprises() : getLoanEnterprises();
+215: <button type="button" class="wizard-enterprise-btn" data-entid="${e.id}" style="padding: 1.25rem; border: 1px solid var(--border-medium); border-radius: 0.75rem; background: var(--bg-card); cursor: pointer; text-align: left; transition: all 0.2s;">
+220: Balance: ${formatCurrency(getEnterpriseBalance(e.id))}
+231: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+232: const maxWithdrawal = selectedEnterprise.type === 'savings'
+233: ? Math.max(0, getEnterpriseBalance(ent.id))
+243: Current Balance: ${formatCurrency(getEnterpriseBalance(ent?.id))}
+245: ${selectedEnterprise.type === 'savings' ? `
+253: <input type="number" id="wizard-withdrawal-amount" step="0.01" min="0" ${selectedEnterprise.type === 'savings' ? `max="${maxWithdrawal}"` : ''} value="${withdrawalAmount || ''}" style="padding: 0.85rem; font-size: 1.1rem; font-weight: 700;">
+257: } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 5) || (!canSelectMember && wizardStep === 4))) {
+268: } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 6) || (!canSelectMember && wizardStep === 5))) {
+301: } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 7) || (!canSelectMember && wizardStep === 6))) {
+303: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+407: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+475: const ent = enterprises.find(e => e.id === selectedEnterprise?.id);
+476: const maxWithdrawal = selectedEnterprise?.type === 'savings' && ent
+477: ? Math.max(0, getEnterpriseBalance(ent.id))
+479: const isValidAmount = (selectedEnterprise?.type === 'loan' ? ((canSelectMember && wizardStep === 4) || (!canSelectMember && wizardStep === 3)) : ((canSelectMember && wizardStep === 4) || (!canSelectMember && wizardStep === 3)))
+480: ? withdrawalAmount > 0 && (selectedEnterprise.type !== 'savings' || withdrawalAmount <= maxWithdrawal)
+483: const isValidDuration = selectedEnterprise?.type === 'loan' && ((canSelectMember && wizardStep === 5) || (!canSelectMember && wizardStep === 4))
+488: const isValidType = !isTypeStep || !!selectedEnterprise;
+489: const isEnterpriseStep = (canSelectMember && wizardStep === 3) || (!canSelectMember && wizardStep === 2);
+490: const isValidEnterprise = !isEnterpriseStep || !!selectedEnterprise?.id;
+491: return isValidAmount && isValidMember && isValidDuration && isValidTerms && isValidType && isValidEnterprise;
+585: selectedEnterprise = { type: btn.dataset.type };
+595: // Select enterprise
+596: document.querySelectorAll('.wizard-enterprise-btn').forEach(btn => {
+598: selectedEnterprise.id = btn.dataset.entid;
+610: } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 5) || (!canSelectMember && wizardStep === 4))) {
+617: } else if (selectedEnterprise.type === 'loan' && ((canSelectMember && wizardStep === 6) || (!canSelectMember && wizardStep === 5))) {
+731: totalSteps = selectedEnterprise?.type === 'loan'
+742: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+743: if (selectedEnterprise.type === 'savings') {
+744: const maxWithdrawal = Math.max(0, getEnterpriseBalance(ent.id));
+766: const ent = enterprises.find(e => e.id === selectedEnterprise.id);
+768: const transactionType = selectedEnterprise.type === 'loan' ? 'Member Loan' : 'Savings Withdrawal';
+769: const requestBase = selectedEnterprise.type === 'loan' ? 'Loan Request' : 'Savings Withdrawal Request';
+778: enterprise_id: ent.id,
+781: ...(selectedEnterprise.type === 'loan' ? {
+810: isLoanRequest: selectedEnterprise.type === 'loan',
+824: await addRemittance(remittanceData, state.welcomeUser.username);
+
+### src\screens\AccountBalance.js
+1: import { buildAccountBalance, fetchEnterprises, fetchRemittances, fetchAllMembers, fetchBanks, fetchMemberPaymentAdvise } from '../services/dataService.js'
+170: const sharedRemittances = await fetchRemittances(user.cooperativeId, queryUser)
+202: const _k = `${_r.member_id}|||${_d.enterprise_id || _d.item || ''}`
+210: enterprise_id: _k.slice(_i + 3),
+219: const _rightsTokens = String(user.enterprise_rights || user.enterprises || '').split(',').map(p => p.trim()).filter(p => p.length > 0);
+224: enterpriseRows,
+233: fetchEnterprises(user.cooperativeId, true),
+245: let { accountBalance } = await buildAccountBalance(user.cooperativeId, queryUser, null, { remittances: sharedRemittances, enterprises: enterpriseRows })
+249: enterpriseRows.forEach(e => {
+254: // Guard: if enterprises exist but balance is all zero, retry once with a brief delay
+255: if (enterpriseRows.length > 0 && (accountBalance.length === 0 || accountBalance.every(b => (b.sum_of_amount || 0) === 0))) {
+257: const retried = await buildAccountBalance(user.cooperativeId, queryUser)
+281: (enterpriseRows || []).forEach(e => { entTypeById[String(e.id)] = (e.account_type || '').toLowerCase(); });
+288: if (entTypeById[String(a.enterprise_id)] === 'loan') adviceLoans += amt;
+298: const rightsString = user.enterprise_rights || user.enterprises || '';
+335: // Pure-revenue enterprises stay hidden from members as before.
+413: // enterprise breakdowns, not accounting.
+485: const key = `${row.member_id}_${row.enterprise_id}`;
+490: const key = `${l.member_id}_${l.enterprise_id}`;
+681: #balance-content.hide-zero-ents .enterprise-card[data-balance-raw="0"],
+682: #balance-content.hide-zero-ents .enterprise-card[data-balance-raw="0.00"] {
+902: <h3 style="color: var(--text-primary); margin: 0;">${isMember ? 'My Account Balances' : 'Enterprise Balances'}</h3>
+935: <div class="enterprise-grid">
+945: <div class="enterprise-card" data-balance-raw="${ent.sum_of_amount || 0}" data-chart="ent:${escapeAttribute(String(ent.id || ''))}" title="Tap for weekly trend">
+946: <div class="enterprise-name">${escapeHtml(ent.account_name)}</div>
+947: <div class="enterprise-amt ${ent.sum_of_amount < 0 ? 'text-red' : ''}" data-balance-value="${ent.sum_of_amount || 0}">${maskValue(ent.sum_of_amount)}</div>
+1157: if (String(d.enterprise_id) === id) flows[i] += parseFloat(d.amount || 0)
+1163: return { title: (ent.account_name || 'Enterprise') + ' — weekly trend', color: '#6366f1', kind: 'balance', flows: flows, current: (ent.sum_of_amount || 0), fmt: compactCurr, note: 'Balance reconstructed from dated approved activity.' }
+
+### src\screens\DevSettings.js
+1: import { renderDevAuditSection, setupDevAuditListeners } from './settings/devAudit.js'
+12: { id: 'devaudit', label: 'Dev. Audit', icon: '🛠', desc: 'Txn charges fix & description backfill' }
+22: case 'devaudit': renderDevAuditSection(area); break
+225: case 'devaudit': setupDevAuditListeners(user, user.cooperativeId); break
+
+### src\screens\Landing.js
+53: text: 'Configure enterprises with multipliers, interest and admin charges. Track guarantors, overdue loans and penalty accounts.',
+63: text: 'Run several cooperatives from a single install with per-user roles, permissions and enterprise-level access control.',
+70: { n: '2', title: 'Add members & enterprises', text: 'Import members in bulk or one by one, then set up savings, loans and Distributive enterprises.' },
+85: a: 'Sessions expire after 10 minutes of inactivity, weak passwords force an immediate change, and every write carries a full audit trail of who changed what and when.',
+271: <p class="lp-lead">Savings, loans, cash, revenue, members and enterprise balances update the moment records are approved — online or offline.</p>
+364: <p>So he built the tool he wished existed: an offline-first app that treats every naira with the care of an analyst and the simplicity of a passbook. Every dashboard figure, every report and every audit trail in cooplogNg reflects that obsession with accuracy.</p>
+
+### src\screens\MemberLedger.js
+1: import { buildMemberLedger, fetchAllMembers, fetchRemittances, fetchEnterprises, fetchMemberLoans, approveLoanRequest, declineLoanRequest, deleteRemittance } from '../services/dataService.js'
+737: const data = await fetchRemittances(user.cooperativeId, user)
+971: const enterpriseOpening = {}
+972: const enterprisePeriod = {}
+974: const allEnts = await fetchEnterprises(user.cooperativeId)
+975: const enterpriseIds = new Set()
+985: const eid = detail.enterprise_id
+987: enterpriseIds.add(eid)
+988: if (!enterpriseOpening[eid]) enterpriseOpening[eid] = 0
+989: enterpriseOpening[eid] += parseFloat(detail.amount || 0)
+997: const eid = detail.enterprise_id
+999: enterpriseIds.add(eid)
+1000: if (!enterprisePeriod[eid]) enterprisePeriod[eid] = { cr: 0, dr: 0 }
+1002: if (detAmt > 0) enterprisePeriod[eid].cr += detAmt
+1003: else enterprisePeriod[eid].dr += Math.abs(detAmt)
+1014: enterpriseIds.add(id)
+1017: let entries = Array.from(enterpriseIds).map(id => {
+1018: const opening = enterpriseOpening[id] || 0
+1019: const cr = enterprisePeriod[id]?.cr || 0
+1020: const dr = enterprisePeriod[id]?.dr || 0
+1037: const rightsString = user.enterprise_rights || user.enterprises || ''
+1166: : `<div class="ldv"><div class="tc"><table class="styled-table"><thead><tr><th>Enterprise</th><th class="text-right">Opening (BBF)</th><th class="text-right">Debit (DR)</th><th class="text-right">Credit (CR)</th><th class="text-right">Closing</th></tr></thead><tbody>${listHtml}</tbody></table></div></div>`
+1194: title.textContent = `Loan Details - ${escapeHtml(loan.enterprise_name || 'Unknown')}`
+1196: const allRemits = await fetchRemittances(user.cooperativeId, user)
+1225: <div class="s-row"><span>Enterprise</span><span style="font-weight:600">${escapeHtml(loan.enterprise_name || '')}</span></div>
+1371: <div style="font-weight:700;">${escapeHtml(l.enterprise_name || '')}</div>
+1390: <span class="lname">${escapeHtml(l.enterprise_name || 'Loan')}</span>
+1416: <th>Type / Enterprise</th>
+
+### src\screens\PaymentAdvice.js
+1: import { fetchEnterprises, buildAccountBalance, fetchMemberDoc, fetchMemberPaymentAdvise, updateMemberPaymentAdvice } from '../services/dataService.js';
+128: the enterprise list scrolls beneath (scroll container is
+159: #add-enterprise-btn { flex: 1; margin-left: 0 !important; }
+203: <input id="advice-search" type="text" placeholder="Search enterprises..." autocomplete="off">
+208: <div id="hide-zero-toggle" class="zero-toggle" title="Hide enterprises with ₦0 advice" role="switch" aria-checked="true" tabindex="0">
+212: <button type="button" id="add-enterprise-btn" class="primary-button" style="padding:0.65rem 1.2rem;margin-left:auto;">+ Add enterprise</button>
+220: <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.5;margin:0;">💡 Loan advice is set automatically when a loan is created and cannot be edited or reset here. Use <strong>Hide ₦0</strong> to focus on active commitments, and <strong>+ Add enterprise</strong> to bring back any savings account not yet in your plan.</p>
+233: const addBtn = container.querySelector('#add-enterprise-btn');
+283: if (countEl) countEl.textContent = `Showing ${visible} of ${rows.length} enterprises · ${totalActive} with advice`;
+318: <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.25rem;">Try clearing search, changing filters, toggling Hide ₦0, or add an enterprise.</div>
+355: showToast('Enterprises are still loading. Please wait a moment and try again.', 'info');
+362: showToast('No savings enterprises found. Please contact your administrator.', 'info');
+367: <div class="advice-modal-card" role="dialog" aria-label="Add enterprise">
+370: <div style="font-weight:800;font-size:1.15rem;color:var(--text-primary);">Add enterprise</div>
+437: if (!row) { showToast('Please select an enterprise first.', 'error'); return; }
+457: console.error('[PaymentAdvice] Add enterprise failed:', err);
+458: showToast('Could not open Add enterprise: ' + (err?.message || err), 'error');
+495: fetchEnterprises(cooperativeId, true),
+496: buildAccountBalance(cooperativeId, user),
+510: adviceDocs.forEach(a => { adviceMap[String(a.enterprise_id)] = parseFloat(a.amount) || 0; });
+536: enterprise_id: r.id,
+558: enterprise_id: r.id,
+
+### src\screens\Reconciliation.js
+866: <p>Choose bank, enter statement totals, run Check Reconciliation, then click Seal to begin building your audit trail.</p>
+
+### src\screens\Reports.js
+12: import { fetchBanks, fetchEnterprises, fetchAllMembers } from '../services/dataService.js';
+395: <div class="control-group filter-enterprise" style="display: none;">
+396: <label>Enterprise</label>
+401: <label>Enterprise</label>
+403: <option value="">All Enterprises</option>
+675: enterprise: container.querySelector('#ent-filter').value,
+676: adviseEnterprise: container.querySelector('#advise-ent-filter').value,
+728: // Populate Enterprises for enterprise_account
+729: const enterprises = await fetchEnterprises(cooperativeId, true);
+731: enterprises.sort((a, b) => a.account_name.localeCompare(b.account_name)).forEach(e => {
+735: if (filters.enterprise === e.id) opt.selected = true;
+739: // Populate Enterprises for the Payment Advice matrix (All Enterprises default)
+741: enterprises.forEach(e => {
+818: if (filters.adviseEnterprise && [...adviseEntFilter.options].some(o => o.value === filters.adviseEnterprise)) {
+819: adviseEntFilter.value = filters.adviseEnterprise;
+1108: type === 'enterprise_account' || type === 'payment_advise'
+
+### src\screens\Settings.js
+15: renderEnterpriseSection,
+16: setupEnterpriseListeners,
+74: { id: 'enterprises', label: '📊 Enterprise Accounts', icon: '📊' },
+104: case 'enterprises': renderEnterpriseSection(area); break
+552: case 'enterprises': setupEnterpriseListeners(user, cooperativeId); break
+
+### src\screens\Login\loginService.js
+920: enterpriseId: '',
+936: enterprises: session.enterprises || '',
+937: enterprise_rights: session.enterprise_rights || session.enterprises || '',
+1279: enterprises: userDoc.enterprise_rights || userDoc.enterprises || '',
+1280: enterprise_rights: userDoc.enterprise_rights || userDoc.enterprises || '',
+
+### src\screens\members\index.js
+18: // 1. Initial Data Fetch (Members, Users, Enterprises)
+
+### src\screens\members\memberModal.js
+2: import { enterpriseList } from './membersState.js'
+132: // ── Payment advice summary (enterprise names resolved when available) ──
+134: const found = (enterpriseList || []).find(e => String(e.id) === String(id))
+140: ? `<div class="md-field full"><div class="md-label">Monthly Advice • Total ₦${adviceTotal.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div><div class="md-manager-chips">${advices.map(a => `<span class="md-chip">${escapeHtml(entName(a.enterprise_id))}: ₦${Number(a.amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`).join('')}</div></div>`
+148: // ── Audit trail ──
+149: const auditFields = [
+456: ${section('Record History', ICONS.membership, auditFields)}
+
+### src\screens\members\membersFilters.js
+916: <span class="dup-hint">Archived records keep audit trail and sync to cloud.</span>
+
+### src\screens\members\membersForm.js
+6: import { getAllMembers, usersList, enterpriseList, loadMembersData } from './membersState.js'
+593: <input type="text" id="pay-advise-search" placeholder="Filter enterprises…" style="flex: 2; min-width: 160px; padding: 0.5rem 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-medium); background: var(--bg-input); color: var(--text-primary); font-size: 0.82rem;">
+600: <thead><tr><th>Enterprise</th><th style="text-align: right;">Amount</th></tr></thead>
+602: ${enterpriseList.map(ent => {
+603: const advice = member?.payment_advise?.find(a => a.enterprise_id === ent.id)
+838: showToast('Enter an amount to apply to visible enterprises.', 'warning')
+1025: enterprise_id: inp.dataset.entId,
+
+### src\screens\members\membersImportExport.js
+38: { id: 'created_at', label: 'Created At (Audit)' },
+39: { id: 'modified_at', label: 'Modified At (Audit)' }
+
+### src\screens\members\membersPage.js
+231: /* Audit columns crowd small screens — name/mobile/status stay.
+
+### src\screens\members\membersState.js
+1: import { fetchAllMembers, fetchCooperativeUsers, fetchEnterprises } from '../../services/dataService.js'
+9: export let enterpriseList = []
+140: const [members, users, enterprises] = await Promise.all([
+143: fetchEnterprises(user.cooperativeId, true)
+148: enterpriseList = enterprises || []
+
+### src\screens\Remittance\remittanceBulk.js
+2: import { addRemittance, buildAccountBalance, fetchMemberDoc, updateMemberPaymentAdvice } from '../../services/dataService.js';
+11: // reasons. Single enterprise only.
+13: const { enterpriseData, selectorMembers, user, historyState, loadHistoryData } = deps;
+26: const loanEnts = (enterpriseData || []).filter(e => getAccountType(e) === 'loan' && isChargeableEnt(e));
+27: const savingsEnts = (enterpriseData || []).filter(e => getAccountType(e) === 'savings' && isChargeableEnt(e));
+28: const dueEnts = (enterpriseData || []).filter(e => !!e.compulsory_due);
+29: const penaltyEnts = (enterpriseData || []).filter(e => !!e.is_penalty);
+30: const transferEnts = (enterpriseData || []).filter(e => !e.compulsory_due && !e.is_penalty);
+70: const ent = (enterpriseData || []).find(e => String(e.id) === String(selectedEntId));
+221: <div class="field"><label id="bulk-ent-label">Enterprise</label>
+222: <select id="bulk-enterprise"></select>
+224: <div class="field" id="bulk-creditent-wrap" style="display: none;"><label id="bulk-creditent-label">Credit enterprise (to)</label>
+225: <select id="bulk-credit-enterprise"></select>
+297: overlay.querySelector('#bulk-enterprise').innerHTML = entOptions(list, selectedEntId);
+299: if (entLabel) entLabel.textContent = isTransferDir() ? 'Debit enterprise (from)' : 'Enterprise';
+304: overlay.querySelector('#bulk-credit-enterprise').innerHTML = txTypes.map(t => {
+309: if (creditLabel) creditLabel.textContent = 'Credit enterprise (to)';
+310: if (isTransferDir()) overlay.querySelector('#bulk-credit-enterprise').innerHTML = entOptions(list, selectedCreditEntId);
+355: overlay.querySelector('#bulk-enterprise').addEventListener('change', (e) => {
+359: overlay.querySelector('#bulk-credit-enterprise').addEventListener('change', (e) => {
+436: const ent = (enterpriseData || []).find(x => String(x.id) === String(selectedEntId));
+440: ? (enterpriseData || []).find(x => String(x.id) === String(selectedCreditEntId))
+455: if (!ent) { showToast('Select an enterprise.', 'error'); return; }
+465: if (!creditEnt) { showToast('Select a credit enterprise.', 'error'); return; }
+483: (enterpriseData || []).forEach(x => {
+490: enterprise_id: x.id,
+526: const bal = await buildAccountBalance(user.cooperativeId, { ...user, memberId: fromMemberId }, null, null);
+608: const bal = await buildAccountBalance(coopId, { ...user, memberId: mid }, null, preloaded);
+623: const pbal = await buildAccountBalance(coopId, { ...user, memberId: mid }, null, preloaded);
+667: details: [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: neg, notes: c.name }]
+671: await addRemittance({
+686: enterprise_id: ent.id,
+693: enterprise_id: ent.id,
+705: await addRemittance({
+722: await addRemittance({
+750: const ix = existingAdvise.findIndex(a => String(a.enterprise_id) === String(ent.id));
+752: else existingAdvise.push({ enterprise_id: String(ent.id), amount: monthlyPayment, created_at: new Date().toISOString() });
+768: throw new Error(`Insufficient ${ent.account_name || 'enterprise'} balance (${formatCurrency(opening)}).`);
+774: await addRemittance({
+787: details: [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: neg, notes: `To ${pairToName}` }]
+793: // resolves from the type inside addRemittance.
+794: await addRemittance({
+810: await addRemittance({
+824: details: [{ id: generateId(String(coopId)), enterprise_id: creditEnt.id, amount: pos, notes: `From ${fromName}` }]
+829: await addRemittance({
+842: details: [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: Math.abs(curAmt) }]
+855: ? [{ enterprise_id: ent.id, amount: Math.abs(curAmt) }]
+865: await addRemittance({
+879: details: [{ id: generateId(String(coopId)), enterprise_id: item.enterprise_id, amount: neg, notes: item.name }]
+886: enterpriseData: enterpriseData || [],
+894: // deposit, +side split per due enterprise.
+910: // is debited negative on the due/penalty enterprise and the
+911: // same value is credited positive to the enterprise-named
+935: await addRemittance({
+948: details: [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: chargeVal, notes: ent.account_name || ent.id }]
+955: enterpriseData: enterpriseData || [],
+964: // charge enterprise so the due/penalty balance nets to zero.
+974: fundingEntId: funding.enterprise_id,
+
+### src\screens\Remittance\remittanceEventListeners.js
+10: const { formData, enterpriseData, members, selectorMembers, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, historyState, panelSizes, user, isAdmin, isActualAdmin, cooperativeId, PANEL_SIZE_KEY, isMember, render, syncFormData, checkDirty, saveSavedForm, clearSavedForm, clearForm, loadHistoryData, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus } = deps;
+86: const ent = enterpriseData.find(e => e.id === (d.enterprise_id || d.item));
+90: showLoanConfigModal(d.enterprise_id || d.item, false, deps);
+196: const ent = enterpriseData.find(e => e.id === entId);
+234: const existingDetail = formData.details.find(d => (d.enterprise_id || d.item) === entId);
+273: const d = formData.details.find(detail => (detail.enterprise_id || detail.item) === entId);
+275: const ent = enterpriseData.find(e => e.id === (d.enterprise_id || d.item));
+334: showLoanReviewModal(formData, enterpriseData, historyState, clearSavedForm, clearForm, loadHistoryData, render, deps);
+336: showSimpleReviewModal(formData, enterpriseData, historyState, clearSavedForm, clearForm, loadHistoryData, render, deps);
+361: showLoanReviewModal(formData, enterpriseData, historyState, clearSavedForm, clearForm, loadHistoryData, render, deps);
+470: const detailsMap = (formData.details || []).reduce((acc, d) => ({ ...acc, [d.enterprise_id || d.item]: d }), {});
+472: enterpriseData.forEach((e, idx) => {
+547: const ent = enterpriseData.find(e => e.id === entId);
+585: const existingDetail = formData.details.find(d => (d.enterprise_id || d.item) === entId);
+624: const d = formData.details.find(detail => (detail.enterprise_id || detail.item) === entId);
+626: const ent = enterpriseData.find(e => e.id === (d.enterprise_id || d.item));
+
+### src\screens\Remittance\remittanceLoanConfig.js
+6: export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
+7: const { formData, enterpriseData, members, selectorMembers, isMember, user, historyState, loadHistoryData, clearForm, clearSavedForm, render } = deps;
+12: const detail = formData.details.find(d => String(d.enterprise_id || d.item || '') === String(enterpriseId));
+16: // Load default charges from Enterprise (always positive magnitudes)
+17: const enterprise = enterpriseData.find(e => String(e.id) === String(enterpriseId));
+19: if (enterprise) {
+20: // Map old enterprise fields to charges
+21: if (enterprise.interest_rate !== undefined && enterprise.interest_rate !== null && enterprise.interest_rate !== '') {
+25: value: Math.abs(parseFloat(enterprise.interest_rate) || 0),
+26: type: enterprise.interest_is_percent ? 'percentage' : 'fixed'
+29: if (enterprise.form_fee !== undefined && enterprise.form_fee !== null && enterprise.form_fee !== '') {
+33: value: Math.abs(parseFloat(enterprise.form_fee) || 0),
+34: type: enterprise.form_fee_is_percent ? 'percentage' : 'fixed'
+37: if (enterprise.admin_charge !== undefined && enterprise.admin_charge !== null && enterprise.admin_charge !== '') {
+41: value: Math.abs(parseFloat(enterprise.admin_charge) || 0),
+42: type: enterprise.admin_charge_is_percent ? 'percentage' : 'fixed'
+516: const currentDetail = formData.details.find(d => String(d.enterprise_id || d.item || '') === String(enterpriseId));
+526: const row = document.querySelector(`.detail-item-row[data-entid="${enterpriseId}"]`);
+
+### src\screens\Remittance\remittanceModal.js
+7: enterpriseData,
+55: const targetEntId = detail ? (detail.enterprise_id || detail.item) : null;
+56: const targetEnt = targetEntId ? (enterpriseData && enterpriseData.find ? enterpriseData.find(e => e.id === targetEntId) : null) : null;
+68: const { buildAccountBalance } = await import('../../services/dataService.js');
+77: const { accountBalance } = await buildAccountBalance(cooperativeId, { memberId: memberIdString }, limitKey);
+90: <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Enterprise</span>
+189: const { approveRemittance } = await import('../../services/dataService.js');
+191: await approveRemittance(formData.id, approvedByString, resolvedBank, resolvedDate);
+209: enterpriseData,
+224: showSimpleReviewModal(formData, enterpriseData, historyState, clearSavedFormFn, clearFormFn, loadHistoryDataFn, renderFn, deps);
+255: // Pre-fill charges from enterprise table if no charges exist yet
+258: const targetEntId = detail ? (detail.enterprise_id || detail.item) : null;
+259: const enterprise = targetEntId ? (enterpriseData || []).find(e => String(e.id) === String(targetEntId)) : null;
+260: if (enterprise) {
+261: if (enterprise.interest_rate !== undefined && enterprise.interest_rate !== null && enterprise.interest_rate !== '') {
+265: value: Math.abs(parseFloat(enterprise.interest_rate) || 0),
+266: type: enterprise.interest_is_percent ? 'percentage' : 'fixed'
+269: if (enterprise.form_fee !== undefined && enterprise.form_fee !== null && enterprise.form_fee !== '') {
+273: value: Math.abs(parseFloat(enterprise.form_fee) || 0),
+274: type: enterprise.form_fee_is_percent ? 'percentage' : 'fixed'
+277: if (enterprise.admin_charge !== undefined && enterprise.admin_charge !== null && enterprise.admin_charge !== '') {
+281: value: Math.abs(parseFloat(enterprise.admin_charge) || 0),
+282: type: enterprise.admin_charge_is_percent ? 'percentage' : 'fixed'
+
+### src\screens\Remittance\remittancePage.js
+1: import { fetchRemittances, fetchEnterprises, fetchAllMembers, addRemittance, updateRemittance, fetchBanks, buildAccountBalance, fetchLoanById, fetchGuarantorStats, fetchMemberDoc, fetchTransactionTypes, fetchRemittancesPage, deleteRemittance, fetchMemberPaymentAdvise, cleanupRemittanceFamily, updateMemberPaymentAdvice } from '../../services/dataService.js';
+43: let enterpriseData = [];
+218: formData = applyWithdrawalRequestPrefillInternal(wrData, enterpriseData, user.memberId);
+233: formData = applyLoanRequestPrefillInternal(lrData, enterpriseData, user.memberId);
+249: fetchEnterprises(cooperativeId, true, true),
+254: enterpriseData = entRes || [];
+314: const result = await fetchRemittancesPage(
+419: // -> no date limit. Pending records never count: buildAccountBalance only
+438: const balData = await buildAccountBalance(cooperativeId, { ...user, memberId }, limitKey);
+445: if (!paymentAdvise[adv.enterprise_id]) paymentAdvise[adv.enterprise_id] = 0;
+446: paymentAdvise[adv.enterprise_id] += parseFloat(adv.amount || 0);
+460: // through to addRemittance and creating a duplicate record.
+500: // Create a map of loans by enterprise_id for quick lookup
+501: const loansByEnterprise = {};
+504: loansByEnterprise[loan.enterprise_id] = loan;
+510: let loan = loansByEnterprise[detail.enterprise_id] || loansByEnterprise[detail.item];
+520: // Load default charges from enterprise if there are none (always positive magnitudes)
+523: const ent = enterpriseData.find(e => String(e.id) === String(detail.enterprise_id));
+593: enterprise_id: loan.enterprise_id,
+594: item: loan.enterprise_id || 'Loan',
+763: const prevDetail = (formData.details || []).find(d => String(d.enterprise_id || d.item || '') === entId);
+798: enterprise_id: entId,
+823: const isValid = validateEnterpriseInputs();
+827: // --- Validate Enterprise Inputs ---
+828: function validateEnterpriseInputs() {
+832: const ent = enterpriseData.find(e => e.id === entId);
+895: // Lists each due/penalty enterprise with an editable amount box.
+897: // "Don't Charge", or { charge:true, items:[{enterprise_id,name,amount}] }
+932: <p style="margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--text-muted);">Set the amounts to charge. They will be debited from the member and credited to the enterprise-named pickup as linked auto entries.</p>
+950: items.push({ enterprise_id: c.enterprise_id, name: c.name, amount: Math.abs(val) });
+964: // Lists charges pre-filled from the enterprise settings (interest, form fee,
+1226: let loanEntIds = enterpriseData.filter(e => getAccountType(e) === 'loan').map(e => e.id);
+1227: let savingsEntIds = enterpriseData.filter(e => getAccountType(e) === 'savings').map(e => e.id);
+1229: const loanReqEntId = formData.details.find(d => d.loan_info)?.enterprise_id;
+1237: const entId = d.enterprise_id || d.item;
+1244: missingLoanConfigId = d.enterprise_id || d.item;
+1263: const hasLoanDistribution = nonZeroDetails.some(d => loanEntIds.includes(d.enterprise_id || d.item) && d.amount < 0);
+1264: const hasSavingsDistribution = nonZeroDetails.some(d => savingsEntIds.includes(d.enterprise_id || d.item) && d.amount < 0);
+1333: // (member debits + enterprise-named pickup). Don't charge => parent only.
+1336: const localLoanEntIds = enterpriseData.filter(e => getAccountTypeLocal(e) === 'loan').map(e => e.id);
+1337: const localSavingsEntIds = enterpriseData.filter(e => getAccountTypeLocal(e) === 'savings').map(e => e.id);
+1338: const hasLoanDist = formData.details.some(d => localLoanEntIds.includes(d.enterprise_id || d.item) && d.amount < 0);
+1339: const hasSavingsDist = formData.details.some(d => localSavingsEntIds.includes(d.enterprise_id || d.item) && d.amount < 0);
+1344: enterpriseData.forEach(ent => {
+1351: enterprise_id: ent.id,
+1355: // Dues default to the enterprise setting; penalties are entered fresh each time
+1373: (enterpriseData || []).forEach(ent => {
+1378: .filter(d => parseFloat(d.amount || 0) > 0 && !_duePenIds.has(String(d.enterprise_id || d.item || '')))
+1388: // Savings withdrawal charges: pre-fill from enterprise settings (interest,
+1395: localSavingsEntIds.includes(d.enterprise_id || d.item) && d.amount < 0
+1397: const savingsEnterprise = enterpriseData.find(e =>
+1398: String(e.id) === String(savingsDetail?.enterprise_id || savingsDetail?.item)
+1400: if (savingsEnterprise) {
+1402: if (savingsEnterprise.interest_rate !== undefined && savingsEnterprise.interest_rate !== null && savingsEnterprise.interest_rate !== '' && parseFloat(savingsEnterprise.interest_rate) > 0) {
+1405: value: Math.abs(parseFloat(savingsEnterprise.interest_rate) || 0),
+1406: type: savingsEnterprise.interest_is_percent ? 'percentage' : 'fixed'
+1409: if (savingsEnterprise.form_fee !== undefined && savingsEnterprise.form_fee !== null && savingsEnterprise.form_fee !== '' && parseFloat(savingsEnterprise.form_fee) > 0) {
+1412: value: Math.abs(parseFloat(savingsEnterprise.form_fee) || 0),
+1413: type: savingsEnterprise.form_fee_is_percent ? 'percentage' : 'fixed'
+1416: if (savingsEnterprise.admin_charge !== undefined && savingsEnterprise.admin_charge !== null && savingsEnterprise.admin_charge !== '' && parseFloat(savingsEnterprise.admin_charge) > 0) {
+1419: value: Math.abs(parseFloat(savingsEnterprise.admin_charge) || 0),
+1420: type: savingsEnterprise.admin_charge_is_percent ? 'percentage' : 'fixed'
+1460: const idx = existingAdvise.findIndex(a => String(a.enterprise_id) === String(oldLoan.enterprise_id));
+1486: const entId = d.enterprise_id || d.item;
+1493: enterprise_id: d.enterprise_id || d.item,
+1512: enterprise_id: d.enterprise_id || d.item,
+1572: await addRemittance({
+1590: await addRemittance({
+1601: // Child A (per enterprise, member debit): negative amount + negative
+1602: // detail on that enterprise, Internal Transfer. Typing 100 or -100
+1604: // to the enterprise name (transaction_type = enterprise name, category
+1605: // = Operating Income or Member Liability per the enterprise's revenue flag)
+1610: // enterprise (one record covers all charges). Validation above already
+1618: await addRemittance({
+1634: enterprise_id: item.enterprise_id,
+1648: enterpriseData: enterpriseData || [],
+1658: (enterpriseData || []).forEach(ent => {
+1663: .filter(d => parseFloat(d.amount || 0) > 0 && !_duePenIdsC.has(String(d.enterprise_id || d.item || '')))
+1664: .map(d => ({ enterprise_id: d.enterprise_id || d.item, amount: Math.abs(parseFloat(d.amount || 0)) }));
+1681: // on the savings enterprise, Internal Transfer. Child B (single pickup):
+1685: localSavingsEntIds.includes(d.enterprise_id || d.item) && d.amount < 0
+1687: const savEnterpriseId = savEntId ? (savEntId.enterprise_id || savEntId.item) : null;
+1688: if (savEnterpriseId) {
+1700: await addRemittance({
+1716: enterprise_id: savEnterpriseId,
+1724: await addRemittance({
+1755: const existingIndex = existingAdvise.findIndex(a => String(a.enterprise_id) === String(loan.enterprise_id));
+1760: enterprise_id: String(loan.enterprise_id),
+2148: Object.assign(deps, { formData, enterpriseData, members, selectorMembers, banks, transactionTypes, isMember, user, historyState, loadHistoryData, clearForm, clearSavedForm, render, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, panelSizes, isAdmin, isActualAdmin, canApprove, canDelete, canReverse, canUpdate, cooperativeId, PANEL_SIZE_KEY, syncFormData, checkDirty, saveSavedForm, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus, getFormattedName, attachHistoryEventListeners, showBulkRemittanceModal, showReverseModal, isMobile });
+
+### src\screens\Remittance\remittancePrefill.js
+4: const applyLoanRequestPrefillInternal = (editingData, enterpriseData, memberId, user) => {
+8: const enterpriseId = editingData.enterpriseId || editingData.enterprise_id;
+16: // Load default charges from Enterprise
+17: const enterprise = enterpriseData.find(e => String(e.id) === String(enterpriseId));
+19: if (enterprise) {
+20: // Map old enterprise fields to charges (always positive magnitudes)
+21: if (enterprise.interest_rate !== undefined && enterprise.interest_rate !== null && enterprise.interest_rate !== '') {
+25: value: Math.abs(parseFloat(enterprise.interest_rate) || 0),
+26: type: enterprise.interest_is_percent ? 'percentage' : 'fixed'
+29: if (enterprise.form_fee !== undefined && enterprise.form_fee !== null && enterprise.form_fee !== '') {
+33: value: Math.abs(parseFloat(enterprise.form_fee) || 0),
+34: type: enterprise.form_fee_is_percent ? 'percentage' : 'fixed'
+37: if (enterprise.admin_charge !== undefined && enterprise.admin_charge !== null && enterprise.admin_charge !== '') {
+41: value: Math.abs(parseFloat(enterprise.admin_charge) || 0),
+42: type: enterprise.admin_charge_is_percent ? 'percentage' : 'fixed'
+57: enterprise_id: enterpriseId,
+58: item: enterpriseId,
+86: const applyWithdrawalRequestPrefillInternal = (withdrawalData, enterpriseData, memberId, user) => {
+89: const enterpriseId = withdrawalData.enterpriseId || withdrawalData.enterprise_id;
+90: const enterprise = enterpriseData.find(e => e.id === enterpriseId);
+91: const accountType = enterprise?.account_type?.toLowerCase() || 'savings';
+107: enterprise_id: enterpriseId,
+108: item: enterpriseId,
+
+### src\screens\Remittance\remittanceRender.js
+6: const { formData, historyState, enterpriseData, members, selectorMembers, banks, transactionTypes, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, sealLocked = false, isAdmin, isMember, canApprove, canDelete, canReverse, trackFocus, restoreFocus, getFormattedName, attachHistoryEventListeners, user } = deps;
+779: <th style="width: 45%;">Enterprise</th>
+788: const detailsMap = (formData.details || []).reduce((acc, d) => ({ ...acc, [d.enterprise_id || d.item]: d }), {});
+790: enterpriseData.forEach((e, idx) => {
+
+### src\screens\Remittance\remittanceReverse.js
+2: import { addRemittance } from '../../services/dataService.js';
+9: // children, including the +ve admin 0000000000 enterprise-named pickup) with
+32: // or the reversal would post header-only and leave enterprise balances
+162: <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: var(--text-muted);">Each record below is mirrored with the opposite amount (dated today). Children — dues debits and the admin enterprise-named pickup included — are reversed with their parent. Originals stay untouched.</p>
+199: enterprise_id: String(d.enterprise_id || d.item || ''),
+203: // spawn duplicate loan records via addRemittance derivation
+205: await addRemittance({
+224: await addRemittance({
+
+### src\screens\settings\devAudit.js
+3: export function renderDevAuditSection(area) {
+5: <h3>Dev. Audit</h3>
+6: <p class="section-desc">Reserved for future developer audit tools.</p>
+10: export function setupDevAuditListeners(user, cooperativeId) {
+11: // No active audit tools — reserved for future use.
+
+### src\screens\settings\enterprises.js
+1: import { fetchEnterprises, addEnterprise, updateEnterprise, deleteEnterprise } from '../../services/dataService.js';
+6: export function renderEnterpriseSection(area) {
+10: <h3 style="margin:0;">Enterprise Accounts</h3>
+11: <p class="section-desc" style="margin: 0.35rem 0 0 0;">Configure the enterprise accounts used in remittance distribution.</p>
+15: <div id="ent-table-container" class="table-responsive"><p style="color: var(--text-muted); font-style: italic;">Loading enterprise accounts...</p></div>
+19: export function setupEnterpriseListeners(user, cooperativeId) {
+30: <h3>${ent ? 'Edit Enterprise Account' : 'Add Enterprise Account'}</h3>
+96: <input type="number" id="ent-priority-input" value="${ent?.distribution_priority ?? 0}" min="0">
+147: distribution_priority: parseInt(overlay.querySelector('#ent-priority-input').value || 0),
+159: await updateEnterprise(editingEnt.id, payload, user.username);
+161: await addEnterprise(payload, user.username);
+164: loadEnterprises();
+174: const loadEnterprises = async () => {
+178: const ents = await fetchEnterprises(cooperativeId, true);
+181: tc.innerHTML = '<p style="color: var(--text-muted); font-style: italic;">No enterprise accounts registered yet.</p>';
+185: active.sort((a, b) => (a.distribution_priority || 0) - (b.distribution_priority || 0));
+186: // Fetch enterprises currently in use by remittance details
+187: const inUseDetails = await queryRows('SELECT DISTINCT enterprise_id FROM remittance_detail WHERE cooperative_id = ? AND is_deleted = 0 AND amount != 0', [cooperativeId]);
+188: const usedEntIds = new Set(inUseDetails.map(d => d.enterprise_id));
+201: <td>${e.distribution_priority || 0}</td>
+228: if (!confirm(`Delete enterprise "${btn.dataset.name}"? This cannot be undone.`)) return;
+230: await deleteEnterprise(btn.dataset.id, cooperativeId, user.username);
+231: loadEnterprises();
+241: loadEnterprises();
+
+### src\screens\settings\firestoreManagement.js
+20: 'id', 'cooperative_id', 'member_id', 'enterprise_id', 'user_id',
+66: { id: 'enterprise', label: 'Enterprise Accounts', icon: '📊' },
+615: // Local IndexedDB, sync_queue and background sync are untouched.
+
+### src\screens\settings\guarantor.js
+193: String(r.enterprise_name || '').toLowerCase().includes(term),
+227: <div class="g-meta">${req.enterprise_name ? `${escapeHtml(req.enterprise_name)} • ` : ''}Requested ${escapeHtml(when)}${due ? ` • Due ${escapeHtml(due)}` : ''}</div>
+
+### src\screens\settings\index.js
+6: export * from './enterprises.js';
+11: export * from './devAudit.js';
+
+### src\screens\settings\users.js
+3: import { fetchEnterprises } from '../../services/dataService.js';
+12: <p class="section-desc" style="margin: 0.35rem 0 0 0;">Manage staff access, permissions, and enterprise rights.</p>
+23: const ents = await fetchEnterprises(cooperativeId, true);
+42: Select ${type === 'perms' ? 'Permissions' : 'Enterprises'}
+51: <span style="font-weight: 700;">${type === 'perms' ? '* ALL (Admin)' : '* ALL Enterprises'}</span>
+120: const userEntRights = u ? (u.enterprise_rights || u.enterprises || '').split(',').map(p => p.trim()) : [];
+183: <span>Enterprise Access</span>
+186: <span id="ents-trigger-text">${selectedEnts.length > 0 ? `${selectedEnts.length} Selected` : 'Select Enterprises...'}</span>
+191: <div class="stg-helper">Limit which enterprise accounts this user can see and post to.</div>
+252: const enterprise_rights = selectedEnts.join(',');
+255: const payload = { username: usernameInput, role, permissions, enterprise_rights, cooperative_id: cooperativeId };
+300: if (rights === 'all') return '<strong>All Enterprises</strong>';
+312: <th>Enterprise Access</th>
+322: <small style="color: var(--text-muted);">${getEntDisplay(u.enterprise_rights || u.enterprises)}</small>
+
+### src\services\auditService.js
+1: // src/services/auditService.js
+2: // Centralized audit metadata collector.
+3: // Returns an object with optional audit fields. Missing values are null.
+10: * Retrieves audit metadata for the current session/device.
+14: export async function getAuditMetadata() {
+57: export default { getAuditMetadata };
+
+### src\services\authService.js
+532: enterprises: foundDoc.enterprise_rights || foundDoc.enterprises || '',
+873: enterprises: foundDoc.enterprise_rights || foundDoc.enterprises || '',
+
+### src\services\backgroundSyncService.js
+155: 'payment_advise', 'enterprise', 'bank', 'users', 'cooperatives', 'notifications', 'transaction_types', 'membership_request']
+430: const collections = ['enterprise', 'bank', 'members', 'remittance', 'users', 'notifications', 'cooperatives', 'transaction_types', 'feedback', 'membership_request']
+614: case 'enterprise':
+616: isDeleted ? SyncEvents.ENTERPRISE_DELETED : SyncEvents.ENTERPRISE_UPDATED,
+617: createSyncPayload(SyncEvents.ENTERPRISE_UPDATED, { id: doc.id, data: doc })
+715: const collectionsList = ['enterprise', 'bank', 'cooperatives', 'transaction_types', 'members', 'users', 'remittance', 'notifications', 'feedback'];
+738: const tables = ['enterprise', 'bank', 'members', 'remittance', 'remittance_detail', 'loans',
+799: await syncOne('enterprise', () => _fetchCollection('enterprise', cooperativeId, 0));
+871: count: (counts.enterprise || 0) + (counts.bank || 0) + (counts.members || 0) + (counts.remittance || 0),
+1262: // (enterprise/bank/transaction_types/cooperatives) are kept.
+1313: const q = await getAllItems('sync_queue')
+1318: if (!stillThere) await deleteItem('sync_queue', item.id).catch(() => {})
+1321: await deleteItem('sync_queue', item.id).catch(() => {})
+
+### src\services\indexedDbService.js
+15: sync_queue: { keyPath: 'id', autoIncrement: true },
+21: enterprise: { keyPath: 'id' },
+102: } else if (storeName === 'sync_queue') {
+150: // sync_queue: add collection_name + document_id composite index for dedup
+151: if (db.objectStoreNames.contains('sync_queue')) {
+152: const sqStore = tx.objectStore('sync_queue');
+155: console.log('[IndexedDB] Added sync_queue collection_document composite index');
+176: const coopStores = ['users', 'bank', 'enterprise', 'transaction_types', 'loan_guarantors', 'payment_advise', 'bank_reconciliation_summary'];
+188: // ── Version 5: feedback store + sync_queue.cooperative_id index ─────
+203: if (db.objectStoreNames.contains('sync_queue')) {
+205: const sq = tx.objectStore('sync_queue');
+208: console.log('[IndexedDB] Added sync_queue.cooperative_id index');
+225: sync_queue: ['status', 'cooperative_id'],
+231: enterprise: ['cooperative_id'],
+255: if (storeName === 'sync_queue' && !store.indexNames.contains('collection_document')) {
+257: console.log('[IndexedDB] v6 healed missing index: sync_queue.collection_document');
+306: sync_queue: ['status', 'cooperative_id'],
+312: enterprise: ['cooperative_id'],
+336: if (storeName === 'sync_queue' && !store.indexNames.contains('collection_document')) {
+338: console.log('[IndexedDB] v9 healed missing index: sync_queue.collection_document');
+
+### src\services\offlineAuthService.js
+215: * Persisted snapshots (role/permissions/enterprises/coop name) can predate
+234: const rights = row.enterprise_rights || row.enterprises
+236: welcomeUser.enterprises = rights
+237: welcomeUser.enterprise_rights = rights
+344: enterprises_snapshot: JSON.stringify(welcomeUser.enterprises ?? welcomeUser.enterprise_rights ?? ''),
+404: enterprises: session.enterprises,
+504: enterprises,
+536: enterprises_snapshot: JSON.stringify(enterprises || sessionData.enterprise_rights || ''),
+742: enterprises_snapshot: JSON.stringify(userDoc.enterprise_rights || userDoc.enterprises || ''),
+758: // login, so permission/enterprise changes apply without an
+761: session.enterprises_snapshot = JSON.stringify(userDoc.enterprise_rights || userDoc.enterprises || '');
+1101: const q = await getAllItems('sync_queue').catch(() => [])
+1110: await putItem('sync_queue', item).catch(() => {})
+1177: sess.enterprises_snapshot = JSON.stringify(mrow.enterprise_rights || mrow.enterprises || '')
+1198: enterprises: mrow.enterprise_rights || mrow.enterprises,
+1263: enterprises: JSON.parse(session.enterprises_snapshot || '""'),
+
+### src\services\permissionService.js
+17: "delete_enterprise": ["update_enterprise", "read_enterprise"],
+18: "update_enterprise": ["create_enterprise", "read_enterprise"],
+19: "create_enterprise": ["read_enterprise"],
+21: "settings_manage": ["read_member", "read_enterprise"],
+
+### src\services\syncEventBus.js
+67: ENTERPRISE_UPDATED: 'enterprise:updated',
+68: ENTERPRISE_ADDED: 'enterprise:added',
+69: ENTERPRISE_DELETED: 'enterprise:deleted',
+
+### src\services\syncService.js
+149: queryRows('SELECT id FROM enterprise LIMIT 1')
+356: const remaining = await getAllItems('sync_queue')
+
+### src\services\data\balance.js
+39: export async function buildAccountBalance(cooperativeId, user = null, limitRid = null, preloaded = null) {
+41: // already loaded remittances/enterprises don't pay for them twice.
+45: const enterpriseRows = (preloaded && preloaded.enterprises !== undefined)
+46: ? preloaded.enterprises
+48: 'SELECT * FROM enterprise WHERE cooperative_id = ? AND is_deleted = 0',
+53: // Dues & penalties count toward member networth even when the enterprise
+55: // not pure cooperative income). Pure-revenue enterprises stay excluded.
+63: for (const ent of enterpriseRows) {
+77: const eid = d.enterprise_id || d.item || ''
+93: const enterpriseRows = await queryRows(
+94: 'SELECT * FROM enterprise WHERE cooperative_id = ? AND is_deleted = 0',
+99: // Same due/penalty rule as buildAccountBalance above: dues & penalties
+102: for (const ent of enterpriseRows) {
+117: const eid = d.enterprise_id || d.item || ''
+125: enterprise_id: eid,
+126: enterprise_name: entMap[eid] || 'Unknown',
+
+### src\services\data\duesTransfer.js
+2: // and the Dev. Audit backfill). The transfer is the 4th record of the group:
+6: //   enterprise (one record covers all charges of the parent).
+13: // The INCOME pickup (Child B) now uses the enterprise name as transaction type
+14: // dynamically: if the enterprise is marked revenue, classification is
+17: import { addRemittance } from './remittances.js';
+43: // Collision-safe child id (addRemittance/saveDoc upserts by id, so never reuse).
+56: // Group +ve charge items by enterprise: { entId: { amount, name } }.
+62: const eid = String(it.enterprise_id || it.item || '');
+76: // lines (NOT on due/penalty enterprises), in distribution order. The -side
+77: // peels across them in order; the +side is one line per due enterprise.
+86: .map(l => ({ enterprise_id: String(l.enterprise_id || l.item || ''), amount: Math.abs(parseFloat(l.amount || 0)) }))
+87: .filter(l => l.enterprise_id && l.amount > 0);
+102: enterprise_id: l.enterprise_id,
+116: enterprise_id: lines[0].enterprise_id,
+124: enterprise_id: eid,
+132: // Per-enterprise member debits (Child A). Returns { count, total, ids }.
+145: await addRemittance({
+153: description: `Auto Internal Charges (${it.name || it.enterprise_id})`,
+162: enterprise_id: it.enterprise_id,
+164: notes: it.name || it.enterprise_id
+177: // due/penalty enterprise. Transaction type is the enterprise name
+179: // when the enterprise is marked revenue, else "Member Liability".
+181: export async function createDuesIncomePickup({ cooperativeId, parentId, duesItems, enterpriseData, memberName, date, status, actor, role, parentCreatedAt, parentModifiedAt }) {
+186: const ent = (enterpriseData || []).find(e => String(e.id) === String(eid));
+191: await addRemittance({
+218: // savings lines, +side split per due enterprise. Returns { id, total }.
+223: await addRemittance({
+253: // Returns { enterprise_id, kind: 'savings'|'loan' } or null when no source exists.
+259: return { enterprise_id: String(selectedEntId), kind: 'savings' };
+264: if (nextFunded) return { enterprise_id: nextFunded, kind: 'savings' };
+265: if (loanEnts && loanEnts.length) return { enterprise_id: String(loanEnts[0].id), kind: 'loan' };
+271: // (savings or loan), +side on the charge enterprise so the member's
+285: enterprise_id: String(fundingEntId),
+291: enterprise_id: String(chargeEntId),
+296: await addRemittance({
+
+### src\services\data\enterprises.js
+4: export async function fetchEnterprises(cooperativeId, returnArray = false, includeDeleted = false) {
+6: ? `SELECT * FROM enterprise WHERE cooperative_id = ?`
+7: : `SELECT * FROM enterprise WHERE cooperative_id = ? AND is_deleted = 0`
+17: export async function addEnterprise(data, createdBy) {
+44: await saveDoc('enterprise', doc)
+48: export async function updateEnterprise(id, data, modifiedBy) {
+49: const existing = await getDocById_Global('enterprise', id)
+50: if (!existing) throw new Error('Enterprise not found')
+61: await saveDoc('enterprise', doc)
+64: export async function deleteEnterprise(id, modifiedBy) {
+65: const existing = await getDocById_Global('enterprise', id)
+66: if (!existing) throw new Error('Enterprise not found')
+68: await saveDoc('enterprise', {
+
+### src\services\data\index.js
+7: export { fetchEnterprises, addEnterprise, updateEnterprise, deleteEnterprise } from './enterprises.js'
+11: fetchRemittances, fetchRemittancesPage,
+12: fetchTransactionTypes, addRemittance, updateRemittance, deleteRemittance,
+13: approveRemittance, declineRemittance, fetchLoanById, fetchMemberLoans,
+26: export { buildAccountBalance, buildMemberLedger } from './balance.js'
+
+### src\services\data\loans.js
+6: import { addRemittance } from './remittances.js'
+132: enterprise_id: detail.enterprise_id || detail.item || '',
+230: await addRemittance({
+246: enterprise_id: loan.enterprise_id,
+267: await addRemittance({
+289: 'SELECT * FROM payment_advise WHERE cooperative_id = ? AND member_id = ? AND enterprise_id = ? AND is_deleted = 0',
+290: [String(cooperativeId), loan.member_id, loan.enterprise_id]
+296: enterprise_id: String(loan.enterprise_id),
+
+### src\services\data\members.js
+211: enterprise_id: String(a.enterprise_id),
+275: enterprise_id: String(a.enterprise_id),
+
+### src\services\data\registration.js
+82: enterprise_rights: 'all',
+
+### src\services\data\remittances.js
+101: export async function fetchRemittances(cooperativeId, user = null) {
+105: export async function fetchRemittancesPage(cooperativeId, user = null, offset = 0, limitCount = 100, options = null) {
+113: export async function addRemittance(data, createdBy) {
+158: enterprise_id: String(d.enterprise_id || d.item || ''),
+186: enterprise_id: d.enterprise_id || d.item || '',
+209: enterprise_id: l.enterprise_id || '',
+317: enterprise_id: String(d.enterprise_id || d.item || ''),
+342: enterprise_id: d.enterprise_id || d.item || '',
+365: enterprise_id: l.enterprise_id || '',
+498: export async function approveRemittance(remittanceId, approvedBy, bankName, remittanceDate) {
+
+### src\services\data\users.js
+35: enterprise_rights: data.enterprise_rights || '',
+65: enterprise_rights: data.enterprise_rights !== undefined ? data.enterprise_rights : existing.enterprise_rights,
+126: enterprise_rights: user.enterprise_rights,
+
+### src\services\reports\accountingPack.js
+4: // Derives an auditable double-entry view of a cooperative from the SAME
+6: // leg) and `remittance_detail` (member/enterprise leg). No new tables, no new
+13: //                      enterprise account; side follows the account's normal
+70: function enterpriseAccount(ent) {
+98: // buildAccountBalance includes these in member net worth).
+176: const [remittances, details, members, enterprises, loans, banks, txTypes, bankRecs, coops] = await Promise.all([
+180: fetchScoped('enterprise', cooperativeId),
+192: const entById = new Map(enterprises.filter(e => !truthy(e.is_deleted)).map(e => [String(e.id), e]));
+198: // --- Enterprise accounts -------------------------------------------------
+201: const a = enterpriseAccount(ent);
+214: // --- Family roots (for the audit trail + exception grouping) --------------
+286: // excluded from every figure and from the audit trail, because the audit
+289: // and no count, so an auditor could not tell they existed.
+299: `remittance ${r.id} is Approved and not deleted, but remittance_date is "${T(r.remittance_date) || '(blank)'}", which is not a YYYY-MM-DD date. It cannot be placed in any period, so it is excluded from the trial balance, the statements and the general ledger, and does not appear on the Transaction Audit Trail. Its amount of ${round2(num(r.amount)).toLocaleString()} is therefore missing from this pack until the date is corrected in CoopLogNG.`);
+304: const auditRows = [];
+390: const entId = String(det.enterprise_id || '');
+395: addException('High', 'DETAIL_NO_ENTERPRISE', 'Detail row points to a missing or deleted enterprise', String(r.id), amt,
+396: `remittance_detail ${det.id} references enterprise_id "${entId}" which is not present in this cooperative. The amount is excluded from every statement.`);
+411: addPosting(acc, { date: d, debit: isDebit, amount: Math.abs(amt), meta: { remittanceId: String(r.id), leg: 'Member', detailId: String(det.id), memberId: memId, enterpriseId: entId } });
+441: // no detail legs (no known enterprise/member to credit).
+544: // ---- 6. Audit trail
+546: auditRows.push({
+561: // (data/remittances.js, approveRemittance), so for an Approved
+588: // do not sum to nil is the unit an auditor actually tests, and it cannot be
+661: auditRows.push({
+739: `${n} rows in this cooperative share remittance.id "${id}". Only one can be a distinct transaction, so either rows have been merged or a transaction is counted twice. Both rows are shown on the Transaction Audit Trail.`);
+791: const { memberId, enterpriseId } = p.meta;
+792: if (!memberId || !enterpriseId) continue;
+793: const k = `${memberId}|${enterpriseId}`;
+795: memberId, enterpriseId, enterprise: p.acc.name, type: p.acc.classification,
+878: enterpriseId: p.meta.enterpriseId || '',
+926: account: cur.enterprise, classification: cur.type,
+955: const entId = String(L.enterprise_id || '');
+1013: const loanDetail = round2(rdets.filter(x => !truthy(x.is_deleted) && entById.has(String(x.enterprise_id))
+1014: && enterpriseAccount(entById.get(String(x.enterprise_id))).bucket === 'loan')
+1031: // The register already carries a free-text ageing string, but an auditor
+1062: // liability line with no owner, and an auditor will ask how it moves and
+1121: // `type` instead would also pull in enterprise expense accounts, which the
+1171: // C7, C8 and C20 are stated against. Enterprise expense accounts are shown
+1229: source = 'remittance_detail.enterprise_id -> enterprise.account_type = "Loan"';
+1232: source = `remittance_detail.enterprise_id -> enterprise.account_type = "${acc.bucket}"`;
+1233: rule = 'Sum of detail amounts on this enterprise account.';
+1235: source = 'remittance_detail.enterprise_id -> enterprise.account_type = "Savings" and revenue is not set';
+1238: source = 'remittance_detail.enterprise_id -> enterprise has compulsory_due or is_penalty set';
+1239: rule = 'Member obligation for dues/penalties. Included in member net worth, matching the app\'s buildAccountBalance.';
+1256: classification: acc.classification, source: 'remittance_detail.enterprise_id -> enterprise.revenue = 1 (no compulsory_due / is_penalty)',
+1342: { id: 'C17', name: 'Journal entries balance individually', description: 'Every journal entry this pack derives must sum to nil. Entries that do not are listed on the Entry Balance Proof sheet.', valueA: unbalancedEntries.length, valueB: 0, difference: unbalancedEntries.length, status: unbalancedEntries.length ? 'REVIEW' : 'PASS', note: `This is the unit an auditor actually tests. The trial balance cannot identify a broken entry, because a debit error in one transaction and a credit error in another cancel in the total. Count ${unbalancedEntries.length} of ${entryRows.length} entries do not balance; each is listed with its own legs on the Entry Balance Proof sheet.` },
+1349: { id: 'C10', name: 'Cooperative pseudo-member balance', description: `Movement posted against member ${PSEUDO_MEMBER}, which represents the cooperative itself rather than a member.`, valueA: memberPseudoTotal, valueB: 0, difference: memberPseudoTotal, status: 'INFO', note: 'Excluded from member net worth, consistent with the app\'s buildAccountBalance.' },
+1355: { id: 'C16', name: 'Liability detail vs trial balance', description: 'Sum of signed liability effects must equal the trial balance liability movement for the period.', valueA: liabilityDetailTotal, valueB: tbLiabilityPeriod, difference: round2(liabilityDetailTotal - tbLiabilityPeriod), status: status(liabilityDetailTotal - tbLiabilityPeriod), note: 'Covers member liability postings (e.g. Unknown Payments) that have no enterprise detail leg. The offsetting liability account keeps the trial balance in equilibrium, so these entries do not contribute to the control difference. Confirms the Liability Detail sheet agrees with the trial balance.' },
+1377: { topic: 'Loan ageing', text: 'Ageing is measured from the due date recorded on the loan, against the period end date. The Loan Register sheet lists each loan with its own ageing; the Loan Ageing sheet presents the same population in the buckets an auditor asks for. No provision for impairment is raised, because the records contain no evidence of recoverability to base one on.' },
+1379: { topic: 'Source of truth', text: 'Two records drive everything: remittance (header = cooperative/cash leg) and remittance_detail (member/enterprise leg). No new tables or columns were added and no source data was modified.' },
+1380: { topic: 'Included rows', text: 'Only remittances that are Approved and not deleted, dated on or before the end of the period. Pending, declined and deleted rows are listed on the Transaction Audit Trail but excluded from every figure.' },
+1383: { topic: 'Income and expense basis', text: 'Recognised from the remittance header category, which is the only basis that captures the app\'s header-only income pickups. Member-side revenue enterprises are reported as a memo only so income cannot be counted twice.' },
+1384: { topic: 'Member liability basis', text: 'Member savings, dues and penalty balances come from the sum of remittance_detail per enterprise, exactly as the app\'s buildAccountBalance computes member net worth. The remittance header amount is never used as a member balance.' },
+1386: { topic: 'Account codes', text: 'Codes are a reporting mapping layer derived at run time from the cooperative\'s own enterprises, banks and transaction types. They are not a statutory chart of accounts. The Account Mapping sheet documents the derivation of every line.' },
+1408: // Every derived journal entry, so an auditor can test the unit they
+1481: auditTrail: auditRows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.remittanceId).localeCompare(String(b.remittanceId)))),
+
+### src\services\reports\accountingPackExcel.js
+39: ['Liability Detail', 'member liability postings with no enterprise leg, such as unidentified payments'],
+43: ['Transaction Audit Trail', 'every remittance in the period including excluded rows, with approver identity'],
+481: noteRow(ws, r, headers.length, `The trial balance closes with Debits ${fmt(pack.trialBalanceTotals.closingDr)} against Credits ${fmt(pack.trialBalanceTotals.closingCr)}, a control difference of ${fmt(pack.trialBalanceTotals.closingDiff)}. That figure is the arithmetic sum of every posting in this cooperative that could not be matched into a complete double entry. Each contributing remittance is listed on the Data Quality Exceptions sheet with its identifier, so the difference can be traced and cleared one transaction at a time. It has deliberately not been written off to a suspense or balancing account, because doing so would conceal the underlying records from the auditor.`);
+536: const headers = ['Code', 'Account', 'Account Type', 'Leg', 'Date', 'Reference', 'Source Table', 'Source ID', 'Remittance ID', 'Remittance Detail ID', 'Member ID', 'Enterprise ID', 'Loan ID', 'Description', 'Member', 'Debit', 'Credit', 'Balance'];
+539: keys: ['code', 'account', 'accountType', 'leg', 'date', 'reference', 'sourceTable', 'sourceId', 'remittanceId', 'detailId', 'memberId', 'enterpriseId', 'loanId', 'description', 'member', 'debit', 'credit', 'balance'],
+547: noteRow(ws, res.nextRow, headers.length, 'Every posting traces back to the row it came from: Source Table names the table the amount was read from (remittance_detail for a member posting, remittance for a bank or classification posting) and Source ID is that row\'s own primary key, which is also the value to search on in CoopLogNG. Reference shows the same identity combined. Leg names which side of the entry the line is: Cash is the bank movement, Member is the member or enterprise account, Classification is the income, expense, asset or liability side. Balances are running debit-positive balances on each account.');
+639: noteRow(ws, r, 8, 'These accounts are flagged as revenue in the enterprise register. They record income accrued to members before it is collected. Because this pack recognises income from the remittance category, recognising it here as well would count the same income twice, so these movements are disclosed here and left out of the trial balance.');
+786: // category and no enterprise detail. They post to a cooperative asset
+791: noteRow(ws, r, headers.length, 'These rows are capitalised assets, not costs. The app records them with an Asset or Fixed Asset category and no enterprise detail, so they post to a cooperative asset account and never to the profit and loss. They are shown on this sheet, separately from the expenditure table above, so a capital purchase can never be read as an expense. Control C12 on the Control Checks sheet proves this section agrees with the trial balance.');
+821: putBanner(ws, pack, 'Liability Detail', `Member liability postings where no enterprise leg exists (e.g. Unknown Payments)`, headers.length);
+823: noteRow(ws, 5, headers.length, 'No member liability postings without an enterprise leg were recorded for this period.');
+828: const res = writeTable(ws, pack, 5, 'Member liabilities recognised without a matching enterprise detail', headers, rows, {
+838: noteRow(ws, r, headers.length, 'These are member liability postings (e.g. Unknown Payments) that have no enterprise detail leg. The offsetting liability account keeps the trial balance in equilibrium so they do not contribute to the control difference. Control C16 on the Control Checks sheet proves this section agrees with the trial balance.');
+862: noteRow(ws, r, headers.length, 'Account codes are a reporting mapping layer generated for this pack from the cooperative\'s own enterprises, banks and transaction types. They are not a statutory chart of accounts and carry no regulatory meaning. Within a bucket the suffix is assigned in the order the accounts are first needed while the pack is built, so the same data always produces the same codes for a given run, but a code is a label for this pack rather than a permanent identifier: the Account Diagnostics figures on the Cover account for every account the run created, including accounts that net to nil and therefore do not appear in the table above.');
+896: function auditSheet(wb, pack) {
+897: const ws = wb.addWorksheet('Transaction Audit Trail', { pageSetup: { orientation: 'landscape' } });
+899: putBanner(ws, pack, 'Transaction Audit Trail', `Every remittance dated ${pack.meta.periodLabel}, including rows excluded from the figures`, headers.length);
+900: const res = writeTable(ws, pack, 5, 'Transactions', headers, pack.auditTrail, {
+1079: noteRow(ws, r, 3, 'A non-zero difference is not a mistake in this statement. It is the same control difference reported by C1 on the Control Checks sheet: the sum of postings in the cooperative own records that do not form a complete double entry. It is disclosed here and on the Data Quality Exceptions sheet rather than absorbed into a balancing account, because plugging it would hide the underlying transactions from the auditor.');
+1241: noteRow(ws, r, headers.length, 'Ageing is measured from the due date recorded on the loan against the period end date, so a loan is overdue once its due date has passed. The Loan Register sheet lists each loan individually with its own ageing string; this sheet presents the same population in the buckets an auditor or examiner asks for.');
+1313: auditSheet(wb, pack);
+
+### src\services\reports\accountingReports.js
+2: import { fetchEnterprises } from '../dataService.js';
+29: export async function getEnterpriseAccountData(cooperativeId, user, options = {}) {
+31: enterpriseId,
+42: if (!enterpriseId) return emptyResult;
+81: WHERE rd.cooperative_id = ? AND rd.enterprise_id = ? AND r.status = 'Approved'
+84: const bbfBind = [cooperativeId, enterpriseId, rangeStartStr];
+85: const rangeBind = [cooperativeId, enterpriseId, rangeStartStr, rangeEndStr];
+211: const enterprises = await fetchEnterprises(cooperativeId, true);
+212: const entName = enterprises.find(e => e.id === enterpriseId)?.account_name || 'Enterprise';
+235: LEFT JOIN enterprise e ON rd.enterprise_id = e.id
+
+### src\services\reports\index.js
+3: export { getEnterpriseAccountData, getPersonalLedgerData } from './accountingReports.js';
+
+### src\services\reports\memberReports.js
+2: import { fetchAllMembers, fetchEnterprises } from '../dataService.js';
+33: const enterpriseFilter = filters.enterprise || '';
+36: const enterprises = await fetchEnterprises(cooperativeId, true);
+38: const loans = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'loan').sort(byName);
+39: const savings = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'savings').sort(byName);
+40: const others = enterprises.filter(e => !loans.includes(e) && !savings.includes(e)).sort(byName);
+42: if (enterpriseFilter) orderedEnts = orderedEnts.filter(e => String(e.id) === String(enterpriseFilter));
+58: SELECT member_id as id, enterprise_id, SUM(amount) as total
+61: GROUP BY member_id, enterprise_id
+70: const entId = String(r.enterprise_id);
+140: const enterprises = await fetchEnterprises(cooperativeId, true);
+141: const loans = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'loan');
+153: WHERE rd.enterprise_id = ?
+333: const allEnterprises = await fetchEnterprises(cooperativeId, true);
+342: const enterprises = allEnterprises.filter(e => {
+350: rd.enterprise_id, SUM(rd.amount) as total
+364: sql += " GROUP BY r.member_id, rd.enterprise_id";
+374: byMember[r.id][r.enterprise_id] = r.total;
+386: ...enterprises.map(e => e.account_name),
+391: const entTotals = new Array(enterprises.length).fill(0);
+401: enterprises.forEach((ent, eIdx) => {
+
+### src\services\reports\remittanceReports.js
+2: import { fetchEnterprises } from '../dataService.js';
+64: // Journal footer: a running journal is only auditable against a total.
+91: const enterprises = await fetchEnterprises(cooperativeId, true);
+92: const loans = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'loan').sort((a, b) => a.account_name.localeCompare(b.account_name));
+93: const savings = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'savings').sort((a, b) => a.account_name.localeCompare(b.account_name));
+94: const others = enterprises.filter(e => !loans.includes(e) && !savings.includes(e)).sort((a, b) => a.account_name.localeCompare(b.account_name));
+109: rd.enterprise_id, SUM(rd.amount) as total
+124: sql += " GROUP BY r.member_id, rd.enterprise_id";
+133: byMember[r.id][r.enterprise_id] = r.total;
+187: LEFT JOIN enterprise e ON rd.enterprise_id = e.id
+
+### src\services\reports\reportTypes.js
+9: import { getEnterpriseAccountData, getPersonalLedgerData } from './accountingReports.js';
+88: enterprise_account: {
+91: filterGroups: ['.filter-enterprise', '.filter-fiscal-year', '.filter-ent-date', '.filter-ent-options', '.filter-zero-columns'],
+98: build: (ctx) => getEnterpriseAccountData(ctx.cooperativeId, ctx.user, {
+99: enterpriseId: ctx.read('#ent-filter'),
+130: enterprise: ctx.read('#advise-ent-filter')
+
+### src\services\sqlite\constants.js
+2: 'cooperatives', 'users', 'sync_queue', 'sync_state', 'loans',
+3: 'loan_guarantors', 'members', 'bank', 'enterprise', 'remittance',
+11: users: ['id', 'cooperative_id', 'username', 'username_lower', 'password_hash', 'force_password_change', 'role', 'permissions', 'enterprise_rights', 'subscriptionStatus', 'expiry_date', 'created_at', 'created_by', 'modified_at', 'modified_by', 'deleted_at', 'is_synced', 'is_deleted', 'sync_at', 'email', 'email_lower', 'firebase_uid'],
+12: sync_queue: ['id', 'entity', 'entity_id', 'status', 'attempt_count', 'last_error', 'last_attempt_at', 'created_at', 'updated_at', 'collection_name', 'document_id', 'operation_type', 'merged_document', 'cooperative_id', 'next_attempt_at'],
+14: loans: ['id', 'cooperative_id', 'member_id', 'enterprise_id', 'principal_amount', 'issued_date', 'due_date', 'status', 'notes', 'created_at', 'created_by', 'modified_at', 'modified_by', 'deleted_at', 'is_synced', 'is_deleted', 'sync_at', 'admin_fee_id', 'duration_months', 'remittance_id', 'approved_at'],
+18: enterprise: ['id', 'cooperative_id', 'account_name', 'account_type', 'parent_account', 'loan_multiplier', 'interest_rate', 'interest_is_percent', 'form_fee', 'form_fee_is_percent', 'admin_charge', 'admin_charge_is_percent', 'created_by', 'created_at', 'modified_by', 'modified_at', 'is_deleted', 'is_synced', 'sync_at', 'deleted_at', 'distribution_priority', 'compulsory_due', 'compulsory_amount', 'revenue', 'is_penalty'],
+21: remittance_detail: ['id', 'cooperative_id', 'remittance_id', 'enterprise_id', 'amount', 'auto_description', 'loan_info', 'created_by', 'created_at', 'modified_by', 'modified_at', 'is_synced', 'is_deleted', 'sync_at', 'deleted_at'],
+23: payment_advise: ['id', 'cooperative_id', 'member_id', 'enterprise_id', 'amount', 'created_by', 'created_at', 'modified_by', 'modified_at', 'is_synced', 'is_deleted', 'sync_at', 'deleted_at'],
+
+### src\services\sqlite\dataAccess.js
+241: const [allLoans, allGuarantors, allMembers, allEnterprises] = await Promise.all([
+245: getAllItems('enterprise').catch(() => []),
+249: const entMap = new Map((allEnterprises || []).map((e) => [String(e.id), e.account_name || e.id]));
+266: enterprise_name: entMap.get(String(loan.enterprise_id)) || loan.enterprise_id || '',
+298: const enterprises = await getAllItems('enterprise')
+300: for (const e of enterprises) entMap[e.id] = e.account_name
+318: const entId = d.enterprise_id || d.item || ''
+330: const k = `${loan.member_id}_${loan.enterprise_id}`
+336: loan.enterprise_name = entMap[loan.enterprise_id] || ''
+343: const k = `${loan.member_id}_${loan.enterprise_id}`
+
+### src\services\sqlite\dbManagement.js
+73: db.run(`CREATE TABLE IF NOT EXISTS "${table}" (${colDefs.join(', ')})`);
+94: 'id', 'cooperative_id', 'member_id', 'enterprise_id', 'user_id',
+138: 'enterprise', 'bank', 'members', 'users', 'remittance',
+
+### src\services\sqlite\mutationEngine.js
+168: if (!e.is_deleted) existingMap[String(e.enterprise_id)] = e
+172: const entId = String(a.enterprise_id)
+180: enterprise_id: entId,
+222: const topLevelCollections = ['enterprise', 'bank', 'members', 'remittance', 'users', 'notifications', 'cooperatives', 'transaction_types', 'bank_reconciliation_summary', 'feedback', 'membership_request']
+
+### src\services\sqlite\remittances.js
+75: const _rawRights = user.enterprises || user.enterprise_rights || ''
+104: return details.some(d => entIds.includes(String(d.enterprise_id)))
+
+### src\services\sqlite\sqlExecutor.js
+118: } else if (join.table === 'enterprise') {
+119: const enterprises = await getAllItems('enterprise')
+121: for (const e of enterprises) {
+125: const ent = entMap[item.enterprise_id]
+423: * Handles patterns like: "r.id = rd.remittance_id" or "e.id = rd.enterprise_id"
+
+### src\services\sqlite\syncQueue.js
+98: await deleteItem('sync_queue', item.id).catch(() => {});
+107: await deleteItem('sync_queue', item.id).catch(() => {});
+118: 'payment_advise', 'enterprise', 'bank', 'users', 'transaction_types',
+126: const all = await getAllItems('sync_queue');
+230: const all = await getAllItems('sync_queue');
+265: await putItem('sync_queue', existing);
+284: await putItem('sync_queue', newRow);
+289: const existing = await getItem('sync_queue', itemId)
+318: await putItem('sync_queue', existing)
+322: const all = await getAllItems('sync_queue')
+332: const all = await getAllItems('sync_queue')
+358: const all = await getAllItems('sync_queue')
+370: const all = await getAllItems('sync_queue')
+378: const all = await getAllItems('sync_queue')
+388: for (const q of updated) await putItem('sync_queue', q)
+394: const all = await getAllItems('sync_queue')
+405: for (const q of updated) await putItem('sync_queue', q)
+411: const all = await getAllItems('sync_queue')
+414: await deleteItem('sync_queue', q.id)
+423: 'remittance', 'remittance_detail', 'bank', 'enterprise',
+441: console.log('[Sync] clearAllSyncQueueItems: clearing sync_queue store...')
+442: await clearStore('sync_queue')
+447: const allQueue = await getAllItems('sync_queue')
+469: await deleteItem('sync_queue', item.id)
+480: { table: 'enterprise', entity: 'enterprise' },
+525: { table: 'enterprise', entity: 'enterprise' },
+536: const existingQueue = await getAllItems('sync_queue');
+591: await putItemsBatch('sync_queue', newItems);
+597: const pendingItems = await getAllByIndexRange('sync_queue', 'status', 'pending')
+618: await deleteItem('sync_queue', itemId)
+623: await deleteItemsBatch('sync_queue', itemIds)
+627: const existing = await getItem('sync_queue', itemId)
+632: await putItem('sync_queue', existing)
+
+### src\services\sqlite\syncState.js
+4: 'enterprise', 'bank', 'cooperatives', 'transaction_types',
+
+### src\state\appState.js
+90: enterpriseId: '',

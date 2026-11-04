@@ -316,6 +316,65 @@ export function attachEventListeners(container, deps) {
       container.querySelector('#clear-log-btn')?.addEventListener('click', () => {
         clearForm();
       });
+      container.querySelector('#auto-share-btn')?.addEventListener('click', async () => {
+        trackFocus();
+        const { cooperativeId } = deps;
+        if (!cooperativeId) {
+          showToast('Error: Cooperative ID missing.', 'error');
+          return;
+        }
+        
+        // Get the current member ID from form data
+        const memberId = formData.member_id;
+        if (!memberId || memberId === '0000000000') {
+          showToast('Please select a member first.', 'warning');
+          return;
+        }
+        
+        // Show loading state
+        showWorkspaceSpinner(container);
+        
+        try {
+          // Load member payment advice
+          const adviceTable = await fetchMemberPaymentAdvise(memberId);
+          
+          // Build advice map
+          const adviceByEnterprise = {};
+          if (adviceTable && Array.isArray(adviceTable)) {
+            for (const adv of adviceTable) {
+              if (!adv.is_deleted && adv.enterprise_id && adv.amount > 0) {
+                adviceByEnterprise[String(adv.enterprise_id)] = parseFloat(adv.amount) || 0;
+              }
+            }
+          }
+          
+          // Load enterprises
+          const enterprises = await fetchEnterprises(cooperativeId, true);
+          const activeEnterprises = enterprises.filter(e => !(e.is_deleted === 1 || e.deleted === 1));
+          
+          // Run allocation
+          const allocationResult = allocateAutoShare({
+            remittanceAmount: formData.amount,
+            enterprises: activeEnterprises,
+            adviceByEnterprise,
+            member: formData.member_id ? { id: memberId } : undefined
+          });
+          
+          // Format preview
+          const preview = formatPreview(allocationResult, 2);
+          
+          // Hide spinner
+          hideWorkspaceSpinner(container);
+          
+          // Show preview modal
+          showAutoSharePreview(preview, memberId, cooperativeId);
+        } catch (err) {
+          hideWorkspaceSpinner(container);
+          showToast('Error running Auto Share: ' + err.message, 'error');
+          console.error('[autoShare] Error:', err);
+        }
+      });
+      
       (() => { let t=null; let longPressed=false; const btn=container.querySelector('#submit-log-btn'); if(!btn) return; btn.addEventListener('mousedown', () => { longPressed=false; t=setTimeout(()=>{ longPressed=true; window.__remitDevBypass=true; handleSubmit(); }, 600); }); btn.addEventListener('mouseup', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('mouseleave', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('click', (e) => { if(longPressed){ longPressed=false; window.__remitDevBypass=false; e.preventDefault(); e.stopPropagation(); return; } window.__remitDevBypass=false; handleSubmit(); }); })();
       (() => { let t=null; let longPressed=false; const btn=container.querySelector('#update-log-btn'); if(!btn) return; btn.addEventListener('mousedown', () => { longPressed=false; t=setTimeout(()=>{ longPressed=true; window.__remitDevBypass=true; handleSubmit(); }, 600); }); btn.addEventListener('mouseup', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('mouseleave', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('click', (e) => { if(longPressed){ longPressed=false; window.__remitDevBypass=false; e.preventDefault(); e.stopPropagation(); return; } window.__remitDevBypass=false; handleSubmit(); }); })();
       container.querySelector('#bulk-log-btn')?.addEventListener('click', async () => {

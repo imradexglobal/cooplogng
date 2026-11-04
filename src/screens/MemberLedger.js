@@ -1,5 +1,6 @@
 import { buildMemberLedger, fetchAllMembers, fetchRemittances, fetchEnterprises, fetchMemberLoans, approveLoanRequest, declineLoanRequest, deleteRemittance } from '../services/dataService.js'
 import { hasPermission } from '../services/permissionService.js'
+import { queryRows } from '../services/sqliteService.js'
 import { formatCurrency, escapeHtml, formatDate, formatDateForInput, shortRef } from '../utils/formatters.js'
 
 if (!window.__ledgerFilters) {
@@ -64,10 +65,22 @@ function loanStatusClass(status) {
   return 'status-badge status-gray'
 }
 
+async function getCoopFiscalStartMonth(cooperativeId) {
+  if (!cooperativeId) return 0
+  try {
+    const rows = await queryRows('SELECT coop_first_month FROM cooperatives WHERE id=?', [cooperativeId])
+    const month = Number(String(rows?.[0]?.coop_first_month || '').split('-')[1])
+    return Number.isInteger(month) && month >= 1 && month <= 12 ? month - 1 : 0
+  } catch {
+    return 0
+  }
+}
+
 export async function renderMemberLedger(container, user) {
   const currentYear = new Date().getFullYear().toString()
   const isAdmin = user.isAdmin || hasPermission(user.permissions, 'admin') || user.username?.toLowerCase() === 'admin'
   const isMember = user.role === 'member'
+  const fiscalStartMonth = await getCoopFiscalStartMonth(user.cooperativeId)
 
   // Consume a member selected from Members preview ("View Ledger").
   // The old top-of-module copy only ran once at import, so the pending id
@@ -183,8 +196,9 @@ export async function renderMemberLedger(container, user) {
       .lfil-dates .fg label { min-width: unset; }
 
       .dwrap { position: relative; display: inline-block; min-width: 120px; }
-      .dwrap input[type="date"] { width: 100%; box-sizing: border-box; cursor: pointer; opacity: 0; position: absolute; top: 0; left: 0; height: 100%; padding: 0; }
-      .dwrap .ddisp { width: 100%; box-sizing: border-box; cursor: pointer; padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-medium); background: var(--bg-input); color: var(--text-primary); font-size: 0.75rem; font-weight: 600; white-space: nowrap; text-align: center; line-height: 1.5; }
+      .dwrap input[type="date"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+      .dwrap .ddisp { width: 100%; box-sizing: border-box; cursor: pointer; padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-medium); background: var(--bg-input); color: var(--text-primary); font: inherit; font-size: 0.75rem; font-weight: 600; white-space: nowrap; text-align: center; line-height: 1.5; }
+      .dwrap .ddisp:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
 
       .mwrap { position: relative; min-width: 180px; max-width: 280px; }
       .mwrap input { width: 100%; box-sizing: border-box; padding: 0.35rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-medium); background: var(--bg-input); color: var(--text-primary); font-size: 0.75rem; line-height: 1.5; }
@@ -303,14 +317,14 @@ export async function renderMemberLedger(container, user) {
               <label>From</label>
               <div class="dwrap">
                 <input type="date" id="ledger-date-from" value="${filters.dateFrom}">
-                <input type="text" class="ddisp" readonly value="${filters.dateFrom ? formatDate(filters.dateFrom) : ''}" data-for="ledger-date-from">
+                <button type="button" class="ddisp" data-for="ledger-date-from" aria-label="Choose start date">${filters.dateFrom ? formatDate(filters.dateFrom) : 'Choose date'}</button>
               </div>
             </div>
             <div class="fg">
               <label>To</label>
               <div class="dwrap">
                 <input type="date" id="ledger-date-to" value="${filters.dateTo}">
-                <input type="text" class="ddisp" readonly value="${filters.dateTo ? formatDate(filters.dateTo) : ''}" data-for="ledger-date-to">
+                <button type="button" class="ddisp" data-for="ledger-date-to" aria-label="Choose end date">${filters.dateTo ? formatDate(filters.dateTo) : 'Choose date'}</button>
               </div>
             </div>
           </div>
@@ -448,7 +462,10 @@ export async function renderMemberLedger(container, user) {
     if (id === 'month') return { from: formatDateForInput(new Date(now.getFullYear(), now.getMonth(), 1)), to: today }
     if (id === '30d') { const d = new Date(now); d.setDate(d.getDate() - 29); return { from: formatDateForInput(d), to: today } }
     if (id === '6m') { const d = new Date(now); d.setMonth(d.getMonth() - 6); return { from: formatDateForInput(d), to: today } }
-    if (id === 'year') return { from: formatDateForInput(new Date(now.getFullYear(), 0, 1)), to: today }
+    if (id === 'year') {
+      const fiscalYear = now.getMonth() >= fiscalStartMonth ? now.getFullYear() : now.getFullYear() - 1
+      return { from: formatDateForInput(new Date(fiscalYear, fiscalStartMonth, 1)), to: today }
+    }
     return { from: '', to: '' }
   }
 
@@ -474,8 +491,8 @@ export async function renderMemberLedger(container, user) {
       if (toInput) toInput.value = range.to
       const fromDisp = container.querySelector('.ddisp[data-for="ledger-date-from"]')
       const toDisp = container.querySelector('.ddisp[data-for="ledger-date-to"]')
-      if (fromDisp) fromDisp.value = range.from ? formatDate(range.from) : ''
-      if (toDisp) toDisp.value = range.to ? formatDate(range.to) : ''
+      if (fromDisp) fromDisp.textContent = range.from ? formatDate(range.from) : 'Choose date'
+      if (toDisp) toDisp.textContent = range.to ? formatDate(range.to) : 'Choose date'
       renderPresets()
       renderActiveTab()
     })
@@ -538,24 +555,33 @@ export async function renderMemberLedger(container, user) {
     if (!hiddenInput || !displayInput) return
 
     const updateDisplay = () => {
-      displayInput.value = hiddenInput.value ? formatDate(hiddenInput.value) : ''
+      displayInput.textContent = hiddenInput.value ? formatDate(hiddenInput.value) : 'Choose date'
     }
 
     hiddenInput.addEventListener('change', () => {
       updateDisplay()
-      window.__ledgerFilters.dateFrom = document.getElementById('ledger-date-from').value
-      window.__ledgerFilters.dateTo = document.getElementById('ledger-date-to').value
+      if (hiddenInput.id === 'ledger-date-from') {
+        window.__ledgerFilters.dateFrom = hiddenInput.value
+        window.__ledgerFilters.dateTo = document.getElementById('ledger-date-to').value
+      } else {
+        window.__ledgerFilters.dateTo = hiddenInput.value
+        window.__ledgerFilters.dateFrom = document.getElementById('ledger-date-from').value
+      }
       renderPresets()
       renderActiveTab()
     })
 
-    displayInput.addEventListener('click', (e) => {
-      e.preventDefault()
+    displayInput.addEventListener('click', () => {
       if (typeof hiddenInput.showPicker === 'function') {
-        hiddenInput.showPicker()
-      } else {
-        hiddenInput.click()
+        try {
+          hiddenInput.showPicker()
+          return
+        } catch {
+          // Some Chromium/Electron versions expose showPicker but reject it.
+          // Fall through to the native input click in that case.
+        }
       }
+      hiddenInput.click()
     })
 
     updateDisplay()

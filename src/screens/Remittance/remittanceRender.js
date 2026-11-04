@@ -759,8 +759,11 @@ export function render(container, deps) {
             </div>
           </div>
 
-          <!-- Vertical Resizer -->
-          <div class="resizer-v" id="resizer-v"></div>
+<!-- Auto Share Button -->
+              ${isAdmin ? '' : `<button type="button" id="auto-share-btn" class="btn btn-info" style="margin-right: 0.5rem; padding: 0.5rem 1rem; font-size: 0.85rem;">Auto Share</button>`}
+              
+              <!-- Vertical Resizer -->
+              <div class="resizer-v" id="resizer-v"></div>
 
           <!-- Breakdown Panel -->
           <div class="breakdown-panel" id="breakdown-panel">

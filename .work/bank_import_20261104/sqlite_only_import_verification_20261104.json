@@ -1,0 +1,79 @@
+{
+  "completed_at": "2026-11-04T15:39:13.801470+00:00",
+  "source_csv": "C:\\Users\\User\\Documents\\GitHub\\cooplogng\\outputs\\bank_import_20261104\\transaction_mapping_preview_v3_20261104.csv",
+  "target_db": "C:\\Users\\User\\Documents\\Radio Project\\new_file.db",
+  "backup_db": "C:\\Users\\User\\Documents\\Radio Project\\new_file.preimport_20261104_163841.db",
+  "backup_manifest": "C:\\Users\\User\\Documents\\GitHub\\cooplogng\\.work\\bank_import_20261104\\preimport_manifest_20261104_163841.json",
+  "authorization": "SQLite-only import of 142 READY FOR APPROVAL rows; 35 unresolved rows excluded",
+  "rows_imported": 142,
+  "details_imported": 9,
+  "classes": {
+    "Member savings contribution": 9,
+    "Unknown Payment": 43,
+    "Bank / financial expense": 71,
+    "Other Income": 19
+  },
+  "totals_by_class": {
+    "Unknown Payment": {
+      "count": 43,
+      "debit": "4298023.93",
+      "credit": "4356622.00"
+    },
+    "Bank / financial expense": {
+      "count": 71,
+      "debit": "13315.56",
+      "credit": "2010.10"
+    },
+    "Other Income": {
+      "count": 19,
+      "debit": "0",
+      "credit": "313086.92"
+    },
+    "Member savings contribution": {
+      "count": 9,
+      "debit": "0",
+      "credit": "605000.00"
+    }
+  },
+  "total_debits": "4311339.49",
+  "total_credits": "5276719.02",
+  "bank_counts": {
+    "FCMB": 47,
+    "Fidelity Bank": 95
+  },
+  "transaction_type_counts": {
+    "Financial & Banking Expenses": 71,
+    "Member Deposit": 9,
+    "Other Income": 19,
+    "Unknown Payments": 43
+  },
+  "status_counts": {
+    "Approved": 142
+  },
+  "integrity_check": "ok",
+  "unlinked_details": 0,
+  "bank_name_mismatches": 0,
+  "database_counts": {
+    "app_settings": 0,
+    "bank": 2,
+    "bank_reconciliation_summary": 0,
+    "cooperatives": 1,
+    "enterprise": 2,
+    "feedback": 0,
+    "loan_guarantors": 0,
+    "loans": 0,
+    "members": 84,
+    "membership_request": 0,
+    "notifications": 0,
+    "payment_advise": 0,
+    "remittance": 142,
+    "remittance_detail": 9,
+    "sync_queue": 0,
+    "sync_state": 1,
+    "transaction_types": 0,
+    "users": 1
+  },
+  "live_indexeddb_modified": false,
+  "source_workbook_modified": false,
+  "schema_modified": false
+}

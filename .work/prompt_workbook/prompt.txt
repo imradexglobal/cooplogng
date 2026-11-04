@@ -1,0 +1,435 @@
+A1: PROJECT: REVERSE-ENGINEER AND IMPLEMENT TMSA AUTO-SHARE REMITTANCE LOGIC IN COOPLOGNG
+A2: 1. OBJECTIVE
+A3: I want to implement the Auto Share / Automatic Remittance Allocation functionality from my existing Excel-based cooperative management system, TMSA_E-COOP.xlsm, into my existing application, CofinLog.
+A4: The objective is to reproduce the useful business behaviour of the Excel system inside CofinLog, using CofinLog's existing architecture, database, Remittance workflow, enterprise account settings and accounting rules.
+A5: This is not an instruction to copy the VBA code directly or redesign the Remittance module.
+A6: You must first reverse-engineer the Excel implementation, then independently understand CofinLog's existing Remittance module in full, then prepare a precise implementation design, and only then implement the functionality.
+A7: The existing CofinLog application is the source of truth for how new functionality must be implemented. The Excel workbook is the reference for the Auto Share business logic.
+A8: 2. NON-NEGOTIABLE PRIORITY
+A9: Understand CofinLog Remittance 100% before making changes.
+A10: Do not begin implementation simply because you have located a Remittance component or a function that creates remittance records.
+A11: You must investigate the entire Remittance workflow, including all related components, functions, database structures, calculations, validations, permissions, synchronization and reporting dependencies.
+A12: I want you to understand how Remittance works from the moment a user opens the module until a remittance is saved, approved, reflected in member balances and synchronized across the application.
+A13: Do not modify existing Remittance behaviour to accommodate Auto Share.
+A14: Do not introduce a parallel Remittance system.
+A15: Do not create an alternative way of posting member transactions when the existing Remittance workflow already provides the correct mechanism.
+A16: The new feature must integrate naturally with the existing Remittance architecture.
+A17: PHASE 1 — REVERSE-ENGINEER THE EXCEL REFERENCE SYSTEM
+A18: Study the uploaded workbook:
+A19: TMSA_E-COOP.xlsm
+A20: Your task is to identify and understand the complete Auto Share process.
+A21: 1.1 Inspect the workbook structure
+A22: Inspect all relevant worksheets, named ranges, Excel tables, formulas, data validations, form controls, buttons, and VBA modules.
+A23: Pay particular attention to:
+A24: * REMITTANCE
+A25: * REMITTANCE_DETAILS
+A26: * SetUP
+A27: * SetUP2
+A28: * ADVISE_DUMP
+A29: * X_ADVISE
+A30: * AUTO_DUES_TRACKER
+A31: * Any other worksheet or module involved in Auto Share or payment advice.
+A32: Do not assume that these are the only relevant worksheets.
+A33: 1.2 Extract and inspect the VBA source
+A34: Identify the exact VBA procedures responsible for:
+A35: * Initiating Auto Share.
+A36: * Collecting the member's enterprise accounts.
+A37: * Determining the amounts to allocate.
+A38: * Determining the order of allocation.
+A39: * Checking member eligibility.
+A40: * Checking existing balances and contributions.
+A41: * Applying minimum or maximum limits.
+A42: * Handling insufficient amounts.
+A43: * Handling remaining or excess amounts.
+A44: * Writing the resulting allocations into Remittance.
+A45: * Updating associated details or records.
+A46: * Validating the completed operation.
+A47: * Displaying success or failure messages.
+A48: Trace every procedure called by the main Auto Share procedure, including functions, subroutines, worksheet events and UserForm events.
+A49: Do not stop after finding a button's click event. Follow the entire call chain until the actual allocation and recording operations are understood.
+A50: 1.3 Reconstruct the exact allocation algorithm
+A51: I want a clear explanation of the actual Excel algorithm.
+A52: Determine:
+A53: 1. What amount is used as the starting amount?
+A54: 2. Is the amount divided among enterprise accounts or allocated sequentially?
+A55: 3. How does the system determine each enterprise's expected contribution?
+A56: 4. Does it consider enterprise minimums?
+A57: 5. Does it consider enterprise maximums?
+A58: 6. Does it consider outstanding balances?
+A59: 7. Does it consider previous contributions?
+A60: 8. Does it consider the current financial year or accounting period?
+A61: 9. Does it consider monthly, annual or one-time contribution rules?
+A62: 10. What happens when the available amount is insufficient?
+A63: 11. What happens when the amount exceeds all eligible allocations?
+A64: 12. What happens when an enterprise has already received its required contribution?
+A65: 13. Does the system stop after an allocation is satisfied?
+A66: 14. How are rounding differences handled?
+A67: 15. What happens when an enterprise is inactive or unavailable?
+A68: 16. How does it prevent duplicate allocation?
+A69: These questions are investigative requirements, not assumptions about how the Excel system works.
+A70: 1.4 Produce an Excel logic specification
+A71: Before proceeding, document:
+A72: * Exact VBA module and procedure names.
+A73: * The main Auto Share entry point.
+A74: * All supporting procedures and functions.
+A75: * Relevant worksheet names and table names.
+A76: * Relevant named ranges.
+A77: * Relevant enterprise settings and fields.
+A78: * The allocation algorithm in plain English.
+A79: * Calculation formulas and decision conditions.
+A80: * Edge cases and exceptions.
+A81: * Any behaviour that cannot be conclusively established.
+A82: Include pseudocode showing the allocation sequence.
+A83: Where possible, identify the original VBA source locations so that another developer can trace the findings.
+A84: Deliverable: AUTO_SHARE_EXCEL_REVERSE_ENGINEERING.md
+A85: PHASE 2 — UNDERSTAND COOPLOGNG REMITTANCE COMPLETELY
+A86: This phase is mandatory and must be completed before implementation.
+A87: Inspect the actual application source code and database structure. Do not rely only on documentation or previous explanations.
+A88: 2.1 Remittance user interface
+A89: Understand:
+A90: * How the Remittance module is opened.
+A91: * How a remittance is initiated.
+A92: * How the member is selected.
+A93: * How enterprise accounts are displayed.
+A94: * How amounts are entered.
+A95: * How the application calculates totals.
+A96: * How remittance details are added or removed.
+A97: * How dates are selected.
+A98: * How descriptions and references are handled.
+A99: * How validation errors are displayed.
+A100: * How records are edited, deleted or cancelled.
+A101: * How the interface behaves for different user roles.
+A102: Identify all relevant components, modals, forms, hooks and state-management functions.
+A103: 2.2 Remittance business logic
+A104: Trace the complete process:
+A105: * Remittance creation.
+A106: * Header record creation.
+A107: * Remittance detail creation.
+A108: * Enterprise account identification.
+A109: * Amount validation.
+A110: * Member identification.
+A111: * Transaction numbering and ID generation.
+A112: * Pending, approved and declined states.
+A113: * Approval and rejection.
+A114: * Balance calculation.
+A115: * Ledger updates or derived balances.
+A116: * Audit history.
+A117: * Deletion and reversal behaviour.
+A118: * Synchronization and conflict handling.
+A119: Determine exactly when a remittance affects a member's balance.
+A120: Do not assume that saving a remittance automatically means it is approved.
+A121: 2.3 Database investigation
+A122: Inspect the actual database schema and identify:
+A123: * Remittance header table or collection.
+A124: * Remittance detail table or embedded structure.
+A125: * Enterprise account table or collection.
+A126: * Member records.
+A127: * Any relevant account settings.
+A128: * Any existing transaction history.
+A129: * Any approval records.
+A130: * Any audit or synchronization records.
+A131: Document exact table/collection names, field names, types, relationships and constraints.
+A132: Determine how enterprise account IDs are connected to remittance details.
+A133: Determine how member balances are calculated from existing records.
+A134: 2.4 Enterprise Account Settings
+A135: This is particularly important.
+A136: Inspect the existing Enterprise Account Settings interface, database fields and related logic.
+A137: I have a Priority column in Enterprise Account Settings.
+A138: This column must determine the allocation order for Auto Share.
+A139: Do not create a second priority field.
+A140: Do not hardcode enterprise ordering.
+A141: Do not use enterprise IDs, account creation dates, alphabetical order or the order in which accounts happen to be returned from the database.
+A142: The existing Priority column is the authoritative allocation sequence.
+A143: Determine:
+A144: * The exact field name used to store priority.
+A145: * Its data type.
+A146: * Whether lower or higher values represent higher priority.
+A147: * How duplicate priorities are handled.
+A148: * How missing or invalid priorities are handled.
+A149: * Whether priority is editable.
+A150: * Whether the setting is synchronized.
+A151: * Whether priority changes should immediately affect future Auto Share operations.
+A152: If the application already has an established priority-ordering convention, preserve it.
+A153: If the convention is unclear, establish it from the existing UI and data before implementation. Do not silently assume that priority 1 means first.
+A154: 2.5 Produce a CofinLog Remittance architecture document
+A155: Document the actual application implementation, including:
+A156: * Source file paths.
+A157: * Component names.
+A158: * Function names.
+A159: * Database tables and fields.
+A160: * Relationships.
+A161: * Posting sequence.
+A162: * Approval workflow.
+A163: * Balance calculation method.
+A164: * Permission checks.
+A165: * Synchronization behaviour.
+A166: * Existing reusable functions.
+A167: * Potential risks of introducing Auto Share.
+A168: Deliverable: COOPLOGNG_REMITTANCE_ARCHITECTURE.md
+A169: At the end of this phase, you must be able to explain the existing Remittance module from beginning to end without guessing.
+A170: PHASE 3 — DEFINE THE AUTO SHARE BUSINESS RULES
+A171: Once both systems have been understood, compare the Excel algorithm with CofinLog's existing Remittance architecture.
+A172: Prepare a mapping document showing how each Excel operation will be implemented using existing CofinLog functionality.
+A173: 3.1 Priority-based allocation
+A174: The allocation order MUST come from the Priority column in Enterprise Account Settings.
+A175: The intended processing sequence is:
+A176: 1. Retrieve the applicable enterprise accounts.
+A177: 2. Identify which accounts are eligible for Auto Share.
+A178: 3. Exclude all accounts that must not participate.
+A179: 4. Sort the remaining eligible accounts according to their configured Priority.
+A180: 5. Process them in that order.
+A181: 6. Calculate each allocation using the verified Excel allocation rules.
+A182: 7. Move to the next enterprise only after completing the current enterprise's allocation logic.
+A183: The priority determines the order in which eligible enterprises are processed. It must not independently change the amount due to an enterprise.
+A184: 3.2 Mandatory exclusions
+A185: The following enterprise categories MUST ALWAYS be excluded from Auto Share:
+A186: * Compulsory Due / Compulsory Dues.
+A187: * Penalty.
+A188: * Revenue.
+A189: This exclusion is mandatory regardless of the enterprise's Priority value.
+A190: For example:
+A191: ```
+A192: | Enterprise       | Priority | Category             | Auto Share                          |
+A193: | ---------------- | -------- | -------------------- | ----------------------------------- |
+A194: | Ordinary Savings | 1        | Savings              | Eligible                            |
+A195: | Compulsory Due   | 2        | Compulsory Due       | Excluded                            |
+A196: | Ordinary Shares  | 3        | Shares               | Eligible                            |
+A197: | Penalty          | 4        | Penalty              | Excluded                            |
+A198: | Revenue          | 5        | Revenue              | Excluded                            |
+A199: | Welfare          | 6        | Savings/Contribution | Eligible, subject to existing rules |
+A200: ```
+A201: The table is illustrative. Actual enterprise classification must be established from CofinLog's existing settings and business rules.
+A202: Do not rely exclusively on enterprise names to determine these exclusions if the application already has a structured enterprise classification or account-type field.
+A203: If the application does not have a reliable way to identify one of these categories, stop and report the issue. Do not guess based on a partial name match.
+A204: The exclusions must be enforced in the allocation engine itself, not merely hidden in the user interface.
+A205: This ensures that an excluded enterprise cannot accidentally receive an Auto Share allocation through another entry point.
+A206: 3.3 Preserve the Excel calculation logic
+A207: Reproduce the verified Excel allocation rules as closely as possible, including applicable:
+A208: * Enterprise minimums.
+A209: * Enterprise maximums.
+A210: * Contribution requirements.
+A211: * Member eligibility.
+A212: * Existing contributions.
+A213: * Outstanding amounts.
+A214: * Period rules.
+A215: * Balance checks.
+A216: * Rounding rules.
+A217: * Remaining amount handling.
+A218: However, do not reproduce an Excel formula blindly if CofinLog has a different but equivalent accounting implementation.
+A219: Document every difference and explain why it is necessary.
+A220: Do not introduce new business rules without identifying them and obtaining approval.
+A221: 3.4 Insufficient and excess amounts
+A222: Determine the exact behaviour from the Excel system.
+A223: The implementation must correctly handle:
+A224: * Available amount less than the first enterprise's allocation requirement.
+A225: * Available amount sufficient for only some enterprises.
+A226: * Available amount exactly equal to the required allocation.
+A227: * Available amount greater than all eligible allocations.
+A228: * Enterprises with zero required allocation.
+A229: * Enterprises already at their limits.
+A230: * Remaining amounts after all eligible enterprises are processed.
+A231: Do not discard, misallocate or silently transfer an unallocated balance.
+A232: The handling of any residual amount must follow the verified Excel rule and CofinLog's existing accounting rules.
+A233: If the two systems conflict, report the conflict before implementing a solution.
+A234: PHASE 4 — IMPLEMENTATION DESIGN AND APPROVAL GATE
+A235: Before changing code, prepare a technical implementation plan.
+A236: The plan must explain:
+A237: 1. Where the Auto Share feature will appear in the existing Remittance interface.
+A238: 2. How the user will initiate it.
+A239: 3. What input is required.
+A240: 4. How the member and available amount are determined.
+A241: 5. How eligible enterprises are retrieved.
+A242: 6. How compulsory dues, penalties and revenue are excluded.
+A243: 7. How priority ordering is applied.
+A244: 8. How the Excel allocation rules are reproduced.
+A245: 9. How the calculated allocations are displayed.
+A246: 10. How the user reviews and confirms the allocation.
+A247: 11. How the allocations are saved through the existing Remittance workflow.
+A248: 12. How approval works.
+A249: 13. How balances are updated.
+A250: 14. How synchronization works.
+A251: 15. How errors and reversals are handled.
+A252: Preview before posting
+A253: Where compatible with the existing application workflow, Auto Share should first generate a preview.
+A254: The preview should show:
+A255: * Enterprise name.
+A256: * Priority.
+A257: * Eligibility status.
+A258: * Exclusion reason, where applicable.
+A259: * Expected contribution or allocation requirement.
+A260: * Amount allocated.
+A261: * Remaining amount.
+A262: * Any unallocated balance.
+A263: The user should be able to review the proposed distribution before it is saved.
+A264: Do not create a second approval mechanism if CofinLog already has a proper Remittance approval process.
+A265: The final posting must use the existing Remittance mechanism.
+A266: Approval gate
+A267: Do not implement until:
+A268: * Excel logic has been documented.
+A269: * CofinLog Remittance architecture has been documented.
+A270: * Enterprise Priority behaviour has been verified.
+A271: * Exclusion rules have been mapped to actual enterprise settings.
+A272: * The implementation design has been documented.
+A273: * Any unresolved business-rule conflicts have been identified.
+A274: Present the implementation plan and unresolved decisions for review before proceeding to code changes.
+A275: PHASE 5 — IMPLEMENT AUTO SHARE
+A276: After the investigation and design are complete, implement the feature.
+A277: 5.1 Integration requirements
+A278: * Reuse existing Remittance components and services wherever possible.
+A279: * Reuse existing member and enterprise account retrieval methods.
+A280: * Reuse existing validation functions.
+A281: * Reuse existing ID-generation methods.
+A282: * Reuse existing save/posting methods.
+A283: * Reuse existing approval workflow.
+A284: * Reuse existing audit and synchronization mechanisms.
+A285: * Respect existing user permissions.
+A286: * Respect the existing offline/local-first architecture.
+A287: Do not create duplicate database tables or collections unless there is a documented and unavoidable requirement.
+A288: Do not modify existing database structures merely for convenience.
+A289: Do not change existing Remittance calculations, reporting or balance logic.
+A290: 5.2 Priority handling
+A291: Every Auto Share execution must obtain the current enterprise Priority settings from the authoritative application data source.
+A292: Do not cache priority values indefinitely.
+A293: A change in Enterprise Account Settings must affect subsequent Auto Share operations.
+A294: The allocation engine must apply the same deterministic ordering regardless of whether the data is loaded from local storage or the remote database.
+A295: Handle duplicate, blank and invalid priority values consistently with the verified application convention.
+A296: 5.3 Exclusion enforcement
+A297: Before allocation begins, exclude:
+A298: * Compulsory Due / Compulsory Dues.
+A299: * Penalty.
+A300: * Revenue.
+A301: Apply these exclusions before priority processing.
+A302: An excluded account must receive zero Auto Share allocation.
+A303: It must not appear as an eligible allocation target.
+A304: Its exclusion should be visible in the preview or audit information so that the user understands why it was skipped.
+A305: 5.4 Data integrity
+A306: Prevent:
+A307: * Duplicate Auto Share posting.
+A308: * Duplicate remittance details.
+A309: * Partial posting when an operation fails.
+A310: * Posting to the wrong member.
+A311: * Posting to the wrong enterprise.
+A312: * Incorrect totals caused by rounding.
+A313: * Reprocessing an already completed operation.
+A314: * Updating member balances before the remittance reaches the appropriate approval state.
+A315: Use the existing transaction/atomicity approach wherever supported.
+A316: If a multi-record posting cannot be atomic, implement a safe recovery mechanism consistent with the existing architecture.
+A317: Do not bypass audit logging.
+A318: Do not silently overwrite existing remittance details.
+A319: 5.5 Manual remittance must remain unchanged
+A320: Auto Share must be an additional capability, not a replacement for manual Remittance.
+A321: Existing manual remittance entry, editing, approval, reporting and synchronization must continue working exactly as before.
+A322: Do not change the behaviour of other Remittance features to make Auto Share easier to implement.
+A323: PHASE 6 — TESTING
+A324: Create comprehensive tests before declaring the feature complete.
+A325: 6.1 Priority tests
+A326: Test:
+A327: * Priority 1 before Priority 2.
+A328: * Reordering priorities changes future allocation order.
+A329: * Duplicate priority values.
+A330: * Missing priority values.
+A331: * Invalid priority values.
+A332: * Different enterprise retrieval orders produce the same allocation result.
+A333: 6.2 Exclusion tests
+A334: Test that the following are always skipped:
+A335: * Compulsory Due.
+A336: * Penalty.
+A337: * Revenue.
+A338: Test them with:
+A339: * Highest priority.
+A340: * Lowest priority.
+A341: * Duplicate priority.
+A342: * Missing priority.
+A343: * An amount that would otherwise have been allocated to them.
+A344: Confirm that none receives an Auto Share allocation.
+A345: 6.3 Calculation tests
+A346: Test:
+A347: * Exact available amount.
+A348: * Insufficient amount.
+A349: * Excess amount.
+A350: * Zero amount.
+A351: * Negative amount, if the existing Remittance workflow permits it.
+A352: * Minimum and maximum limits.
+A353: * Existing member contributions.
+A354: * Existing balances.
+A355: * Already satisfied enterprise requirements.
+A356: * Rounding differences.
+A357: * No eligible enterprises.
+A358: * Member with incomplete or unavailable account settings.
+A359: Use the Excel reference calculations as test cases wherever possible.
+A360: 6.4 Workflow tests
+A361: Verify:
+A362: * Preview calculation.
+A363: * User confirmation.
+A364: * Remittance header creation.
+A365: * Remittance detail creation.
+A366: * Correct member association.
+A367: * Correct enterprise association.
+A368: * Pending/approved/declined behaviour.
+A369: * Correct member balances after approval.
+A370: * Audit records.
+A371: * Offline operation.
+A372: * Synchronization.
+A373: * Retry after a failed synchronization.
+A374: * Duplicate execution prevention.
+A375: 6.5 Regression tests
+A376: Run the existing Remittance tests and relevant application tests.
+A377: Confirm that manual Remittance continues to work.
+A378: Confirm that other enterprise account types and member balances remain unaffected.
+A379: Do not hide, weaken or delete existing tests simply to make the new feature pass.
+A380: PHASE 7 — DOCUMENTATION AND HANDOVER
+A381: Create and maintain the following documents:
+A382: 1. AUTO_SHARE_EXCEL_REVERSE_ENGINEERING.md
+A383: 2. COOPLOGNG_REMITTANCE_ARCHITECTURE.md
+A384: 3. AUTO_SHARE_IMPLEMENTATION_PLAN.md
+A385: 4. AUTO_SHARE_TEST_REPORT.md
+A386: 5. AUTO_SHARE_HANDOVER.md
+A387: The handover must contain:
+A388: * What was investigated.
+A389: * What was implemented.
+A390: * Exact source files modified.
+A391: * New functions and components.
+A392: * Database changes, if any.
+A393: * How priority ordering works.
+A394: * How compulsory dues, penalty and revenue are excluded.
+A395: * How the Excel algorithm was reproduced.
+A396: * Tests executed and their results.
+A397: * Outstanding limitations.
+A398: * Any decisions still requiring attention.
+A399: Update the documentation as you progress, not only at the end.
+A400: IMPORTANT DEVELOPMENT RESTRICTIONS
+A401: 1. Do not start coding before understanding CofinLog Remittance completely.
+A402: 2. Do not assume the Excel VBA algorithm; trace it.
+A403: 3. Do not invent missing business rules.
+A404: 4. Do not introduce a new priority field.
+A405: 5. The Enterprise Account Settings Priority column is the authoritative allocation order.
+A406: 6. Compulsory Due, Penalty and Revenue must always be skipped.
+A407: 7. Do not bypass the existing Remittance workflow.
+A408: 8. Do not introduce a parallel posting or balance calculation system.
+A409: 9. Do not compromise offline operation or synchronization.
+A410: 10. Do not modify unrelated modules.
+A411: 11. Do not remove existing functionality.
+A412: 12. Do not make schema changes without demonstrating why they are necessary.
+A413: 13. Do not claim a phase is complete unless its work and tests have actually been completed.
+A414: 14. If you discover a conflict between the Excel system and CofinLog, document it instead of silently choosing one.
+A415: 15. Preserve all existing production data and business logic.
+A416: REQUIRED WORKING METHOD
+A417: Work in this order:
+A418: Study Excel → Reconstruct VBA logic → Study CofinLog Remittance → Study Enterprise Settings → Compare both systems → Prepare implementation plan → Review unresolved issues → Implement → Test → Document.
+A419: Move efficiently, but do not skip stages.
+A420: Do not repeatedly ask me for permission to perform ordinary investigation, code inspection, documentation or testing.
+A421: However, do not make irreversible changes, alter existing accounting behaviour or introduce unapproved database changes.
+A422: If you encounter a blocker, investigate it fully and report the precise issue, evidence and possible solutions.
+A423: FINAL ACCEPTANCE CRITERIA
+A424: I will consider this feature complete only when:
+A425: * The Excel Auto Share business logic has been properly reconstructed.
+A426: * CofinLog Remittance has been fully understood before modification.
+A427: * Allocation follows the Enterprise Account Settings Priority column.
+A428: * Compulsory Due, Penalty and Revenue are always excluded.
+A429: * The allocation calculations match the verified business rules.
+A430: * The result is saved through the existing Remittance workflow.
+A431: * Existing approval, balance, audit and synchronization behaviour is preserved.
+A432: * Manual Remittance still works.
+A433: * Tests demonstrate correct behaviour, including edge cases.
+A434: * The implementation and its limitations are documented.
+A435: Start with investigation and documentation. Do not modify the application yet. First establish the complete Excel Auto Share algorithm and the complete CofinLog Remittance architecture.

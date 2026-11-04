@@ -1,0 +1,25 @@
+﻿OPENED TMSA_E-COOP.xlsm sheets=22
+1	AUTO_DUES_TRACKER	$F$1:$J$23	Rows=23	Cols=5
+2	PROMPT	$A$1:$A$435	Rows=435	Cols=1
+3	SetUP	$A$1:$AC$30	Rows=30	Cols=29
+4	SetUP2	$A$1:$U$35	Rows=35	Cols=21
+5	MAIN_MENU	$A$1:$T$30	Rows=30	Cols=20
+6	REMITTANCE	$A$1:$L$27311	Rows=27311	Cols=12
+7	REMITTANCE_DETAILS	$A$1:$AH$23488	Rows=23488	Cols=34
+8	Personal_Ledger	$A$1:$O$135	Rows=135	Cols=15
+9	REGISTRATION_DUMP	$A$1:$BE$800	Rows=800	Cols=57
+10	ADVISE_DUMP	$A$1:$AB$448	Rows=448	Cols=28
+11	X_REG_DUMP	$A$1:$BE$2	Rows=2	Cols=57
+12	X_REM_DUMP	$A$1:$T$14952	Rows=14952	Cols=20
+13	X_ADVISE	$A$1:$AB$5	Rows=5	Cols=28
+14	schedule_prnt	$A$1:$AB$4	Rows=4	Cols=28
+15	Remittance_prnt	$A$1:$O$4	Rows=4	Cols=15
+16	Analysis_Print	$A$1:$P$4	Rows=4	Cols=16
+17	Member_list	$A$1:$I$450	Rows=450	Cols=9
+18	Advise_print	$A$1:$AB$4	Rows=4	Cols=28
+19	RECONCILE	$A$1:$AB$353	Rows=353	Cols=28
+20	Unclaimed_prnt	$A$1:$H$162	Rows=162	Cols=8
+21	Sheet1	$A$1	Rows=1	Cols=1
+22	AUDIT_TRAIL	$A$1:$H$4	Rows=4	Cols=8
+Names=662
+VBComponents=0
