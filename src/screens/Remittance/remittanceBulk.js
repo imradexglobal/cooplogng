@@ -71,13 +71,13 @@ export function showBulkRemittanceModal(deps) {
         const out = [];
         if (!ent) return out;
         if (ent.interest_rate !== undefined && ent.interest_rate !== null && ent.interest_rate !== '') {
-            out.push({ id: generateId(String(cooperativeId)), name: 'Interest', value: Math.abs(parseFloat(ent.interest_rate) || 0), type: ent.interest_is_percent ? 'percentage' : 'fixed' });
+            out.push({ id: generateId(String(user.cooperativeId)), name: 'Interest', value: Math.abs(parseFloat(ent.interest_rate) || 0), type: ent.interest_is_percent ? 'percentage' : 'fixed' });
         }
         if (ent.form_fee !== undefined && ent.form_fee !== null && ent.form_fee !== '') {
-            out.push({ id: generateId(String(cooperativeId)), name: 'Form Fee', value: Math.abs(parseFloat(ent.form_fee) || 0), type: ent.form_fee_is_percent ? 'percentage' : 'fixed' });
+            out.push({ id: generateId(String(user.cooperativeId)), name: 'Form Fee', value: Math.abs(parseFloat(ent.form_fee) || 0), type: ent.form_fee_is_percent ? 'percentage' : 'fixed' });
         }
         if (ent.admin_charge !== undefined && ent.admin_charge !== null && ent.admin_charge !== '') {
-            out.push({ id: generateId(String(cooperativeId)), name: 'Admin Charge', value: Math.abs(parseFloat(ent.admin_charge) || 0), type: ent.admin_charge_is_percent ? 'percentage' : 'fixed' });
+            out.push({ id: generateId(String(user.cooperativeId)), name: 'Admin Charge', value: Math.abs(parseFloat(ent.admin_charge) || 0), type: ent.admin_charge_is_percent ? 'percentage' : 'fixed' });
         }
         return out;
     };
