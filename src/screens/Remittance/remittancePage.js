@@ -55,7 +55,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
   // --- Form State ---
   let formData = {
     id: null,
-    remittance_date: new Date().toISOString().split('T')[0],
+    remittance_date: '',
     bank_name: '',
     amount: 0,
     description: '',
@@ -680,7 +680,7 @@ import { save as persistState, load as loadPersisted } from '../../services/stat
     Object.keys(formData).forEach(k => delete formData[k]);
     Object.assign(formData, {
       id: null,
-      remittance_date: new Date().toISOString().split('T')[0],
+      remittance_date: '',
       bank_name: '',
       amount: 0,
       description: '',

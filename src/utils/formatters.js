@@ -441,7 +441,7 @@ export function wrapDateInput(dateInput) {
         if (dateInput.value) {
             displayInput.value = formatDate(dateInput.value);
         } else {
-            displayInput.value = '';
+            displayInput.value = 'DD MMM, YYYY';
         }
     };
     
