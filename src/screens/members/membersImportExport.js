@@ -20,6 +20,7 @@ import { showToast } from '../../services/toastService.js'
 export async function showExportModal(user) {
     const fields = [
         { id: 'registration_no', label: 'Registration No' },
+        { id: 'prefix', label: 'Prefix' },
         { id: 'last_name', label: 'Last Name' },
         { id: 'first_name', label: 'First Name' },
         { id: 'middle_name', label: 'Middle Name' },

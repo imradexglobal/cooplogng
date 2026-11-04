@@ -1,7 +1,8 @@
 import { getAllItems, getAllByIndex, getItem } from '../indexedDbService.js'
 export function formatMemberFullName(m) {
     if (!m) return ''
-    return [m.first_name, m.middle_name, m.last_name]
+    const prefix = String(m.prefix || m.member_prefix || '').trim()
+    return [prefix, m.first_name, m.middle_name, m.last_name]
         .map(s => String(s || '').trim())
         .filter(Boolean)
         .join(' ')

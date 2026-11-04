@@ -452,6 +452,17 @@ export async function renderMembersForm(container, user, member = null) {
                     ${isEdit ? `<button type="button" id="reset-pwd-btn" class="bio-edit-btn">Reset 6-Digit PIN</button>` : ''}
                     </div>
                     <label class="field">
+                        <span>Prefix (Optional)</span>
+                        <select name="prefix">
+                            ${(() => {
+                                const opts = ['', 'Mr', 'Mrs', 'Miss', 'Ms', 'Alhaji', 'Alhaja', 'Dr', 'Prof', 'Pastor', 'Rev', 'Chief', 'Engr', 'Barr']
+                                const cur = member?.prefix || ''
+                                const extra = cur && !opts.includes(cur) ? `<option value="${escapeHtml(cur)}" selected>${escapeHtml(cur)}</option>` : ''
+                                return extra + opts.map(o => `<option value="${o}" ${cur === o ? 'selected' : ''}>${o ? o : '— (None)'}</option>`).join('')
+                            })()}
+                        </select>
+                    </label>
+                    <label class="field">
                         <span>Last Name *</span>
                         <input name="last_name" type="text" required value="${escapeHtml(member?.last_name || '')}">
                     </label>
@@ -984,6 +995,7 @@ export async function renderMembersForm(container, user, member = null) {
 
         const data = {
             cooperative_id: user.cooperativeId,
+            prefix: String(fd.get('prefix') || '').trim(),
             last_name: properCase(fd.get('last_name')),
             first_name: properCase(fd.get('first_name')),
             middle_name: properCase(fd.get('middle_name')),
