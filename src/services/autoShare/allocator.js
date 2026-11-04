@@ -8,6 +8,8 @@
  * returns a normalized result with no DOM, database, or session dependencies.
  */
 
+import { generateId, formatCurrency } from '../../utils/formatters.js';
+
 const DEFAULT_CURRENCY_SCALE = 2;
 
 /**
@@ -56,7 +58,7 @@ function allocateAutoShare({
 }) {
   const SCALE = 10 ** currencyScale;
 
-  // ── 1. Filter out excluded enterprises ──────────────────────────────────────
+  // 1. Filter out excluded enterprises
   // Compulsory Due, Penalty, and Revenue are ALWAYS excluded, regardless of priority.
   const excludedCategories = {
     compulsory_due: 1,
@@ -65,7 +67,6 @@ function allocateAutoShare({
   };
 
   const eligible = enterprises.filter(ent => {
-    const type = ent.account_type || '';
     // Exclude Revenue
     if (ent.revenue === 1) return false;
     // Exclude Penalty
@@ -75,7 +76,7 @@ function allocateAutoShare({
     return true;
   });
 
-  // ── 2. Sort by priority (ascending), deterministic tie-breaker ────────────────
+  // 2. Sort by priority (ascending), deterministic tie-breaker
   // Lower distribution_priority number = settled first.
   // Tie-break by enterprise ID (string comparison) for stability.
   eligible.sort((a, b) => {
@@ -85,7 +86,7 @@ function allocateAutoShare({
     return String(a.id).localeCompare(String(b.id));
   });
 
-  // ── 3. Waterfall allocation ─────────────────────────────────────────────────
+  // 3. Waterfall allocation
   let remaining = Math.round(remittanceAmount * SCALE) / SCALE;
   const allocations = [];
   let totalAllocated = 0;
@@ -141,13 +142,13 @@ function allocateAutoShare({
     });
   }
 
-  // ── 4. Build result ─────────────────────────────────────────────────────────
+  // 4. Build result
   const result = new AllocationResult();
   result.allocations = allocations;
   result.allocatedTotal = Math.round(totalAllocated * SCALE) / SCALE;
   result.remainder = Math.round(remaining * SCALE) / SCALE;
 
-  // ── 5. Warnings ─────────────────────────────────────────────────────────────
+  // 5. Warnings
 
   // Warn about excluded enterprises
   const excluded = enterprises.filter(ent => {
@@ -225,13 +226,14 @@ function validateAllocation(result, remittanceAmount) {
  * 
  * @param {Object} result - Result from allocateAutoShare()
  * @param {number} currencyScale - Decimal places
- * @returns {Array} - Formatted rows for preview table
+ * @returns {Object} - { rows, totalRemittance, allocatedTotal, remainder, warnings }
  */
 function formatPreview(result, currencyScale = 2) {
   const rows = [];
 
   for (const alloc of result.allocations) {
     rows.push({
+      enterpriseId: alloc.enterpriseId,
       enterpriseName: alloc.enterpriseName,
       priority: alloc.priority,
       requiredAmount: alloc.requiredAmount.toFixed(currencyScale),
@@ -250,9 +252,4 @@ function formatPreview(result, currencyScale = 2) {
   };
 }
 
-module.exports = {
-  allocateAutoShare,
-  validateAllocation,
-  formatPreview,
-  AllocationResult
-};
+export { allocateAutoShare, validateAllocation, formatPreview };

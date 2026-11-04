@@ -69,7 +69,9 @@ async function getCoopFiscalStartMonth(cooperativeId) {
   if (!cooperativeId) return 0
   try {
     const rows = await queryRows('SELECT coop_first_month FROM cooperatives WHERE id=?', [cooperativeId])
-    const month = Number(String(rows?.[0]?.coop_first_month || '').split('-')[1])
+    const raw = String(rows?.[0]?.coop_first_month || '').trim()
+    const parts = raw.split(/[-/T]/).filter(Boolean)
+    const month = Number(parts[0]?.length === 4 ? parts[1] : parts[0])
     return Number.isInteger(month) && month >= 1 && month <= 12 ? month - 1 : 0
   } catch {
     return 0

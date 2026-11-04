@@ -1,6 +1,9 @@
-import { allocateAutoShare } from '../../services/autoShare/allocator.js';
+import { allocateAutoShare, validateAllocation, formatPreview } from './allocator.js';
 import { fetchMemberPaymentAdvise } from '../data/members.js';
 import { fetchEnterprises } from '../data/enterprises.js';
+import { addRemittance, updateRemittance } from '../../services/data/remittances.js';
+import { generateId } from '../../utils/formatters.js';
+import { getDocById_Global } from '../sqliteService.js';
 
 /**
  * Build the advice-by-enterprise map for a given member.
@@ -335,5 +338,4 @@ export async function cancelAutoShare(remittanceId, modifiedBy) {
   return true;
 }
 
-// Helper: get remittance doc by ID from SQLite (re-export for internal use)
-import { getDocById_Global } from '../sqliteService.js';
+export { allocateAutoShare, validateAllocation, formatPreview };

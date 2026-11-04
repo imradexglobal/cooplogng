@@ -56,7 +56,9 @@ export async function registerCooperative(coopData) {
         email: coopData.email,
         address: coopData.address || '',
         logo_path: coopData.logo_path || null,
-        coop_first_month: coopData.coop_first_month || '',
+        // Registration submits this field as first_month; keep accepting the
+        // canonical name too so the fiscal-year setting is not lost.
+        coop_first_month: coopData.coop_first_month || coopData.first_month || '',
         subscription_key: subKey,
         expiry_date: expiryDate.toISOString(),
         created_at: now,

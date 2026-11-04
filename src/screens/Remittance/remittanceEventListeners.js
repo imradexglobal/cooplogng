@@ -1,10 +1,14 @@
 import { escapeHtml, generateId, wrapDateInput } from '../../utils/formatters.js';
+import { hideWorkspaceSpinner, showWorkspaceSpinner } from '../../components/workspaceSpinner.js';
 import { showToast } from '../../services/toastService.js';
 import { showLoanConfigModal } from './remittanceLoanConfig.js';
 import { showSimpleReviewModal, showLoanReviewModal } from './remittanceModal.js';
 import { showWithdrawalWizard } from '../../components/WithdrawalWizard.js';
 import { isMobile } from './constants.js';
 import { save as persistState, load as loadPersisted } from '../../services/statePersistence.js';
+import { fetchEnterprises, fetchMemberPaymentAdvise } from '../../services/dataService.js';
+import { allocateAutoShare, formatPreview } from '../../services/autoShare/index.js';
+import { showAutoSharePreview } from './auto-share-preview.js';
 
 export function attachEventListeners(container, deps) {
     const { formData, enterpriseData, members, selectorMembers, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, historyState, panelSizes, user, isAdmin, isActualAdmin, cooperativeId, PANEL_SIZE_KEY, isMember, render, syncFormData, checkDirty, saveSavedForm, clearSavedForm, clearForm, loadHistoryData, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus } = deps;
@@ -367,7 +371,7 @@ export function attachEventListeners(container, deps) {
           hideWorkspaceSpinner(container);
           
           // Show preview modal
-          showAutoSharePreview(preview, memberId, cooperativeId);
+          showAutoSharePreview(preview, memberId, cooperativeId, deps);
         } catch (err) {
           hideWorkspaceSpinner(container);
           showToast('Error running Auto Share: ' + err.message, 'error');

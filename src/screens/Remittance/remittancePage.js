@@ -15,6 +15,7 @@ import { showBulkRemittanceModal } from './remittanceBulk.js';
 import { showWorkspaceSpinner } from '../../components/workspaceSpinner.js';
 import { save as persistState, load as loadPersisted } from '../../services/statePersistence.js';
 import { previewAutoShare, confirmAutoShare, allocateAutoShare, validateAllocation } from '../../services/autoShare/index.js';
+import { showAutoSharePreview } from './auto-share-preview.js';
 
     export async function renderUnifiedPayment(container, user) {
     const isActualAdmin = hasPermission(user.permissions, 'admin') || (user.username || '').toLowerCase() === 'admin';
@@ -2152,7 +2153,7 @@ const handleSubmit = async () => {
     }
   }
 
-  Object.assign(deps, { formData, enterpriseData, members, selectorMembers, banks, transactionTypes, isMember, user, historyState, loadHistoryData, clearForm, clearSavedForm, render, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, panelSizes, isAdmin, isActualAdmin, canApprove, canDelete, canReverse, canUpdate, cooperativeId, PANEL_SIZE_KEY, syncFormData, checkDirty, saveSavedForm, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus, getFormattedName, attachHistoryEventListeners, showBulkRemittanceModal, showReverseModal, isMobile });
+  Object.assign(deps, { formData, enterpriseData, members, selectorMembers, banks, transactionTypes, isMember, user, historyState, loadHistoryData, clearForm, clearSavedForm, render, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, panelSizes, isAdmin, isActualAdmin, canApprove, canDelete, canReverse, canUpdate, cooperativeId, PANEL_SIZE_KEY, syncFormData, checkDirty, saveSavedForm, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus, getFormattedName, attachHistoryEventListeners, showBulkRemittanceModal, showReverseModal, isMobile, confirmAutoShare, showToast });
   render();
 
   return {

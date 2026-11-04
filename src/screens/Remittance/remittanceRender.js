@@ -749,6 +749,7 @@ export function render(container, deps) {
             </div>
             <div class="form-actions">
               ${!previewMode && !editMode && !isMember ? `<button type="button" id="bulk-log-btn" class="btn btn-secondary" style="margin-right: auto;" title="Bulk loans, deposits, dues, penalties and transfers for many members at once">Bulk Entry</button>` : ''}
+              ${!isMember ? `<button type="button" id="auto-share-btn" class="btn btn-secondary" title="Preview an automatic allocation of this remittance using the member’s payment advice">Auto Share</button>` : ''}
               <button type="button" id="clear-log-btn" class="btn btn-secondary">${previewMode ? 'Add New Remittance' : 'Clear Form'}</button>
               ${editMode ?
                 `<button type="button" id="update-log-btn" class="btn btn-primary">Update Remittance</button>` :
@@ -759,9 +760,6 @@ export function render(container, deps) {
             </div>
           </div>
 
-<!-- Auto Share Button -->
-              ${isAdmin ? '' : `<button type="button" id="auto-share-btn" class="btn btn-info" style="margin-right: 0.5rem; padding: 0.5rem 1rem; font-size: 0.85rem;">Auto Share</button>`}
-              
               <!-- Vertical Resizer -->
               <div class="resizer-v" id="resizer-v"></div>
 
