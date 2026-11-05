@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>2026 Bank Transaction Reconciliation Review</title>
+<style>
+@page { size: letter; margin: 0.62in 0.66in 0.62in 0.66in; }
+body { font-family: Arial, Helvetica, sans-serif; color: #243247; font-size: 10pt; line-height: 1.36; }
+.kicker { color: #167c80; text-transform: uppercase; letter-spacing: 1.6px; font-size: 8pt; font-weight: bold; }
+h1 { color: #102b46; font-size: 26pt; line-height: 1.08; margin: 9pt 0 5pt; }
+.subtitle { color: #50657b; font-size: 11pt; margin: 0 0 15pt; }
+.meta { color: #607286; font-size: 8.5pt; border-bottom: 2px solid #167c80; padding-bottom: 10pt; margin-bottom: 16pt; }
+h2 { color: #102b46; font-size: 15pt; margin: 15pt 0 6pt; }
+h3 { color: #167c80; font-size: 10.5pt; margin: 10pt 0 4pt; }
+p { margin: 5pt 0 7pt; }
+ul, ol { margin: 4pt 0 8pt 18pt; padding: 0; }
+li { margin: 3pt 0; }
+.callout { background: #eef6f6; border-left: 4px solid #167c80; padding: 9pt 11pt; margin: 10pt 0 13pt; }
+.callout strong { color: #102b46; }
+.status { color: #167044; font-weight: bold; }
+.review { color: #9b5b00; font-weight: bold; }
+table { border-collapse: collapse; width: 100%; margin: 8pt 0 10pt; font-size: 8.8pt; }
+th { background: #102b46; color: #fff; text-align: left; padding: 6pt; }
+td { border-bottom: 1px solid #d8e0e8; padding: 5pt 6pt; vertical-align: top; }
+tr:nth-child(even) td { background: #f4f7fa; }
+.small { color: #607286; font-size: 8pt; }
+.page-break { page-break-before: always; }
+.badge { display:inline-block; color:#167044; background:#e8f5ec; border:1px solid #c6e7d0; padding:3pt 7pt; font-size:8.5pt; font-weight:bold; }
+.footer-note { border-top: 1px solid #d8e0e8; color: #607286; font-size: 8pt; padding-top: 7pt; margin-top: 14pt; }
+</style>
+</head>
+<body>
+<p class="kicker">Client copy · Reconciliation findings</p>
+<h1>2026 Bank Transaction<br>Reconciliation Review</h1>
+<p class="subtitle">Workbook coverage and transaction-record integrity</p>
+<p class="meta"><strong>Review date:</strong> 5 November 2026 &nbsp; | &nbsp; <strong>Sources:</strong> Consolidated_Bank_Statements2.xlsx and new_file.db</p>
+
+<h2>Executive summary</h2>
+<div class="callout">
+<p><span class="status">TRANSACTION MATCH: PASS — 135 of 135 rows matched.</span> All 2026 dated transaction rows in the two workbook bank sheets have a corresponding non-deleted database row on bank, date, signed amount, and narration. No extra 2026 database transactions or exact duplicate transaction keys were identified.</p>
+<p><span class="review">COVERAGE: FOLLOW-UP REQUIRED.</span> The workbook contains no FCMB rows for August–October and no Fidelity Bank rows for June. Both banks have no November rows as of the review date; November is in progress. December is still in the future.</p>
+<p><span class="review">TRACEABILITY: REVIEW.</span> Six FCMB rows have no narration in the workbook, although each has a bank reference. The workbook’s reference field is blank for all 98 Fidelity rows and 14 of 37 FCMB rows.</p>
+</div>
+
+<h2>Key findings</h2>
+<h3>1. Database transaction matching</h3>
+<p>The review identified 37 FCMB rows and 98 Fidelity Bank rows dated in 2026. Each matched one-to-one with a 2026 database transaction after normalizing whitespace and removing the bank-reference suffix that had been appended to some database descriptions. The source and database also have no repeated exact transaction keys (bank, date, amount, and normalized narration).</p>
+<p>This means no 2026 workbook transaction was found missing from the database under the comparison method, and no additional non-deleted 2026 database transaction was found that lacked a workbook counterpart.</p>
+
+<h3>2. Month coverage</h3>
+<p>Month-level row counts are detailed on page 2. Across both sheets together, there is at least one dated transaction row in every month from January through October. Coverage is not complete for each bank individually.</p>
+
+<h3>3. Source-field traceability</h3>
+<p>The six FCMB blank-narration rows relate to three references, each appearing on two rows: <strong>2020251407-SELL-BONDMMDISCOUNT</strong> (5 February; ₦4,813,013.70 and ₦18,698.63), <strong>2020280441-SELL-BONDMMDISCOUNT</strong> (5 March; ₦5,775,616.44 and ₦22,438.36), and <strong>2020377572-SELL-BONDMMDISCOUNT</strong> (18 June; ₦5,767,389.04 and ₦23,261.10). The references aid tracing, but the underlying transaction descriptions should be confirmed from bank advice or supporting vouchers.</p>
+
+<div class="page-break"></div>
+<p class="kicker">Coverage detail</p>
+<h2>2026 transaction rows by month</h2>
+<table>
+<thead><tr><th>Month</th><th>FCMB</th><th>Fidelity Bank</th><th>Coverage observation</th></tr></thead>
+<tbody>
+<tr><td>January</td><td>2</td><td>9</td><td>Both sheets have dated rows</td></tr>
+<tr><td>February</td><td>9</td><td>9</td><td>Both sheets have dated rows</td></tr>
+<tr><td>March</td><td>8</td><td>18</td><td>Both sheets have dated rows</td></tr>
+<tr><td>April</td><td>2</td><td>20</td><td>Both sheets have dated rows</td></tr>
+<tr><td>May</td><td>5</td><td>14</td><td>Both sheets have dated rows</td></tr>
+<tr><td>June</td><td>9</td><td>0</td><td>No Fidelity Bank rows found</td></tr>
+<tr><td>July</td><td>2</td><td>11</td><td>Both sheets have dated rows</td></tr>
+<tr><td>August</td><td>0</td><td>8</td><td>No FCMB rows found</td></tr>
+<tr><td>September</td><td>0</td><td>3</td><td>No FCMB rows found</td></tr>
+<tr><td>October</td><td>0</td><td>6</td><td>No FCMB rows found</td></tr>
+<tr><td>November</td><td>0</td><td>0</td><td>No rows in either sheet; month is incomplete as of 5 November</td></tr>
+<tr><td>December</td><td>0</td><td>0</td><td>Future month as of the review date</td></tr>
+<tr><td><strong>Total</strong></td><td><strong>37</strong></td><td><strong>98</strong></td><td><strong>135 rows across both sheets</strong></td></tr>
+</tbody>
+</table>
+<p><strong>Observed date ranges:</strong> FCMB rows run from 31 January through 31 July 2026. Fidelity Bank rows run from 1 January through 28 October 2026.</p>
+<p><strong>Interpretation:</strong> A month with no transaction rows is a coverage gap to resolve, not proof that a bank statement is missing or that activity occurred. It may represent a zero-activity month. Obtain the statement or a bank-confirmed no-activity record before concluding the month is complete.</p>
+
+<h2>Additional data-quality checks</h2>
+<table>
+<thead><tr><th>Check</th><th>Result</th><th>Assessment</th></tr></thead>
+<tbody>
+<tr><td>2026 dated rows</td><td>135 workbook / 135 database</td><td>All matched one-to-one</td></tr>
+<tr><td>Exact duplicate transaction keys</td><td>None found in either source</td><td>No duplicate candidate identified by bank, date, amount, and normalized narration</td></tr>
+<tr><td>Zero-amount or double-sided rows</td><td>None found in the workbook</td><td>Each row has a non-zero debit or credit; none has both columns populated</td></tr>
+<tr><td>Blank workbook narrations</td><td>6 of 37 FCMB; 0 of 98 Fidelity</td><td>All six FCMB rows have a reference, but their narrative should be confirmed</td></tr>
+<tr><td>Blank workbook references</td><td>14 of 37 FCMB; 98 of 98 Fidelity</td><td>May reflect how the source statement was supplied; confirm references where available</td></tr>
+</tbody>
+</table>
+<p class="small">Reference blank counts refer to the workbook’s separate reference field. Some database descriptions include a reference suffix even when the source narration is blank.</p>
+
+<div class="page-break"></div>
+<p class="kicker">Classification and action</p>
+<h2>Transaction classification review</h2>
+<p>All six 2026 rows whose narration begins “Withholding Tax for -” are recorded as <strong>Financial &amp; Banking Expenses / Finance Expense</strong>, consistent with the stated treatment for withholding tax.</p>
+<table>
+<thead><tr><th>Database transaction type</th><th>Stored category</th><th>2026 rows</th></tr></thead>
+<tbody>
+<tr><td>Financial &amp; Banking Expenses</td><td>Finance Expense</td><td>67</td></tr>
+<tr><td>Unknown Payments</td><td>Member Liability</td><td>54</td></tr>
+<tr><td>Member Deposit</td><td>Member Liability</td><td>8</td></tr>
+<tr><td>Other Income</td><td>Other Income</td><td>6</td></tr>
+</tbody>
+</table>
+<p><strong>Owner confirmation requested:</strong> The 2026 database includes 14 non-withholding rows coded as Member Deposit (8) or Other Income (6), rather than Unknown Payments. These may be intentional based on their descriptions or may pre-date the import instruction. Confirm whether the instruction to classify all non-withholding items as Unknown Payments applied only to the previously unmatched rows or to every 2026 transaction.</p>
+<p>The application’s configured mapping for <em>Unknown Payments</em> is <em>Member Liability</em>. That is a classification review point, not a row-matching failure. If the items are genuinely unidentified rather than member obligations, confirm whether a suspense treatment is intended before changing the records.</p>
+
+<h2>Recommended follow-up</h2>
+<ol>
+<li>Obtain or confirm FCMB statements/activity records for August, September, and October 2026, and the Fidelity Bank June 2026 statement/activity record.</li>
+<li>When available, complete the November review. December is outside the period completed at this review date.</li>
+<li>Request narration or supporting vouchers for the six FCMB reference-only rows listed on page 1.</li>
+<li>Provide or confirm separate bank references for Fidelity transactions, if the bank statement contains them.</li>
+<li>Confirm the intended classification scope for the 14 Member Deposit/Other Income rows and whether Unknown Payments should remain classified as Member Liability.</li>
+</ol>
+
+<h2>Scope and limitations</h2>
+<ul>
+<li>Sources reviewed: <strong>Consolidated_Bank_Statements2.xlsx</strong> and <strong>new_file.db</strong> in the Radio Project folder. The specifically named <strong>.xlsm</strong> workbook was not present during this review; if a separate .xlsm version exists, it was not assessed.</li>
+<li>Comparison covers 2026 dated bank transactions only. It is a record-level reconciliation, not an independent bank confirmation or audit opinion.</li>
+<li>Monthly row absence cannot distinguish no activity from an omitted statement without statement evidence.</li>
+<li>Running-total balance arithmetic is intentionally excluded from this report.</li>
+</ul>
+<p class="footer-note">Prepared for client review · 5 November 2026</p>
+</body>
+</html>

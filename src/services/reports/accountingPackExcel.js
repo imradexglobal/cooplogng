@@ -782,13 +782,14 @@ function incomeExpenseSheet(wb, pack, kind) {
     r += 2;
 
     // Capitalised asset purchases are reported here, separated from
-    // expenditure, because the app records them with an Asset or Fixed Asset
+    // expenditure, because the app records them with an Asset, Fixed Asset or
+    // General Asset
     // category and no enterprise detail. They post to a cooperative asset
     // account and never to the profit and loss.
     if (!isIncome && pack.coopAssetDetail.length) {
         headingRow(ws, r, 'Capitalised cooperative asset movements — not expenditure', undefined, headers.length);
         r++;
-        noteRow(ws, r, headers.length, 'These rows are capitalised assets, not costs. The app records them with an Asset or Fixed Asset category and no enterprise detail, so they post to a cooperative asset account and never to the profit and loss. They are shown on this sheet, separately from the expenditure table above, so a capital purchase can never be read as an expense. Control C12 on the Control Checks sheet proves this section agrees with the trial balance.');
+        noteRow(ws, r, headers.length, 'These rows are capitalised assets, not costs. The app records them with an Asset, Fixed Asset or General Asset category and no enterprise detail, so they post to a cooperative asset account and never to the profit and loss. They are shown on this sheet, separately from the expenditure table above, so an asset movement can never be read as an expense. Control C12 on the Control Checks sheet proves this section agrees with the trial balance.');
         r += 2;
         const aRes = writeTable(ws, pack, r, 'Asset movements in the period', headers, pack.coopAssetDetail, {
             keys: ['date', 'remittanceId', 'family', 'transactionType', 'category', 'classification', 'member', 'bank', 'amount', 'effect', 'side'],
@@ -1122,7 +1123,7 @@ function incomeExpenditureStatementSheet(wb, pack) {
     r += 2;
     noteRow(ws, r, 3, 'Income is recognised from the remittance category, which is the only basis that captures the header-only income pickups the app records. Member-side revenue accounts are excluded from income and disclosed as a memo on the Member Accounts sheet, because recognising them here as well would count the same income twice.');
     r += 2;
-    noteRow(ws, r, 3, 'Capitalised purchases of the cooperative own assets are never expenditure: the app records them with an Asset or Fixed Asset category, and they appear as assets on the Statement of Financial Position. Control C12 proves the expenditure total excludes them, and the Expense Detail sheet lists them separately.');
+    noteRow(ws, r, 3, 'Capitalised purchases and other cooperative asset movements are never expenditure: the app records them with an Asset, Fixed Asset or General Asset category, and they appear as assets on the Statement of Financial Position. Control C12 proves the expenditure total excludes them, and the Expense Detail sheet lists them separately.');
     fitColumns(ws);
     return ws;
 }

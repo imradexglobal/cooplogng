@@ -1,6 +1,6 @@
 const INCOME_CLS = new Set(['Operating Income', 'Loan Income', 'Other Income', 'Revenue']);
 const EXPENSE_CLS = new Set(['Operating Expense', 'Administrative Expense', 'Finance Expense', 'Welfare Expense', 'Other Operating Expense', 'Other Expenses', 'Expense', 'Expenses']);
-const BALANCE_SHEET_CLS = new Set(['Asset', 'Fixed Asset', 'Loan Asset', 'Liability', 'Member Liability', 'Equity']);
+const BALANCE_SHEET_CLS = new Set(['Asset', 'Fixed Asset', 'General Asset', 'Loan Asset', 'Liability', 'Member Liability', 'Equity']);
 
 function isIncomeCls(cls) { return INCOME_CLS.has(cls); }
 function isExpenseCls(cls) { return EXPENSE_CLS.has(cls); }

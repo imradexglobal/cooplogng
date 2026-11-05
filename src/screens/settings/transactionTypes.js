@@ -14,7 +14,7 @@ function classificationBadgeStyle(classification) {
 
     if (classification === 'Operating Income' || classification === 'Loan Income' || classification === 'Other Income') return incomeColors;
     if (classification === 'Operating Expense' || classification === 'Administrative Expense' || classification === 'Finance Expense' || classification === 'Welfare Expense' || classification === 'Other Operating Expense' || classification === 'Other Expenses') return expenseColors;
-    if (classification === 'Asset' || classification === 'Fixed Asset' || classification === 'Loan Asset') return assetColors;
+    if (classification === 'Asset' || classification === 'Fixed Asset' || classification === 'General Asset' || classification === 'Loan Asset') return assetColors;
     if (classification === 'Liability' || classification === 'Member Liability') return liabilityColors;
     if (classification === 'Equity') return equityColors;
     if (classification === 'Transfer') return transferColors;

@@ -28,7 +28,7 @@ const EPS = 0.005;
 
 const INCOME_CATS = ['Revenue', 'Operating Income', 'Loan Income', 'Other Income'];
 const EXPENSE_CATS = ['Expense', 'Expenses', 'Operating Expense', 'Administrative Expense', 'Finance Expense', 'Welfare Expense', 'Other Operating Expense', 'Other Expenses'];
-const COOP_ASSET_CATS = ['Asset', 'Fixed Asset'];
+const COOP_ASSET_CATS = ['Asset', 'Fixed Asset', 'General Asset'];
 const NON_POSTING_CATS = ['Transfer', 'Suspense'];
 // Categories the app itself uses to route a transaction to a member account
 // rather than to the profit and loss account. They are recognised, so they
@@ -1238,7 +1238,7 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
             source = 'remittance_detail.enterprise_id -> enterprise has compulsory_due or is_penalty set';
             rule = 'Member obligation for dues/penalties. Included in member net worth, matching the app\'s buildAccountBalance.';
         } else if (acc.bucket === 'coopAsset') {
-            source = 'remittance.category in (Asset, Fixed Asset)';
+            source = `remittance.category in (${COOP_ASSET_CATS.join(', ')})`;
             rule = 'Header amount posts on the side opposite the cash direction, whether or not a bank leg exists.';
         } else if (acc.type === 'Income') {
             source = `remittance.category in (${INCOME_CATS.join(', ')})`;
