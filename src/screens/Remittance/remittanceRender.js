@@ -748,7 +748,6 @@ export function render(container, deps) {
               </form>
             </div>
             <div class="form-actions">
-              ${!previewMode && !editMode && !isMember ? `<button type="button" id="bulk-log-btn" class="btn btn-secondary" style="margin-right: auto;" title="Bulk loans, deposits, dues, penalties and transfers for many members at once">Bulk Entry</button>` : ''}
               ${!isMember ? `<button type="button" id="auto-share-btn" class="btn btn-secondary" title="Preview an automatic allocation of this remittance using the member’s payment advice">Auto Share</button>` : ''}
               <button type="button" id="clear-log-btn" class="btn btn-secondary">${previewMode ? 'Add New Remittance' : 'Clear Form'}</button>
               ${editMode ?

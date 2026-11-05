@@ -19,6 +19,7 @@ import {
 import { renderAccountBalance } from './screens/AccountBalance.js'
 import { renderMemberLedger } from './screens/MemberLedger.js'
 import { renderUnifiedPayment } from './screens/Remittance/index.js'
+import { renderBulkRemittance } from './screens/Remittance/remittanceBulk.js'
 import { renderMembers } from './screens/members/index.js'
 import { renderSettings } from './screens/Settings.js'
 import { renderPaymentAdvice } from './screens/PaymentAdvice.js'
@@ -63,7 +64,7 @@ const app = document.querySelector('#app')
  * Dashboard > Ledger > Remittance > Members > Reports > Reconciliation > Settings.
  * Mirrors sidebar visibility so the landing tab always has a nav item.
  */
-const LANDING_ORDER = ['dashboard', 'ledger', 'advice', 'payments', 'members', 'reports', 'reconciliation', 'settings'];
+const LANDING_ORDER = ['dashboard', 'ledger', 'advice', 'payments', 'bulk-remittance', 'members', 'reports', 'reconciliation', 'settings'];
 
 function canSeeRemittance(user) {
   // Staff/admin (any non-member role) can always see Remittance.
@@ -79,6 +80,7 @@ function canAccessTab(user, tab) {
     case 'ledger': return isMember || hasPermission(user.permissions, 'read_ledger') || hasPermission(user.permissions, 'read_coop_ledger');
     case 'advice': return isMember;
     case 'payments': return canSeeRemittance(user);
+    case 'bulk-remittance': return canSeeRemittance(user);
     case 'members': return !isMember && hasPermission(user.permissions, 'read_member');
     case 'reports': return !isMember && hasPermission(user.permissions, 'read_member');
     case 'reconciliation': return hasPermission(user.permissions, 'read_reconcile');
@@ -2257,6 +2259,7 @@ function renderDashboard() {
     dashboard: 'Dashboard',
     members: 'Members',
     payments: 'Remittance',
+    'bulk-remittance': 'Bulk Remittance',
     ledger: 'Ledger',
     advice: 'Payment Advice',
     reports: 'Reports',
@@ -2334,6 +2337,10 @@ function renderDashboard() {
             <button class="nav-item ${state.activeTab === 'payments' ? 'active' : ''}" data-action="nav-tab" data-tab="payments">
               <span class="nav-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
               <span>Remittance</span>
+            </button>
+            <button class="nav-item ${state.activeTab === 'bulk-remittance' ? 'active' : ''}" data-action="nav-tab" data-tab="bulk-remittance">
+              <span class="nav-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+              <span>Bulk Remittance</span>
             </button>
           ` : ''}
           ${(state.welcomeUser.role === 'member' || hasPermission(state.welcomeUser.permissions, 'read_ledger')) ? `
@@ -2925,6 +2932,11 @@ async function _renderDashboardContentInner() {
     window.location.hash = 'dashboard'
     return
   }
+  if (isMemberRole && state.activeTab === 'bulk-remittance') {
+    state.activeTab = 'dashboard'
+    window.location.hash = 'dashboard'
+    return
+  }
 
   // Payment Advice is members-only — staff/admin are bounced to dashboard.
   if (!isMemberRole && state.activeTab === 'advice') {
@@ -2946,6 +2958,8 @@ async function _renderDashboardContentInner() {
     await renderAccountBalance(container, displayUser)
   } else if (state.activeTab === 'payments') {
     await renderUnifiedPayment(container, displayUser, state.editingRemittance)
+  } else if (state.activeTab === 'bulk-remittance') {
+    await renderBulkRemittance(container, displayUser)
   } else if (state.activeTab === 'ledger') {
     await renderMemberLedger(container, displayUser)
   } else if (state.activeTab === 'advice') {

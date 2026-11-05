@@ -19,6 +19,7 @@ import {
 const SYNC_PAGE_SIZE = 500
 
 const CURRENT_SCHEMA_VERSION = 11
+const LEGACY_REMITTANCE_BACKFILL_VERSION = 1
 
 // Internal state (not exposed to UI)
 let _session = null
@@ -395,6 +396,12 @@ async function _deltaSync() {
                             if (newCursor > 0) resumeCursors[col] = { cursorSyncAt: newCursor, updatedAt: Date.now() }
                         }
                     }
+                    if (col === 'remittance') {
+                        resumeCursors[col] = {
+                            ...(resumeCursors[col] || {}),
+                            legacyBackfillVersion: LEGACY_REMITTANCE_BACKFILL_VERSION
+                        }
+                    }
                     await markCollectionSynced(cooperativeId, col)
                     console.log(`[BgSync] Synced incomplete collection: ${col} (${docs.length} docs)`)
                 } catch (err) {
@@ -459,6 +466,8 @@ async function _deltaSync() {
                 const colCursorTs = Number(colState?.cursorSyncAt) || 0
                 const prevCursor = colCursorTs
                 const prevLastDocId = typeof colState?.lastDocId === 'string' ? colState.lastDocId : ''
+                const needsLegacyRemittanceBackfill = col === 'remittance'
+                    && (Number(colState?.legacyBackfillVersion) || 0) < LEGACY_REMITTANCE_BACKFILL_VERSION
                 let since = 0
                 let cursorPair = null
 
@@ -475,6 +484,11 @@ async function _deltaSync() {
                     cursorPair = { ts: colCursorTs, id: prevLastDocId }
                 } else {
                     since = _deltaSinceTs(colCursorTs, lastSyncTs)
+                }
+                if (needsLegacyRemittanceBackfill) {
+                    console.log('[BgSync] Running one-time full remittance scan to include legacy rows missing sync_at.')
+                    since = 0
+                    cursorPair = null
                 }
 
                 const startCol = Date.now()
@@ -509,7 +523,7 @@ async function _deltaSync() {
                         // since=0 paths) so they still save. Same-ms docs whose
                         // id sorts AFTER the stored pair are new (they were not
                         // in any earlier page) and do save.
-                        const toSave = prevCursor > 0
+                        const toSave = !needsLegacyRemittanceBackfill && prevCursor > 0
                             ? safeDocs.filter(d => {
                                 const t = _syncAtMs(d)
                                 if (t === 0) return true
@@ -526,7 +540,7 @@ async function _deltaSync() {
                         // Emit/count only genuinely-new rows (at or beyond the
                         // pre-cycle cursor position) so re-deliveries save
                         // silently without churning the UI.
-                        const freshDocs = prevCursor > 0
+                        const freshDocs = needsLegacyRemittanceBackfill ? [] : prevCursor > 0
                             ? safeDocs.filter(d => {
                                 const t = _docTimeMs(d)
                                 if (t > prevCursor) return true
@@ -548,12 +562,30 @@ async function _deltaSync() {
                     // retry instead of poisoning it with a local-clock value.
                     const pair = _deriveCursorPair(docs)
                     if (pair) {
-                        nextCursors[col] = { cursorSyncAt: pair.ts, lastDocId: pair.id, updatedAt: Date.now() }
+                        nextCursors[col] = {
+                            ...(nextCursors[col] || colState || {}),
+                            cursorSyncAt: pair.ts,
+                            lastDocId: pair.id,
+                            updatedAt: Date.now()
+                        }
                     }
                 } else {
                     // No docs: leave the cursor untouched. Advancing it from
                     // the local clock would permanently hide cloud rows whose
                     // server timestamps fall behind this device's clock.
+                }
+                if (needsLegacyRemittanceBackfill) {
+                    nextCursors[col] = {
+                        ...(nextCursors[col] || colState || {}),
+                        legacyBackfillVersion: LEGACY_REMITTANCE_BACKFILL_VERSION,
+                        updatedAt: Date.now()
+                    }
+                    syncBus.emit(SyncEvents.BULK_REMITTANCES_LOADED, createSyncPayload(SyncEvents.BULK_REMITTANCES_LOADED, {
+                        count: docs.length,
+                        cooperativeId,
+                        isInitial: false,
+                        isBackfill: true
+                    }))
                 }
             } catch (colErr) {
                 console.error(`[BgSync] Failed to sync collection ${col}:`, colErr)
@@ -790,6 +822,12 @@ async function _initialSyncInternal(forceFull = false, options = {}) {
                     ? { cursorSyncAt: seedMax, lastDocId: derived.id, updatedAt: Date.now() }
                     : { cursorSyncAt: seedMax, updatedAt: Date.now() }
                 if (seedMax > seedObsMax) seedObsMax = seedMax
+            }
+            if (name === 'remittance') {
+                seedCursors[name] = {
+                    ...(seedCursors[name] || {}),
+                    legacyBackfillVersion: LEGACY_REMITTANCE_BACKFILL_VERSION
+                }
             }
             await markCollectionSynced(cooperativeId, name);
             counts[name] = docs.length;
@@ -1031,7 +1069,7 @@ export async function stampPushWatermarks(cooperativeId, collectionNames) {
             // is what makes this stamp safe there.
             if (existing && typeof existing.lastDocId === 'string' && existing.lastDocId) continue
             const prev = Number(existing?.cursorSyncAt) || 0
-            if (srvNow > prev) next[col] = { cursorSyncAt: srvNow, updatedAt: Date.now() }
+            if (srvNow > prev) next[col] = { ...(existing || {}), cursorSyncAt: srvNow, updatedAt: Date.now() }
         }
         await updateSyncMeta(cooperativeId, { collection_cursors: next })
     } catch (e) {
@@ -1200,15 +1238,14 @@ async function _fetchCollection(collectionName, cooperativeId, sinceTs = 0, curs
         constraints.push(where('sync_at', '>', Timestamp.fromMillis(sinceTs)))
     }
 
-    // Paged download: same rows as one unbounded getDocs, but bounded memory
-    // and per-request time. Firestore REQUIRES the first orderBy to be the
-    // range-filtered field (sync_at) — ordering by __name__ alone makes every
-    // sinceTs>0 query invalid, so deltas silently failed while full syncs
-    // (sinceTs=0, no range filter) worked. Requires composite indexes (see
-    // firestore.indexes.json); failures are handled per-collection by the caller.
-    // NOTE: keep orderBy('sync_at'), orderBy('__name__') in sync with the
-    // (cooperative_id, sync_at, __name__) index family (+member variants).
-    const ordering = [orderBy('sync_at'), orderBy('__name__')]
+    // Full scans rely on Firestore's default document-ID order so it also
+    // returns legacy docs without sync_at (orderBy('sync_at') excludes them).
+    // Incremental queries must order first by their range-filtered sync_at field.
+    // Keep that delta ordering in sync with the composite index family.
+    const isDeltaQuery = Boolean(cursor) || sinceTs > 0
+    const ordering = isDeltaQuery
+        ? [orderBy('sync_at'), orderBy('__name__')]
+        : []
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {

@@ -4,6 +4,7 @@ import {
     getTransactionTypes, saveDoc, getDocById_Global,
     queryRows, queryOne, enqueueWrite, upsertRow
 } from '../sqliteService.js'
+import { classifyMemberInternalTransfer } from './memberTransactionClassification.js'
 
 async function _ensureRemittanceNotSealed(remittanceId, operationLabel) {
     const rem = await getDocById_Global('remittance', remittanceId)
@@ -169,6 +170,20 @@ export async function addRemittance(data, createdBy) {
         }))
     }
 
+    if (String(doc.member_id || '') !== '0000000000' &&
+        String(doc.bank_name || '').trim().toLowerCase() === 'internal transfer' &&
+        doc.details?.length) {
+        const enterpriseData = await queryRows(
+            'SELECT * FROM enterprise WHERE cooperative_id = ? AND is_deleted = 0',
+            [doc.cooperative_id]
+        ).catch(() => [])
+        const mapped = classifyMemberInternalTransfer(doc.details, enterpriseData)
+        if (mapped) {
+            doc.transaction_type = mapped.transaction_type
+            doc.category = mapped.category
+        }
+    }
+
     // Build loan + guarantor child records from details[].loan_info.
     // These are saved to the loans/loan_guarantors tables via mutationEngine.
     // Charges (autogen remittances) and payment_advise are NOT created here -
@@ -326,6 +341,19 @@ export async function updateRemittance(id, data, modifiedBy) {
             is_deleted: d.is_deleted || 0,
             is_synced: 0
         }))
+    }
+    if (String(doc.member_id || '') !== '0000000000' &&
+        String(doc.bank_name || '').trim().toLowerCase() === 'internal transfer' &&
+        doc.details?.length) {
+        const enterpriseData = await queryRows(
+            'SELECT * FROM enterprise WHERE cooperative_id = ? AND is_deleted = 0',
+            [doc.cooperative_id]
+        ).catch(() => [])
+        const mapped = classifyMemberInternalTransfer(doc.details, enterpriseData)
+        if (mapped) {
+            doc.transaction_type = mapped.transaction_type
+            doc.category = mapped.category
+        }
     }
 
     // Build loan + guarantor child records from details[].loan_info.

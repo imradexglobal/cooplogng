@@ -6,7 +6,7 @@
  */
 
 const DB_NAME = 'CoopLogIDB_v3';
-const DB_VERSION = 9; // v9: heal stores missing on intermediate-version DBs (see v9 block)
+const DB_VERSION = 10; // v10: local bulk varied-remittance drafts
 
 // Object stores mapped to application tables
 const STORES = {
@@ -27,7 +27,8 @@ const STORES = {
     bank_reconciliation_summary: { keyPath: 'id' },
     feedback: { keyPath: 'id' },
     app_settings: { keyPath: 'key' },
-    membership_request: { keyPath: 'id' }
+    membership_request: { keyPath: 'id' },
+    bulk_remittance_draft: { keyPath: 'id' }
 };
 
 let dbInstance = null;
@@ -341,6 +342,13 @@ export function initIndexedDb() {
             console.warn(`[IndexedDB] v9 heal skipped ${storeName}:`, err && err.message);
           }
         }
+      }
+
+      // ── Version 10: local-only bulk remittance drafts ───────────────────
+      // Drafts intentionally have no sync queue or cooperative index: they
+      // are transient device-local work and must never be uploaded to cloud.
+      if (oldVersion < 10 && !db.objectStoreNames.contains('bulk_remittance_draft')) {
+        db.createObjectStore('bulk_remittance_draft', { keyPath: 'id' });
       }
     };
 

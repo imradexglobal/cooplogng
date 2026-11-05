@@ -10,7 +10,6 @@ import {
     exportToPDF
 } from '../services/reportsService.js';
 import { fetchBanks, fetchEnterprises, fetchAllMembers } from '../services/dataService.js';
-import { getTransactionTypes } from '../services/sqlite/transactionTypes.js';
 import { queryOne, queryRows } from '../services/sqliteService.js';
 import { escapeHtml, formatDate, formatNumber, wrapDateInput } from '../utils/formatters.js';
 import { showToast } from '../services/toastService.js';
@@ -711,15 +710,26 @@ export async function renderReports(container, user) {
     // Populate transaction types for the Transaction Journal filter
     const txnTypeFilter = container.querySelector('#txn-type-filter');
     try {
-        const txnTypes = await getTransactionTypes(cooperativeId);
-        txnTypes.filter(t => t.is_active !== 0 && t.is_active !== false).forEach(t => {
+        const txnTypeRows = await queryRows(
+            'SELECT * FROM remittance WHERE cooperative_id = ?',
+            [cooperativeId]
+        );
+        const txnTypes = [...new Set((txnTypeRows || [])
+            .filter(row => {
+                const deleted = row.is_deleted;
+                return !(deleted === true || deleted === 1 || String(deleted).trim() === '1' || String(deleted).toLowerCase() === 'true');
+            })
+            .map(row => String(row.transaction_type || '').trim())
+            .filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        txnTypes.forEach(type => {
             const opt = document.createElement('option');
-            opt.value = t.transaction_type;
-            opt.textContent = t.transaction_type;
+            opt.value = type;
+            opt.textContent = type;
             txnTypeFilter.appendChild(opt);
         });
     } catch (e) {
-        console.warn('Failed to load transaction types:', e);
+        console.warn('Failed to load transaction types from remittance records:', e);
     }
     if (filters.transactionType && [...txnTypeFilter.options].some(o => o.value === filters.transactionType)) {
         txnTypeFilter.value = filters.transactionType;

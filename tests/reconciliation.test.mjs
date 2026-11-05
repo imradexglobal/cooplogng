@@ -20,7 +20,7 @@ function assertEq(a, b, msg) {
     throw new Error((msg || 'not equal') + '\n  expected: ' + JSON.stringify(b) + '\n  actual:   ' + JSON.stringify(a))
 }
 
-console.log('\n=== COOPLOGNG RECONCILIATION TEST SUITE (19 tests) ===\n')
+console.log('\n=== COOPLOGNG RECONCILIATION TEST SUITE (36 checks) ===\n')
 console.log('--- Section A: Static rule / code-structure checks ---')
 
 // TR-10.1 (Task 10): No getReconciliationTotalsByDateRange anywhere in src
@@ -555,6 +555,21 @@ test('[27] sync_context write failure is logged, not silently swallowed', () => 
   const ctx = bg.slice(i, i + 1400)
   assert(!/catch\s*\{\s*\}/.test(ctx), 'sync_context write failure is silently swallowed')
   assert(/console\.(warn|error)[\s\S]*?sync_context/.test(ctx), 'sync_context write failure must be logged')
+})
+
+// 28. P0: full remittance scans must include old Firestore documents without sync_at.
+test('[28] full scans include legacy remittances and existing caches backfill once', () => {
+  const bg = read('src/services/backgroundSyncService.js')
+  const fetchStart = bg.indexOf('async function _fetchCollection(')
+  const fetchEnd = bg.indexOf('\n// ─── Scope pruning', fetchStart)
+  assert(fetchStart > -1 && fetchEnd > fetchStart, 'could not locate _fetchCollection body')
+  const fetchBody = bg.slice(fetchStart, fetchEnd)
+  assert(/const isDeltaQuery = Boolean\(cursor\) \|\| sinceTs > 0/.test(fetchBody), 'full and delta fetch modes are not distinguished')
+  assert(/: \[\]/.test(fetchBody), 'full scans must use Firestore default document-ID ordering, not sync_at')
+  const delta = deltaSyncBody()
+  assert(/needsLegacyRemittanceBackfill/.test(delta), 'existing caches do not get a legacy remittance backfill')
+  assert(/legacyBackfillVersion/.test(delta), 'successful backfill is not persisted to the remittance cursor')
+  assert(/!needsLegacyRemittanceBackfill && prevCursor > 0/.test(delta), 'backfill does not save the complete server set')
 })
 
 console.log('\n--- SUMMARY ---')

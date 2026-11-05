@@ -11,7 +11,6 @@ import { exportData } from './remittanceExport.js';
 import { attachEventListeners } from './remittanceEventListeners.js';
 import { render as _render } from './remittanceRender.js';
 import { showReverseModal } from './remittanceReverse.js';
-import { showBulkRemittanceModal } from './remittanceBulk.js';
 import { showWorkspaceSpinner } from '../../components/workspaceSpinner.js';
 import { save as persistState, load as loadPersisted } from '../../services/statePersistence.js';
 import { previewAutoShare, confirmAutoShare, allocateAutoShare, validateAllocation } from '../../services/autoShare/index.js';
@@ -1152,6 +1151,15 @@ const handleSubmit = async () => {
       const bankName = formData.bank_name;
       const isCoopWide = isAdmin && formData.member_id === '0000000000';
       const detailsSum = formData.details.reduce((sum, d) => sum + (d.amount || 0), 0);
+
+      // An Admin Mode remittance is an unknown/cooperative-level payment.
+      // It must remain a header-only record: when an assigned remittance is
+      // converted back to unknown, do not carry its member distribution (or
+      // any loan_info) into the update. updateRemittance() receives [] below,
+      // which removes the existing remittance_detail rows as part of saveDoc.
+      if (isCoopWide) {
+        formData.details = [];
+      }
       
       // Bank and date are ALWAYS required except for new loan/withdrawal requests being submitted
       if (!formData.isLoanRequest && !formData.isWithdrawalRequest) {
@@ -1451,7 +1459,13 @@ const handleSubmit = async () => {
         // 1) Reverse old loan payment advise while loans are still live
         const oldRemit = await (await import('../../services/sqliteService.js')).getDocById_Global('remittance', formData.id);
         if (oldRemit && oldRemit.loans && oldRemit.loans.length > 0) {
-          const memberDoc = await fetchMemberDoc(formData.member_id);
+          // The form member may already have been changed to Admin Mode
+          // (0000000000). Advice belongs to the member on the stored record,
+          // not to the replacement member selected in the edit form.
+          const oldMemberId = oldRemit.member_id;
+          const memberDoc = oldMemberId && oldMemberId !== '0000000000'
+            ? await fetchMemberDoc(oldMemberId)
+            : null;
           if (memberDoc) {
             let existingAdvise = memberDoc.payment_advise || [];
             let adviseChanged = false;
@@ -1469,7 +1483,7 @@ const handleSubmit = async () => {
               }
             }
             if (adviseChanged) {
-              await updateMemberPaymentAdvice(formData.member_id, existingAdvise, user.username, user.cooperativeId);
+              await updateMemberPaymentAdvice(oldMemberId, existingAdvise, user.username, user.cooperativeId);
             }
           }
         }
@@ -2147,7 +2161,7 @@ const handleSubmit = async () => {
     }
   }
 
-  Object.assign(deps, { formData, enterpriseData, members, selectorMembers, banks, transactionTypes, isMember, user, historyState, loadHistoryData, clearForm, clearSavedForm, render, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, panelSizes, isAdmin, isActualAdmin, canApprove, canDelete, canReverse, canUpdate, cooperativeId, PANEL_SIZE_KEY, syncFormData, checkDirty, saveSavedForm, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus, getFormattedName, attachHistoryEventListeners, showBulkRemittanceModal, showReverseModal, isMobile, confirmAutoShare, showToast });
+  Object.assign(deps, { formData, enterpriseData, members, selectorMembers, banks, transactionTypes, isMember, user, historyState, loadHistoryData, clearForm, clearSavedForm, render, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, panelSizes, isAdmin, isActualAdmin, canApprove, canDelete, canReverse, canUpdate, cooperativeId, PANEL_SIZE_KEY, syncFormData, checkDirty, saveSavedForm, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus, getFormattedName, attachHistoryEventListeners, showReverseModal, isMobile, confirmAutoShare, showToast });
   render();
 
   return {
