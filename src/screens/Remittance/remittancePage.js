@@ -1,4 +1,4 @@
-import { fetchRemittances, fetchEnterprises, fetchAllMembers, addRemittance, updateRemittance, fetchBanks, buildAccountBalance, fetchLoanById, fetchGuarantorStats, fetchMemberDoc, fetchTransactionTypes, fetchRemittancesPage, deleteRemittance, fetchMemberPaymentAdvise, cleanupRemittanceFamily, updateMemberPaymentAdvice } from '../../services/dataService.js';
+import { fetchRemittances, fetchEnterprises, fetchAllMembers, addRemittance, updateRemittance, fetchBanks, buildAccountBalance, fetchLoanById, fetchGuarantorStats, fetchMemberDoc, fetchTransactionTypes, fetchRemittancesPage, deleteRemittance, fetchMemberPaymentAdvise, calculateAdviceByEnterprise, cleanupRemittanceFamily, updateMemberPaymentAdvice } from '../../services/dataService.js';
 import { createDuesTransfer, createDuesIncomePickup } from '../../services/data/duesTransfer.js';
 import { hasPermission } from '../../services/permissionService.js';
 import { formatCurrency, formatDate, formatDateForInput, escapeHtml, getTimestampMs, generateId, generateRemittanceId, wrapDateInput, formatDateTime, getInitials, timestampTail } from '../../utils/formatters.js';
@@ -440,14 +440,8 @@ import { showAutoSharePreview } from './auto-share-preview.js';
       const balData = await buildAccountBalance(cooperativeId, { ...user, memberId }, limitKey);
       openingBalances = {};
       balData.accountBalance.forEach(b => openingBalances[b.id] = b.sum_of_amount);
-      paymentAdvise = {};
       const advTable = await fetchMemberPaymentAdvise(memberId);
-      if (advTable && advTable.length > 0) {
-        advTable.forEach(adv => {
-          if (!paymentAdvise[adv.enterprise_id]) paymentAdvise[adv.enterprise_id] = 0;
-          paymentAdvise[adv.enterprise_id] += parseFloat(adv.amount || 0);
-        });
-      }
+      paymentAdvise = calculateAdviceByEnterprise(enterpriseData, advTable, balData.accountBalance);
     } catch (err) {
       console.error('Balance fetch error:', err);
     }

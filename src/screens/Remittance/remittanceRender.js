@@ -842,9 +842,10 @@ export function render(container, deps) {
                   <tfoot style="position: sticky; bottom: 0; z-index: 10;">
                     <tr style="background: var(--bg-header); border-top: 1px solid var(--border-light);">
                       <td colspan="4" style="padding: 0.75rem; font-weight: 700; color: var(--text-primary);">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="position: relative; display: flex; justify-content: space-between; align-items: center;">
                           <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">Diff: <span id="dist-diff-cell" style="color: ${Math.abs(formData.amount - (formData.details || []).reduce((s, d) => s + (d.amount || 0), 0)) < 0.01 ? 'var(--success)' : 'var(--danger)'}">${(formData.amount - (formData.details || []).reduce((s, d) => s + (d.amount || 0), 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                           <span>Total Distributed:</span>
+                          <span style="position: absolute; left: 58.333%; transform: translateX(-50%); white-space: nowrap; color: var(--text-muted);">Total Advise: <span id="dist-advise-total-cell">${Object.values(paymentAdvise || {}).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></span>
                         </div>
                       </td>
                       <td id="dist-total-cell" style="padding: 0.75rem; font-weight: 700; font-size: 1.05rem; text-align: right; color: ${(formData.details || []).reduce((s, d) => s + (d.amount || 0), 0) < 0 ? 'var(--danger)' : 'inherit'}">${(formData.details || []).reduce((s, d) => s + (d.amount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>

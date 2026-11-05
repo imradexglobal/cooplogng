@@ -6,7 +6,7 @@ import { showSimpleReviewModal, showLoanReviewModal } from './remittanceModal.js
 import { showWithdrawalWizard } from '../../components/WithdrawalWizard.js';
 import { isMobile } from './constants.js';
 import { save as persistState, load as loadPersisted } from '../../services/statePersistence.js';
-import { fetchEnterprises, fetchMemberPaymentAdvise } from '../../services/dataService.js';
+import { fetchEnterprises, fetchMemberPaymentAdvise, calculateAdviceByEnterprise } from '../../services/dataService.js';
 import { allocateAutoShare, formatPreview } from '../../services/autoShare/index.js';
 import { showAutoSharePreview } from './auto-share-preview.js';
 
@@ -343,18 +343,14 @@ export function attachEventListeners(container, deps) {
           const adviceTable = await fetchMemberPaymentAdvise(memberId);
           
           // Build advice map
-          const adviceByEnterprise = {};
-          if (adviceTable && Array.isArray(adviceTable)) {
-            for (const adv of adviceTable) {
-              if (!adv.is_deleted && adv.enterprise_id && adv.amount > 0) {
-                adviceByEnterprise[String(adv.enterprise_id)] = parseFloat(adv.amount) || 0;
-              }
-            }
-          }
-          
           // Load enterprises
           const enterprises = await fetchEnterprises(cooperativeId, true);
           const activeEnterprises = enterprises.filter(e => !(e.is_deleted === 1 || e.deleted === 1));
+          const adviceByEnterprise = calculateAdviceByEnterprise(
+            activeEnterprises,
+            adviceTable,
+            Object.entries(openingBalances || {}).map(([id, sum_of_amount]) => ({ id, sum_of_amount }))
+          );
           
           // Run allocation
           const allocationResult = allocateAutoShare({

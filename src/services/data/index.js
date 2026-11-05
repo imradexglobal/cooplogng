@@ -24,6 +24,7 @@ export {
     getReconciliationDrillDown
 } from './reconciliation.js'
 export { buildAccountBalance, buildMemberLedger } from './balance.js'
+export { calculateAdviceByEnterprise } from './advice.js'
 export {
     freeChildId, duesTotalsByEnt, sumDuesTotals, buildTransferDetails,
     alignChildToParent,

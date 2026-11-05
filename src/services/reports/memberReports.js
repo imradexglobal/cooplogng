@@ -1,5 +1,5 @@
 import { queryRows } from '../sqliteService.js';
-import { fetchAllMembers, fetchEnterprises } from '../dataService.js';
+import { fetchAllMembers, fetchEnterprises, fetchRemittances, buildAccountBalance, calculateAdviceByEnterprise } from '../dataService.js';
 import { formatDate } from '../../utils/formatters.js';
 import { selectMemberFields, memberFieldHeader, memberFieldValue } from './memberFields.js';
 
@@ -63,21 +63,33 @@ export async function getPaymentAdviseData(cooperativeId, user = null, filters =
 
     const entIds = new Set(orderedEnts.map(e => String(e.id)));
     const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
-    const byMember = new Map();
+    const rawByMember = new Map();
     rows.forEach(r => {
         const mid = String(r.id);
         if (!memberById.has(mid)) return;
         const entId = String(r.enterprise_id);
         if (!entIds.has(entId)) return;
         const amt = round2(r.total);
-        if (amt === 0) return;
-        if (!byMember.has(mid)) byMember.set(mid, new Map());
-        byMember.get(mid).set(entId, amt);
+        if (!rawByMember.has(mid)) rawByMember.set(mid, []);
+        rawByMember.get(mid).push({ enterprise_id: entId, amount: amt });
     });
 
-    // Accounts nobody advises on only widen the matrix — drop them.
+    // Load the ledger once, then reuse it to calculate each member's CURRENT balance.
+    const allRemittances = await fetchRemittances(cooperativeId, null);
+    const calculatedByMember = new Map();
     const usedEntIds = new Set();
-    byMember.forEach(ents => ents.forEach((_, entId) => usedEntIds.add(entId)));
+    for (const mid of memberById.keys()) {
+        const { accountBalance } = await buildAccountBalance(cooperativeId, { memberId: mid }, null, {
+            remittances: allRemittances,
+            enterprises
+        });
+        const advice = calculateAdviceByEnterprise(orderedEnts, rawByMember.get(mid) || [], accountBalance);
+        const adviceMap = new Map(Object.entries(advice).map(([id, amount]) => [id, round2(amount)]));
+        calculatedByMember.set(mid, adviceMap);
+        adviceMap.forEach((amount, entId) => { if (amount !== 0) usedEntIds.add(entId); });
+    }
+
+    // Accounts with no calculated advice only widen the report matrix — drop them.
     const activeEnts = orderedEnts.filter(e => usedEntIds.has(String(e.id)));
 
     const fullName = m => [m.last_name, m.first_name, m.middle_name].filter(Boolean).join(' ') || String(m.name || '');
@@ -85,7 +97,7 @@ export async function getPaymentAdviseData(cooperativeId, user = null, filters =
         const n = parseFloat(m.registration_no);
         return isNaN(n) ? Number.MAX_SAFE_INTEGER : n;
     };
-    const members = [...byMember.keys()]
+    const members = [...calculatedByMember.keys()].filter(mid => [...(calculatedByMember.get(mid)?.values() || [])].some(amount => amount !== 0))
         .map(mid => memberById.get(mid))
         .sort((a, b) => (regKey(a) - regKey(b))
             || String(a.registration_no || '').localeCompare(String(b.registration_no || ''))
@@ -111,7 +123,7 @@ export async function getPaymentAdviseData(cooperativeId, user = null, filters =
             ? (m.special_id || regNo.padStart(4, '0'))
             : regNo.padStart(4, '0');
         const row = [idx + 1, memberId, fullName(m), m.status || 'Active'];
-        const advices = byMember.get(String(m.id)) || new Map();
+        const advices = calculatedByMember.get(String(m.id)) || new Map();
         let rowTotal = 0;
 
         activeEnts.forEach((ent, eIdx) => {

@@ -1080,6 +1080,9 @@ export async function renderMemberLedger(container, user) {
       return e
     })
 
+    const monthlyDebitTotal = entries.reduce((sum, entry) => sum + (entry.isRestricted ? 0 : Number(entry.dr) || 0), 0)
+    const monthlyCreditTotal = entries.reduce((sum, entry) => sum + (entry.isRestricted ? 0 : Number(entry.cr) || 0), 0)
+
     // Month payment indicator: per-month +ve (deposit) totals for the selected
     // year within the current member scope. Green = paid (>0), red = none (=0),
     // unstyled = 'All' or a future month.
@@ -1185,8 +1188,8 @@ export async function renderMemberLedger(container, user) {
     const listHtml = page.map(mobile ? mobileCard : desktopRow).join('')
 
     const bodyHtml = mobile
-      ? `<div class="lmv">${listHtml}</div>`
-      : `<div class="ldv"><div class="tc"><table class="styled-table"><thead><tr><th>Enterprise</th><th class="text-right">Opening (BBF)</th><th class="text-right">Debit (DR)</th><th class="text-right">Credit (CR)</th><th class="text-right">Closing</th></tr></thead><tbody>${listHtml}</tbody></table></div></div>`
+      ? `<div class="scards" style="grid-template-columns: repeat(2, minmax(0, 1fr));"><div class="scard"><div class="lbl">Monthly Debit (DR)</div><div class="val text-red">${formatCurrency(monthlyDebitTotal)}</div></div><div class="scard"><div class="lbl">Monthly Credit (CR)</div><div class="val text-green">${formatCurrency(monthlyCreditTotal)}</div></div></div><div class="lmv">${listHtml}</div>`
+      : `<div class="ldv"><div class="tc"><table class="styled-table"><thead><tr><th>Enterprise</th><th class="text-right">Opening (BBF)</th><th class="text-right">Debit (DR)</th><th class="text-right">Credit (CR)</th><th class="text-right">Closing</th></tr><tr style="background: var(--bg-card); font-weight: 800;"><th>Monthly Total</th><th class="text-right">—</th><th class="text-right text-red">${formatCurrency(monthlyDebitTotal)}</th><th class="text-right text-green">${formatCurrency(monthlyCreditTotal)}</th><th class="text-right">—</th></tr></thead><tbody>${listHtml}</tbody></table></div></div>`
 
     contentContainer.innerHTML = `
       ${summaryFilterBar}
