@@ -59,6 +59,23 @@ import { syncBus, SyncEvents } from './services/syncEventBus.js'
 
 const app = document.querySelector('#app')
 
+// Keep numeric inputs genuinely numeric across the app (including paste),
+// without interfering with normal editing/navigation keys.
+app?.addEventListener('keydown', (event) => {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || input.type !== 'number') return;
+  if (['e', 'E', '+'].includes(event.key) || (event.key === '-' && !(Number(input.min) < 0))) event.preventDefault();
+});
+app?.addEventListener('beforeinput', (event) => {
+  const input = event.target;
+  if (!(input instanceof HTMLInputElement) || input.type !== 'number' || !event.data) return;
+  const allowsNegative = Number(input.min) < 0;
+  const candidate = input.value.slice(0, input.selectionStart ?? input.value.length)
+    + event.data
+    + input.value.slice(input.selectionEnd ?? input.value.length);
+  if (!new RegExp(`^${allowsNegative ? '-?' : ''}\\d*(?:\\.\\d*)?$`).test(candidate)) event.preventDefault();
+});
+
 /**
  * Landing order for a just-logged-in user (first accessible tab wins):
  * Dashboard > Ledger > Remittance > Members > Reports > Reconciliation > Settings.
@@ -2260,7 +2277,7 @@ function renderDashboard() {
     members: 'Members',
     payments: 'Remittance',
     'bulk-remittance': 'Bulk Remittance',
-    ledger: 'Ledger',
+    ledger: 'Monthly & Yearly Summary',
     advice: 'Payment Advice',
     reports: 'Reports',
     reconciliation: 'Reconciliation',
@@ -2346,7 +2363,7 @@ function renderDashboard() {
           ${(state.welcomeUser.role === 'member' || hasPermission(state.welcomeUser.permissions, 'read_ledger')) ? `
             <button class="nav-item ${state.activeTab === 'ledger' ? 'active' : ''}" data-action="nav-tab" data-tab="ledger/summary">
               <span class="nav-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></span>
-              <span>Ledger</span>
+              <span>Monthly &amp; Yearly Summary</span>
             </button>
           ` : ''}
           ${state.welcomeUser.role === 'member' ? `
@@ -2439,7 +2456,7 @@ function renderDashboard() {
           ${(state.welcomeUser.role === 'member' || hasPermission(state.welcomeUser.permissions, 'read_ledger')) ? `
             <button class="bottom-nav-item ${state.activeTab === 'ledger' ? 'active' : ''}" data-action="nav-tab" data-tab="ledger/summary">
               <svg class="nav-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-              <span class="nav-label">Ledger</span>
+              <span class="nav-label">Summary</span>
             </button>
           ` : ''}
           ${state.welcomeUser.role === 'member' ? `
@@ -2479,7 +2496,23 @@ function renderDashboard() {
   saveSession(state.welcomeUser)
   renderDashboardContent()
   updateNavSelection()
-  
+
+  // Add experimental navigation only for authorised admins, after the normal
+  // shell exists. The guarded dynamic import keeps the preview optional.
+  const experimentalNavLoaders = import.meta.glob('./experimental/index.js')
+  const loadExperimentalNav = experimentalNavLoaders['./experimental/index.js']
+  const navUser = state.welcomeUser || {}
+  const isExperimentalAdmin = !!navUser.isAdmin
+    || String(navUser.role || '').toLowerCase() === 'admin'
+    || hasPermission(navUser.permissions, 'admin')
+    || String(navUser.username || '').toLowerCase() === 'admin'
+    || String(navUser.username || '').toLowerCase() === String(navUser.coopShortName || '').toLowerCase()
+  if (loadExperimentalNav && isExperimentalAdmin) {
+    loadExperimentalNav()
+      .then((experimental) => experimental.addExperimentalNavigation(state.welcomeUser))
+      .catch((err) => console.error('[experimental] navigation unavailable:', err))
+  }
+
   // Start periodic dashboard data refresh (only when idle)
   startDashboardAutoRefresh()
 
@@ -2952,6 +2985,27 @@ async function _renderDashboardContentInner() {
     return
   }
 
+  // --- Experimental preview pages (src/experimental/) ----------------------
+  // Loaded via import.meta.glob instead of a static import so the bundle has
+  // no hard edge to the folder: if src/experimental/ is removed, the glob
+  // returns no loader and the app simply falls back to the dashboard.
+  if (state.activeTab === 'experimental-ledger' || state.activeTab === 'experimental-loans') {
+    const experimentalLoaders = import.meta.glob('./experimental/index.js')
+    const loadExperimental = experimentalLoaders['./experimental/index.js']
+    if (loadExperimental) {
+      try {
+        const experimental = await loadExperimental()
+        await experimental.renderExperimentalPage(state.activeTab, container, displayUser)
+        return
+      } catch (err) {
+        console.error('[experimental] failed to render:', err)
+      }
+    }
+    state.activeTab = 'dashboard'
+    window.location.hash = 'dashboard'
+    return
+  }
+
   if (state.activeTab === 'members') {
     await renderMembers(container, displayUser)
   } else if (state.activeTab === 'dashboard') {
@@ -3032,7 +3086,7 @@ async function _renderDashboardContentInner() {
         : '';
       mobileTitleEl.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; padding-right: 0.5rem;">
-          <span style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); white-space: nowrap;">Ledger</span>
+          <span style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); white-space: nowrap;">Monthly &amp; Yearly Summary</span>
           ${isLedgerAdmin ? `
           <div style="position: relative; flex: 1; max-width: 150px;">
             <input type="text" id="ledger-member-search-mobile"

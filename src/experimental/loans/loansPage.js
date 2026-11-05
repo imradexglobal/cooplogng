@@ -26,7 +26,7 @@ import { errorHTML, loadingHTML, openDrawer, setMobileTitle, toast } from '../li
 import { exportLoansExcel } from '../lib/exportExcel.js'
 import { exportLoansPdf } from '../lib/exportPdf.js'
 import { openLoanDetail } from './loanDetail.js'
-import { invalidateLedgerCache, prefilterLedger } from '../ledger/ledgerPage.js'
+import { invalidateLedgerCache } from '../lib/ledgerData.js'
 import { hasPermission } from '../../services/permissionService.js'
 import { fetchBanks } from '../../services/data/banks.js'
 
@@ -364,7 +364,11 @@ function openLoan(loanId) {
     onApprove: confirmApproval,
     onDecline: confirmDecline,
     onOpenLedger(ref) {
-      prefilterLedger(ref)
+      try {
+        sessionStorage.setItem('xp-ledger-reference', String(ref || ''))
+      } catch {
+        // The ledger remains usable; only the optional reference prefilter is lost.
+      }
       window.location.hash = 'experimental-ledger'
     },
   })

@@ -1,15 +1,10 @@
-import { buildMemberLedger, fetchAllMembers, fetchRemittances, fetchEnterprises, fetchMemberLoans, approveLoanRequest, declineLoanRequest, deleteRemittance } from '../services/dataService.js'
+import { fetchAllMembers, fetchRemittances, fetchEnterprises } from '../services/dataService.js'
 import { hasPermission } from '../services/permissionService.js'
-import { queryRows } from '../services/sqliteService.js'
-import { formatCurrency, escapeHtml, formatDate, formatDateForInput, shortRef } from '../utils/formatters.js'
+import { formatCurrency, escapeHtml } from '../utils/formatters.js'
 
 if (!window.__ledgerFilters) {
   const now = new Date()
-  const sixMonthsAgo = new Date(now)
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
   window.__ledgerFilters = {
-    dateFrom: formatDateForInput(sixMonthsAgo),
-    dateTo: formatDateForInput(now),
     memberId: 'All',
     memberName: 'All Members (Global)'
   }
@@ -65,24 +60,10 @@ function loanStatusClass(status) {
   return 'status-badge status-gray'
 }
 
-async function getCoopFiscalStartMonth(cooperativeId) {
-  if (!cooperativeId) return 0
-  try {
-    const rows = await queryRows('SELECT coop_first_month FROM cooperatives WHERE id=?', [cooperativeId])
-    const raw = String(rows?.[0]?.coop_first_month || '').trim()
-    const parts = raw.split(/[-/T]/).filter(Boolean)
-    const month = Number(parts[0]?.length === 4 ? parts[1] : parts[0])
-    return Number.isInteger(month) && month >= 1 && month <= 12 ? month - 1 : 0
-  } catch {
-    return 0
-  }
-}
-
 export async function renderMemberLedger(container, user) {
   const currentYear = new Date().getFullYear().toString()
   const isAdmin = user.isAdmin || hasPermission(user.permissions, 'admin') || user.username?.toLowerCase() === 'admin'
   const isMember = user.role === 'member'
-  const fiscalStartMonth = await getCoopFiscalStartMonth(user.cooperativeId)
 
   // Consume a member selected from Members preview ("View Ledger").
   // The old top-of-module copy only ran once at import, so the pending id
@@ -308,28 +289,11 @@ export async function renderMemberLedger(container, user) {
     <div class="ledger-sticky-header">
       <div class="lhdr" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.6rem;">
         <div style="flex: 1; min-width: 200px;">
-          <h2 style="margin: 0; font-size: 1.3rem; font-weight: 800;">${isGlobalView() ? 'Cooperative Ledger' : 'Member Ledger'} <span id="ledger-member-ids" style="font-weight: 800; color: var(--accent-primary);"></span></h2>
+          <h2 style="margin: 0; font-size: 1.3rem; font-weight: 800;">Monthly &amp; Yearly Summary <span id="ledger-member-ids" style="font-weight: 800; color: var(--accent-primary);"></span></h2>
           <p class="sub" id="ledger-subtitle" style="margin: 0.25rem 0 0 0; color: var(--text-muted);"></p>
         </div>
 
         <div class="lfil" style="margin-bottom: 0; justify-content: flex-end; flex-wrap: wrap;">
-          <!-- Dates row (always inline) -->
-          <div class="lfil-dates">
-            <div class="fg">
-              <label>From</label>
-              <div class="dwrap">
-                <input type="date" id="ledger-date-from" value="${filters.dateFrom}">
-                <button type="button" class="ddisp" data-for="ledger-date-from" aria-label="Choose start date">${filters.dateFrom ? formatDate(filters.dateFrom) : 'Choose date'}</button>
-              </div>
-            </div>
-            <div class="fg">
-              <label>To</label>
-              <div class="dwrap">
-                <input type="date" id="ledger-date-to" value="${filters.dateTo}">
-                <button type="button" class="ddisp" data-for="ledger-date-to" aria-label="Choose end date">${filters.dateTo ? formatDate(filters.dateTo) : 'Choose date'}</button>
-              </div>
-            </div>
-          </div>
           <!-- Member selector: desktop only, hidden on mobile (search is in top bar) -->
           <div class="fg lhdr-member-desktop" style="min-width: 180px; max-width: 240px;">
             <label>Member</label>
@@ -341,30 +305,6 @@ export async function renderMemberLedger(container, user) {
         </div>
       </div>
 
-      <!-- Quick range presets: one tap fills From/To -->
-      <div class="lfil-presets" id="ledger-presets" role="group" aria-label="Quick date ranges">
-        <button type="button" class="lpreset" data-range="month">This Month</button>
-        <button type="button" class="lpreset" data-range="30d">Last 30 Days</button>
-        <button type="button" class="lpreset" data-range="6m">Last 6 Months</button>
-        <button type="button" class="lpreset" data-range="year">This Year</button>
-        <button type="button" class="lpreset" data-range="all">All Time</button>
-      </div>
-
-      <!-- Tab switcher -->
-      <div class="ltabs">
-        <button class="ltab" data-tab="tab-transactions">
-          <span class="tab-label-full">Transaction Ledger</span>
-          <span class="tab-label-short">Ledger</span>
-        </button>
-        <button class="ltab active" data-tab="tab-summary">
-          <span class="tab-label-full">Monthly/Yearly Summary</span>
-          <span class="tab-label-short">Summary</span>
-        </button>
-        <button class="ltab" data-tab="tab-loans">
-          <span class="tab-label-full">Loan Details</span>
-          <span class="tab-label-short">Loan</span>
-        </button>
-      </div>
     </div><!-- /.ledger-sticky-header -->
 
     <!-- Scrollable body -->
@@ -374,15 +314,6 @@ export async function renderMemberLedger(container, user) {
 
     </div><!-- /.ledger-outer -->
 
-    <div class="lmodal-overlay" id="loan-detail-overlay">
-      <div class="lmodal" role="dialog" aria-modal="true" aria-labelledby="loan-detail-title">
-        <div class="lmodal-hdr">
-          <h3 id="loan-detail-title">Loan Details</h3>
-          <button class="ghost-button" id="loan-detail-close" style="font-size: 1.2rem; padding: 0.2rem 0.5rem;">&times;</button>
-        </div>
-        <div class="lmodal-body" id="loan-detail-body"></div>
-      </div>
-    </div>
   `
 
   const contentContainer = document.getElementById('ledger-content')
@@ -457,141 +388,10 @@ export async function renderMemberLedger(container, user) {
     window.__ledgerPagingIO = io
   }
 
-  // --- Quick range presets ---------------------------------------------
-  function computePresetRange(id) {
-    const now = new Date()
-    const today = formatDateForInput(now)
-    if (id === 'month') return { from: formatDateForInput(new Date(now.getFullYear(), now.getMonth(), 1)), to: today }
-    if (id === '30d') { const d = new Date(now); d.setDate(d.getDate() - 29); return { from: formatDateForInput(d), to: today } }
-    if (id === '6m') { const d = new Date(now); d.setMonth(d.getMonth() - 6); return { from: formatDateForInput(d), to: today } }
-    if (id === 'year') {
-      const fiscalYear = now.getMonth() >= fiscalStartMonth ? now.getFullYear() : now.getFullYear() - 1
-      return { from: formatDateForInput(new Date(fiscalYear, fiscalStartMonth, 1)), to: today }
-    }
-    return { from: '', to: '' }
-  }
+  // This legacy route is summary-only; old transaction/loan subroutes land here.
+  window._activeLedgerTab = 'tab-summary'
 
-  function renderPresets() {
-    const from = filters.dateFrom || ''
-    const to = filters.dateTo || ''
-    container.querySelectorAll('.lpreset').forEach(btn => {
-      const r = computePresetRange(btn.dataset.range)
-      const isActive = r.from === from && r.to === to
-      btn.classList.toggle('active', isActive)
-      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false')
-    })
-  }
-
-  container.querySelectorAll('.lpreset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const range = computePresetRange(btn.dataset.range)
-      filters.dateFrom = range.from
-      filters.dateTo = range.to
-      const fromInput = document.getElementById('ledger-date-from')
-      const toInput = document.getElementById('ledger-date-to')
-      if (fromInput) fromInput.value = range.from
-      if (toInput) toInput.value = range.to
-      const fromDisp = container.querySelector('.ddisp[data-for="ledger-date-from"]')
-      const toDisp = container.querySelector('.ddisp[data-for="ledger-date-to"]')
-      if (fromDisp) fromDisp.textContent = range.from ? formatDate(range.from) : 'Choose date'
-      if (toDisp) toDisp.textContent = range.to ? formatDate(range.to) : 'Choose date'
-      renderPresets()
-      renderActiveTab()
-    })
-  })
-  renderPresets()
-
-  // --- Loan rows/cards -> detail sheet ----------------------------------
-  if (window.__ledgerLoanClickHandler) document.removeEventListener('click', window.__ledgerLoanClickHandler)
-  if (window.__ledgerLoanKeyHandler) document.removeEventListener('keydown', window.__ledgerLoanKeyHandler)
-  window.__ledgerLoanClickHandler = (e) => {
-    const el = e.target.closest?.('[data-loan-id]')
-    if (!el || !contentContainer.contains(el)) return
-    openLoanDetailModal(el.dataset.loanId)
-  }
-  window.__ledgerLoanKeyHandler = (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return
-    const el = e.target.closest?.('[data-loan-id]')
-    if (!el || !contentContainer.contains(el)) return
-    e.preventDefault()
-    openLoanDetailModal(el.dataset.loanId)
-  }
-  document.addEventListener('click', window.__ledgerLoanClickHandler)
-  document.addEventListener('keydown', window.__ledgerLoanKeyHandler)
-
-  document.getElementById('loan-detail-overlay').addEventListener('click', (e) => {
-    if (e.target.id === 'loan-detail-overlay') e.currentTarget.classList.remove('open')
-  })
-
-  let activeTabFromRoute = 'tab-summary'
-  if (user.routeParts && user.routeParts.length > 0) {
-    const route = user.routeParts[0]
-    if (route === 'transactions') activeTabFromRoute = 'tab-transactions'
-    else if (route === 'loans') activeTabFromRoute = 'tab-loans'
-    else if (route === 'summary') activeTabFromRoute = 'tab-summary'
-  }
-  window._activeLedgerTab = activeTabFromRoute
-
-  container.querySelectorAll('.ltab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === window._activeLedgerTab)
-  })
-
-  const switchTab = (tabId) => {
-    let subRoute = 'summary'
-    if (tabId === 'tab-transactions') subRoute = 'transactions'
-    else if (tabId === 'tab-loans') subRoute = 'loans'
-    window.location.hash = `ledger/${subRoute}`
-  }
-
-  container.querySelectorAll('.ltab').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab))
-  })
-
-  document.getElementById('loan-detail-close').addEventListener('click', () => {
-    document.getElementById('loan-detail-overlay').classList.remove('open')
-  })
-
-  function setupDatePicker(inputId) {
-    const hiddenInput = document.getElementById(inputId)
-    const displayInput = container.querySelector(`.ddisp[data-for="${inputId}"]`)
-    if (!hiddenInput || !displayInput) return
-
-    const updateDisplay = () => {
-      displayInput.textContent = hiddenInput.value ? formatDate(hiddenInput.value) : 'Choose date'
-    }
-
-    hiddenInput.addEventListener('change', () => {
-      updateDisplay()
-      if (hiddenInput.id === 'ledger-date-from') {
-        window.__ledgerFilters.dateFrom = hiddenInput.value
-        window.__ledgerFilters.dateTo = document.getElementById('ledger-date-to').value
-      } else {
-        window.__ledgerFilters.dateTo = hiddenInput.value
-        window.__ledgerFilters.dateFrom = document.getElementById('ledger-date-from').value
-      }
-      renderPresets()
-      renderActiveTab()
-    })
-
-    displayInput.addEventListener('click', () => {
-      if (typeof hiddenInput.showPicker === 'function') {
-        try {
-          hiddenInput.showPicker()
-          return
-        } catch {
-          // Some Chromium/Electron versions expose showPicker but reject it.
-          // Fall through to the native input click in that case.
-        }
-      }
-      hiddenInput.click()
-    })
-
-    updateDisplay()
-  }
-
-  setupDatePicker('ledger-date-from')
-  setupDatePicker('ledger-date-to')
-
+  let allMembersCache = null
   let allMembersCache = null
   let memberSearchTimeout = null
 
@@ -749,7 +549,7 @@ export async function renderMemberLedger(container, user) {
   window.addEventListener('mobile-ledger-member-search', window._currentMobileLedgerSearchHandler)
 
 
-  const _ledgerCacheKey = () => `${filters.dateFrom}|${filters.dateTo}|${filters.memberId}`
+  const _ledgerCacheKey = () => String(filters.memberId || 'All')
 
   async function _getCachedRemittances() {
     const cache = window.__ledgerDataCache
@@ -786,7 +586,6 @@ export async function renderMemberLedger(container, user) {
       window._activeLedgerTab === 'tab-summary'
         ? `${window.__summaryFilters.month}|${window.__summaryFilters.year}|${window.__ledgerShowZeroes ? 1 : 0}`
         : '',
-      window._activeLedgerTab === 'tab-loans' ? (window._loanStatusFilter || 'Active') : ''
     ].join('|')
     const isSameContext = key === pageKey
     if (!isSameContext) {
@@ -805,13 +604,7 @@ export async function renderMemberLedger(container, user) {
     }
 
     try {
-      if (window._activeLedgerTab === 'tab-transactions') {
-        await renderTransactionsTab()
-      } else if (window._activeLedgerTab === 'tab-summary') {
-        await renderSummaryTab()
-      } else if (window._activeLedgerTab === 'tab-loans') {
-        await renderLoansTab()
-      }
+      await renderSummaryTab()
     } catch (err) {
       contentContainer.innerHTML = `<div class="alert">Error: ${escapeHtml(err.message)}</div>`
     }
@@ -821,151 +614,10 @@ export async function renderMemberLedger(container, user) {
     const subtitleEl = document.getElementById('ledger-subtitle')
     if (!subtitleEl) return
     const viewLabel = isGlobalView()
-      ? `Showing <strong>${isAdmin ? 'Global' : 'Accessible'}</strong> Ledger`
-      : `Member: <strong style="color: var(--accent-primary);">${escapeHtml(filters.memberName)}</strong>`
+      ? `Showing <strong>${isAdmin ? 'Global' : 'Accessible'}</strong> summary`
+      : `Summary for <strong style="color: var(--accent-primary);">${escapeHtml(filters.memberName)}</strong>`
     const totalClass = Number(networth) < 0 ? 'text-red' : 'text-green'
     subtitleEl.innerHTML = `${viewLabel} | Total: <strong class="${totalClass}">${formatCurrency(networth)}</strong>`
-  }
-
-  async function renderTransactionsTab() {
-    const allRemittances = await _getCachedRemittances()
-    let filtered = allRemittances.filter(r => r.status === 'Approved')
-
-    const fromDate = filters.dateFrom ? new Date(filters.dateFrom + 'T00:00:00') : null
-    const toDate = filters.dateTo ? new Date(filters.dateTo + 'T23:59:59') : null
-
-    if (fromDate && toDate) {
-      filtered = filtered.filter(r => {
-        const d = new Date(r.remittance_date)
-        return d >= fromDate && d <= toDate
-      })
-    }
-
-    if (!isGlobalView()) {
-      filtered = filtered.filter(r => String(r.member_id) === String(filters.memberId))
-    }
-
-    // Chronological entry order follows creation time, id breaks same-ms ties.
-    filtered.sort((a, b) => {
-      const c = String(a.created_at || '').localeCompare(String(b.created_at || ''));
-      if (c !== 0) return c;
-      return String(a.id).localeCompare(String(b.id));
-    })
-
-    let openingBalance = 0
-    allRemittances.filter(r => r.status === 'Approved').forEach(r => {
-      const d = new Date(r.remittance_date)
-      if (fromDate && d < fromDate) {
-        if (isGlobalView() || String(r.member_id) === String(filters.memberId)) {
-          openingBalance += (r.amount || 0)
-        }
-      }
-    })
-
-    let runningBalance = openingBalance
-    let totalDebit = 0
-    let totalCredit = 0
-
-    // Totals and the running balance always cover the FULL result set;
-    // only the visible page is rendered below.
-    const rows = filtered.map(r => {
-      const amt = r.amount || 0
-      if (amt < 0) totalDebit += Math.abs(amt)
-      else totalCredit += amt
-      runningBalance += amt
-      return { r, amt, balance: runningBalance }
-    })
-
-    updateSubtitle(runningBalance)
-
-    const page = paginate(rows)
-    const mobile = isMobileViewport()
-
-    const desktopRow = ({ r, amt, balance }) => `
-        <tr>
-          <td>${formatDate(r.remittance_date)}</td>
-          <td>${shortRef(r.id)}</td>
-          <td class="${amt < 0 ? 'text-red' : 'text-green'}">${escapeHtml(r.transaction_type || '')}</td>
-          <td>${escapeHtml(r.description || '')}</td>
-          <td>${escapeHtml(r.bank_name || '')}</td>
-          <td class="text-right text-red">${amt < 0 ? formatCurrency(Math.abs(amt)) : ''}</td>
-          <td class="text-right text-green">${amt >= 0 ? formatCurrency(amt) : ''}</td>
-          <td class="text-right ${balance < 0 ? 'text-red' : ''}">${formatCurrency(balance)}</td>
-        </tr>`
-
-    const mobileCard = ({ r, amt, balance }) => `
-        <div class="lmc lmc-tx">
-          <div class="lch lch-row">
-            <span class="ltype ${amt < 0 ? 't-debit' : 't-credit'}">${escapeHtml(r.transaction_type || (amt < 0 ? 'Debit' : 'Credit'))}</span>
-            <span class="ldate">${formatDate(r.remittance_date)}</span>
-          </div>
-          ${r.description ? `<div class="ldesc">${escapeHtml(r.description)}</div>` : ''}
-          <div class="lmeta">
-            <span>${shortRef(r.id)}</span>
-            ${r.bank_name ? `<span>${escapeHtml(r.bank_name)}</span>` : ''}
-          </div>
-          <div class="lcg lcg-3">
-            <div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${amt < 0 ? formatCurrency(Math.abs(amt)) : '—'}</span></div>
-            <div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${amt > 0 ? formatCurrency(amt) : '—'}</span></div>
-            <div class="ls"><span class="sl">Balance</span><span class="sv ${balance < 0 ? 'text-red' : ''}">${formatCurrency(balance)}</span></div>
-          </div>
-        </div>`
-
-    const emptyState = mobile
-      ? '<div class="card" style="width: 100%; padding: 1rem; color: var(--text-muted); text-align: center; border: 1px solid var(--border-light); background: var(--bg-card); font-size: 0.85rem;">No transactions found for this period.</div>'
-      : '<tr><td colspan="8" style="text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem;">No transactions found for this period.</td></tr>'
-
-    const listHtml = page.length === 0
-      ? emptyState
-      : page.map(mobile ? mobileCard : desktopRow).join('')
-
-    const tableHtml = `
-      <div class="ldv">
-        <div class="tc">
-          <table class="styled-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Ref ID</th>
-                <th>Type</th>
-                <th>Description</th>
-                <th>Bank</th>
-                <th class="text-right">Debit</th>
-                <th class="text-right">Credit</th>
-                <th class="text-right">Balance</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colspan="7" style="background: var(--bg-hover, var(--bg-secondary)); font-weight: bold; font-size: 0.75rem;">OPENING BALANCE</td>
-                <td class="text-right ${openingBalance < 0 ? 'text-red' : ''}" style="background: var(--bg-hover, var(--bg-secondary)); font-weight: bold;">${formatCurrency(openingBalance)}</td>
-              </tr>
-              ${listHtml}
-            </tbody>
-          </table>
-        </div>
-      </div>`
-
-    const cardsHtml = `
-      <div class="lmv">
-        <div class="lmc" style="background: var(--bg-hover, var(--bg-secondary));"><div class="lch">OPENING BALANCE</div>
-        <div class="lcg">
-          <div class="ls"><span class="sl">Balance</span><span class="sv ${openingBalance < 0 ? 'text-red' : ''}">${formatCurrency(openingBalance)}</span></div>
-        </div></div>
-        ${listHtml}
-      </div>`
-
-    contentContainer.innerHTML = `
-      <div class="scards">
-        <div class="scard"><div class="lbl">Opening Balance</div><div class="val ${openingBalance < 0 ? 'text-red' : ''}">${formatCurrency(openingBalance)}</div></div>
-        <div class="scard"><div class="lbl">Total Debit</div><div class="val text-red">${formatCurrency(totalDebit)}</div></div>
-        <div class="scard"><div class="lbl">Total Credit</div><div class="val text-green">${formatCurrency(totalCredit)}</div></div>
-        <div class="scard"><div class="lbl">Closing Balance</div><div class="val ${runningBalance < 0 ? 'text-red' : ''}">${formatCurrency(runningBalance)}</div></div>
-      </div>
-      ${mobile ? cardsHtml : tableHtml}
-      ${pagingFooter(page.length, rows.length)}
-    `
-    bindPaging()
   }
 
   async function renderSummaryTab() {
@@ -1197,273 +849,6 @@ export async function renderMemberLedger(container, user) {
       ${pagingFooter(page.length, entries.length)}
     `
     bindSummaryControls()
-    bindPaging()
-  }
-
-  async function openLoanDetailModal(loanId) {
-    const overlay = document.getElementById('loan-detail-overlay')
-    const body = document.getElementById('loan-detail-body')
-    const title = document.getElementById('loan-detail-title')
-    if (!overlay || !body) return
-
-    body.innerHTML = '<div style="padding: 1rem; text-align: center; color: var(--text-muted);">Loading loan details...</div>'
-    overlay.classList.add('open')
-
-    try {
-      const loans = await fetchMemberLoans(user.cooperativeId, null)
-      const loan = loans.find(l => String(l.id) === String(loanId))
-      if (!loan) {
-        body.innerHTML = '<div class="alert" style="margin: 0.5rem;">Loan record not found.</div>'
-        return
-      }
-
-      title.textContent = `Loan Details - ${escapeHtml(loan.enterprise_name || 'Unknown')}`
-
-      const allRemits = await fetchRemittances(user.cooperativeId, user)
-      const loanRemits = allRemits.filter(r => String(r.loan_id) === String(loanId) && !r.is_deleted)
-
-      const charges = []
-      for (const rem of loanRemits) {
-        for (const d of (rem.details || [])) {
-          const amt = parseFloat(d.amount || 0)
-          if (amt < 0) {
-            charges.push({
-              description: d.auto_description || d.notes || 'Charge',
-              amount: Math.abs(amt)
-            })
-          }
-        }
-      }
-      const totalCharges = charges.reduce((s, c) => s + c.amount, 0)
-
-      const guarantors = loan.guarantors || []
-      const principal = parseFloat(loan.principal_amount || 0)
-      const duration = parseInt(loan.duration_months) || 1
-      const monthlyPayback = roundUpTo100(principal / duration)
-
-      const status = loan.status || 'Unknown'
-      const isPending = status === 'Pending'
-
-      let html = `
-        <div class="section">
-          <div class="s-title">Basic Info</div>
-          <div class="s-row"><span>Status</span><span><span class="${loanStatusClass(status)}">${escapeHtml(status.toUpperCase())}</span></span></div>
-          <div class="s-row"><span>Enterprise</span><span style="font-weight:600">${escapeHtml(loan.enterprise_name || '')}</span></div>
-          <div class="s-row"><span>Member</span><span>${escapeHtml(loan.member_name || 'Unknown')} (${escapeHtml(loan.member_registration_no || '')})</span></div>
-          <div class="s-row"><span>Principal</span><span style="font-weight:700">${formatCurrency(principal)}</span></div>
-          <div class="s-row"><span>Duration</span><span>${duration} month${duration > 1 ? 's' : ''}</span></div>
-          <div class="s-row"><span>Monthly Payback</span><span style="font-weight:700">${formatCurrency(monthlyPayback)}</span></div>
-          <div class="s-row"><span>Issued Date</span><span>${formatDate(loan.issued_date)}</span></div>
-          <div class="s-row"><span>Due Date</span><span>${formatDate(loan.due_date)}</span></div>
-          <div class="s-row"><span>Outstanding Balance</span><span class="text-red" style="font-weight:700">${formatCurrency(loan.outstanding_balance || 0)}</span></div>
-        </div>
-      `
-
-      if (charges.length > 0) {
-        html += `
-          <div class="section">
-            <div class="s-title">Charges (${charges.length})</div>
-            <div class="charges-list">
-              ${charges.map(c => `<div class="s-row"><span>${escapeHtml(c.description)}</span><span class="text-red">${formatCurrency(c.amount)}</span></div>`).join('')}
-              <div class="s-row" style="font-weight:700;border-top:2px solid var(--border-medium);margin-top:0.25rem;padding-top:0.35rem;">
-                <span>Total Charges</span><span class="text-red">${formatCurrency(totalCharges)}</span>
-              </div>
-            </div>
-          </div>`
-      } else {
-        html += `<div class="section"><div class="s-title">Charges</div><div style="font-size:0.8rem;color:var(--text-muted);padding:0.25rem 0;">No charges recorded.</div></div>`
-      }
-
-      if (guarantors.length > 0) {
-        html += `
-          <div class="section">
-            <div class="s-title">Guarantors (${guarantors.length})</div>
-            ${guarantors.map(g => `
-              <div class="s-row">
-                <span>${escapeHtml(g.member_name || g.member_id || 'Unknown')}</span>
-                <span style="font-weight:600">${formatCurrency(parseFloat(g.guarantee_amount || g.amount || 0))}</span>
-              </div>
-            `).join('')}
-          </div>`
-      } else {
-        html += `<div class="section"><div class="s-title">Guarantors</div><div style="font-size:0.8rem;color:var(--text-muted);padding:0.25rem 0;">No guarantors.</div></div>`
-      }
-
-      html += `<div class="lmodal-actions">`
-
-      if (isPending && isAdmin) {
-        html += `
-          <button class="primary-button" id="loan-act-approve" style="font-size:0.8rem;padding:0.4rem 0.8rem;">Approve Loan</button>
-          <button class="secondary-button" id="loan-act-decline" style="font-size:0.8rem;padding:0.4rem 0.8rem;background:var(--danger-bg,#fee2e2);color:var(--danger,#dc2626);border:1px solid var(--danger,#dc2626);">Decline Loan</button>`
-      }
-
-      html += `</div>`
-
-      body.innerHTML = html
-
-      const remittanceId = loan.remittance_id || loan.id
-
-      document.getElementById('loan-act-approve')?.addEventListener('click', async () => {
-        if (!confirm('Approve this loan? This will activate the loan and generate payment advice.')) return
-        try {
-          document.getElementById('loan-act-approve').disabled = true
-          await approveLoanRequest(remittanceId, user.username)
-          overlay.classList.remove('open')
-          renderActiveTab()
-        } catch (err) {
-          alert('Approval failed: ' + err.message)
-        }
-      })
-
-      document.getElementById('loan-act-decline')?.addEventListener('click', async () => {
-        const reason = prompt('Enter decline reason (optional):')
-        if (reason === null) return
-        if (!confirm('Decline this loan? This cannot be undone.')) return
-        try {
-          document.getElementById('loan-act-decline').disabled = true
-          await declineLoanRequest(remittanceId, user.username)
-          overlay.classList.remove('open')
-          renderActiveTab()
-        } catch (err) {
-          alert('Decline failed: ' + err.message)
-        }
-      })
-
-      // Delete action hidden in ledger for everyone (no delete button rendered).
-
-    } catch (err) {
-      body.innerHTML = `<div class="alert" style="margin:0.5rem;">Error: ${escapeHtml(err.message)}</div>`
-    }
-  }
-
-  async function renderLoansTab() {
-    let loans = await fetchMemberLoans(user.cooperativeId, isGlobalView() ? null : filters.memberId)
-
-    const fromDate = filters.dateFrom ? new Date(filters.dateFrom + 'T00:00:00') : null
-    const toDate = filters.dateTo ? new Date(filters.dateTo + 'T23:59:59') : null
-
-    if (fromDate && toDate) {
-      loans = loans.filter(l => {
-        const d = new Date(l.issued_date)
-        return d >= fromDate && d <= toDate
-      })
-    }
-
-    if (!window._loanStatusFilter) window._loanStatusFilter = 'Active'
-
-    const filterHtml = `
-      <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;background:var(--bg-card);padding:0.5rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border-light);flex-wrap:wrap;">
-        <label style="font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Status:</label>
-        <select id="loan-status-filter" style="padding:0.25rem 0.4rem;border-radius:var(--radius-sm);border:1px solid var(--border-medium);background:var(--bg-input);color:var(--text-primary);font-size:0.75rem;">
-          <option value="Active" ${window._loanStatusFilter === 'Active' ? 'selected' : ''}>Active</option>
-          <option value="All" ${window._loanStatusFilter === 'All' ? 'selected' : ''}>All</option>
-          <option value="Completed" ${window._loanStatusFilter === 'Completed' ? 'selected' : ''}>Completed</option>
-          <option value="Overdue" ${window._loanStatusFilter === 'Overdue' ? 'selected' : ''}>Overdue</option>
-          <option value="Pending" ${window._loanStatusFilter === 'Pending' ? 'selected' : ''}>Pending</option>
-          <option value="Declined" ${window._loanStatusFilter === 'Declined' ? 'selected' : ''}>Declined</option>
-        </select>
-      </div>
-    `
-
-    if (window._loanStatusFilter !== 'All') {
-      loans = loans.filter(l => (l.status || 'Active') === window._loanStatusFilter)
-    }
-
-    const totalOutstanding = loans.reduce((sum, l) => sum + (l.outstanding_balance || 0), 0)
-    updateSubtitle(totalOutstanding)
-
-    if (loans.length === 0) {
-      contentContainer.innerHTML = `
-        <style>.status-badge{padding:0.2rem 0.4rem;border-radius:3px;font-size:0.65rem;font-weight:700;}.status-green{background:#dcfce7;color:#166534;}.status-red{background:#fee2e2;color:#991b1b;}.status-amber{background:#fef3c7;color:#92400e;}.status-gray{background:#f3f4f6;color:#374151;}</style>
-        ${filterHtml}
-        <div class="card" style="width:100%;padding:1rem;color:var(--text-muted);text-align:center;border:1px solid var(--border-light);background:var(--bg-card);font-size:0.85rem;">No loan records matching the filters.</div>`
-      contentContainer.querySelector('#loan-status-filter').addEventListener('change', (e) => {
-        window._loanStatusFilter = e.target.value
-        renderActiveTab()
-      })
-      return
-    }
-
-    const page = paginate(loans)
-    const mobile = isMobileViewport()
-
-    const desktopRow = (l) => {
-      const status = l.status || 'Active'
-      const statusClass = loanStatusClass(status)
-      return `
-        <tr data-loan-id="${l.id}">
-          <td>${formatDate(l.issued_date)}</td>
-          <td>
-            <div style="font-weight:700;">${escapeHtml(l.enterprise_name || '')}</div>
-            <div style="font-size:0.65rem;color:var(--text-muted);font-weight:normal;">${escapeHtml(l.member_registration_no || '')} - ${escapeHtml(l.member_name || 'Unknown')}</div>
-          </td>
-          <td class="text-right">${formatCurrency(l.principal_amount)}</td>
-          <td class="text-right" style="color:var(--text-muted);">${formatCurrency(l.admin_fees || 0)}</td>
-          <td class="text-right text-red" style="font-weight:700;">${formatCurrency(l.outstanding_balance)}</td>
-          <td>${formatDate(l.issued_date)}</td>
-          <td style="text-align:center;">${l.duration_months || 'N/A'}</td>
-          <td>${formatDate(l.due_date)}</td>
-          <td style="text-align:center;"><span class="${statusClass}">${escapeHtml(status.toUpperCase())}</span></td>
-        </tr>`
-    }
-
-    const mobileCard = (l) => {
-      const status = l.status || 'Active'
-      const statusClass = loanStatusClass(status)
-      return `
-        <div class="lmc lmc-loan" data-loan-id="${l.id}" role="button" tabindex="0" style="cursor:pointer;">
-          <div class="lch lch-row">
-            <span class="lname">${escapeHtml(l.enterprise_name || 'Loan')}</span>
-            <span class="${statusClass}">${escapeHtml(status.toUpperCase())}</span>
-          </div>
-          <div class="lsub">${escapeHtml(l.member_name || 'Unknown')}${l.member_registration_no ? ` · ${escapeHtml(l.member_registration_no)}` : ''}</div>
-          <div class="lmeta">
-            <span>Issued ${formatDate(l.issued_date)}</span>
-            <span>${l.duration_months ? `${l.duration_months} mo` : '—'}</span>
-          </div>
-          <div class="lcg lcg-3">
-            <div class="ls"><span class="sl">Principal</span><span class="sv">${formatCurrency(l.principal_amount)}</span></div>
-            <div class="ls"><span class="sl text-red">Outstanding</span><span class="sv text-red">${formatCurrency(l.outstanding_balance || 0)}</span></div>
-            <div class="ls"><span class="sl">Due Date</span><span class="sv">${formatDate(l.due_date)}</span></div>
-          </div>
-        </div>`
-    }
-
-    const listHtml = page.map(mobile ? mobileCard : desktopRow).join('')
-
-    const bodyHtml = mobile
-      ? `<div class="lmv">${listHtml}</div>`
-      : `<div class="ldv">
-          <div class="tc">
-            <table class="styled-table">
-              <thead>
-                <tr>
-                  <th>Loan Date</th>
-                  <th>Type / Enterprise</th>
-                  <th class="text-right">Principal</th>
-                  <th class="text-right">Admin Fees</th>
-                  <th class="text-right">Outstanding</th>
-                  <th>Start Date</th>
-                  <th style="text-align:center;">Duration</th>
-                  <th>End Date</th>
-                  <th style="text-align:center;">Status</th>
-                </tr>
-              </thead>
-              <tbody>${listHtml}</tbody>
-            </table>
-          </div>
-        </div>`
-
-    contentContainer.innerHTML = `
-      <style>.status-badge{padding:0.2rem 0.4rem;border-radius:3px;font-size:0.65rem;font-weight:700;}.status-green{background:#dcfce7;color:#166534;}.status-red{background:#fee2e2;color:#991b1b;}.status-amber{background:#fef3c7;color:#92400e;}.status-gray{background:#f3f4f6;color:#374151;}</style>
-      ${filterHtml}
-      ${bodyHtml}
-      ${pagingFooter(page.length, loans.length)}`
-
-    contentContainer.querySelector('#loan-status-filter').addEventListener('change', (e) => {
-      window._loanStatusFilter = e.target.value
-      renderActiveTab()
-    })
     bindPaging()
   }
 

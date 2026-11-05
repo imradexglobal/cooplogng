@@ -14,40 +14,40 @@
   --xp-font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue",
     Arial, sans-serif;
 
-  --xp-bg: #f4f6f9;
-  --xp-surface: #ffffff;
-  --xp-surface-2: #fafbfd;
-  --xp-surface-3: #f0f3f7;
-  --xp-border: #e4e8ee;
-  --xp-border-strong: #d2d8e1;
-  --xp-text: #14161b;
-  --xp-text-2: #4c5462;
-  --xp-text-3: #838d9c;
+  --xp-bg: var(--bg-main, #f8fafc);
+  --xp-surface: var(--bg-card, #ffffff);
+  --xp-surface-2: var(--bg-input, #ffffff);
+  --xp-surface-3: var(--bg-secondary, #f1f5f9);
+  --xp-border: var(--border-light, rgba(15, 23, 42, 0.08));
+  --xp-border-strong: var(--border-medium, #e2e8f0);
+  --xp-text: var(--text-primary, #0f172a);
+  --xp-text-2: var(--text-secondary, #475569);
+  --xp-text-3: var(--text-muted, #64748b);
 
-  --xp-accent: #2b64d6;
-  --xp-accent-2: #1e4fae;
-  --xp-accent-soft: #eaf1ff;
-  --xp-accent-border: #c7d9fb;
+  --xp-accent: var(--accent-primary, #3b82f6);
+  --xp-accent-2: var(--accent-hover, #2563eb);
+  --xp-accent-soft: var(--accent-soft, rgba(59, 130, 246, 0.1));
+  --xp-accent-border: color-mix(in srgb, var(--xp-accent) 35%, var(--xp-surface));
 
-  --xp-credit: #0b7a52;
-  --xp-credit-soft: #e6f6ef;
-  --xp-credit-border: #bfe8d7;
-  --xp-debit: #c93a3a;
-  --xp-debit-soft: #fdecec;
-  --xp-debit-border: #f7cfcf;
+  --xp-credit: var(--success, #16a34a);
+  --xp-credit-soft: var(--success-bg, #dcfce7);
+  --xp-credit-border: color-mix(in srgb, var(--xp-credit) 35%, var(--xp-surface));
+  --xp-debit: var(--danger, #dc2626);
+  --xp-debit-soft: var(--danger-bg, #fef2f2);
+  --xp-debit-border: color-mix(in srgb, var(--xp-debit) 35%, var(--xp-surface));
 
-  --xp-warn: #9a6700;
-  --xp-warn-soft: #fdf4e3;
-  --xp-warn-border: #f3e0b3;
-  --xp-info: #0b6c8f;
-  --xp-info-soft: #e6f4fa;
-  --xp-info-3: #c3e4f2;
-  --xp-neutral-soft: #eef1f5;
-  --xp-neutral-border: #dde3ea;
+  --xp-warn: var(--warning, #d97706);
+  --xp-warn-soft: var(--warning-bg, #fef3c7);
+  --xp-warn-border: color-mix(in srgb, var(--xp-warn) 35%, var(--xp-surface));
+  --xp-info: var(--accent-primary, #3b82f6);
+  --xp-info-soft: var(--accent-soft, rgba(59, 130, 246, 0.1));
+  --xp-info-3: color-mix(in srgb, var(--xp-info) 30%, var(--xp-surface));
+  --xp-neutral-soft: var(--bg-secondary, #f1f5f9);
+  --xp-neutral-border: var(--border-medium, #e2e8f0);
 
-  --xp-shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --xp-shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 8px 24px -16px rgba(16, 24, 40, 0.25);
-  --xp-shadow-lg: 0 18px 48px -24px rgba(16, 24, 40, 0.35);
+  --xp-shadow-sm: var(--shadow-sm, 0 1px 2px rgba(16, 24, 40, 0.05));
+  --xp-shadow: var(--shadow-md, 0 1px 3px rgba(16, 24, 40, 0.08));
+  --xp-shadow-lg: var(--shadow-lg, 0 18px 48px -24px rgba(16, 24, 40, 0.35));
 
   --xp-radius: 14px;
   --xp-radius-sm: 9px;
@@ -55,41 +55,14 @@
   --xp-focus: 0 0 0 3px rgba(43, 100, 214, 0.22);
 }
 
-html[data-theme="dark"] .xp {
-  --xp-bg: #0e1014;
-  --xp-surface: #161a21;
-  --xp-surface-2: #1b2029;
-  --xp-surface-3: #212734;
-  --xp-border: #262c37;
-  --xp-border-strong: #333b49;
-  --xp-text: #eef1f6;
-  --xp-text-2: #aeb7c6;
-  --xp-text-3: #7b8598;
+html[data-theme="dark"] .xp,
+html[data-theme="dark"] .xp-drawer {
+  color-scheme: dark;
+}
 
-  --xp-accent: #6a9bff;
-  --xp-accent-2: #8bb2ff;
-  --xp-accent-soft: rgba(106, 155, 255, 0.14);
-  --xp-accent-border: rgba(106, 155, 255, 0.35);
-
-  --xp-credit: #46d19a;
-  --xp-credit-soft: rgba(70, 209, 154, 0.13);
-  --xp-credit-border: rgba(70, 209, 154, 0.32);
-  --xp-debit: #ff7b72;
-  --xp-debit-soft: rgba(255, 123, 114, 0.13);
-  --xp-debit-border: rgba(255, 123, 114, 0.32);
-
-  --xp-warn: #f0b45e;
-  --xp-warn-soft: rgba(240, 180, 94, 0.13);
-  --xp-warn-border: rgba(240, 180, 94, 0.32);
-  --xp-info: #63c3e8;
-  --xp-info-soft: rgba(99, 195, 232, 0.13);
-  --xp-info-3: rgba(99, 195, 232, 0.3);
-  --xp-neutral-soft: #212734;
-  --xp-neutral-border: #2e3542;
-
-  --xp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --xp-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 10px 28px -18px rgba(0, 0, 0, 0.8);
-  --xp-shadow-lg: 0 22px 56px -26px rgba(0, 0, 0, 0.9);
+html:not([data-theme="dark"]) .xp,
+html:not([data-theme="dark"]) .xp-drawer {
+  color-scheme: light;
 }
 
 /* ------------------------------------------------------------------ shell */
@@ -299,6 +272,21 @@ html[data-theme="dark"] .xp-btn-primary {
 
 .xp-select {
   cursor: pointer;
+}
+
+.xp input[type="date"],
+.xp-drawer input[type="date"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  color-scheme: inherit;
+  cursor: pointer;
+  min-height: 2.45rem;
+}
+
+.xp input[type="date"]::-webkit-calendar-picker-indicator,
+.xp-drawer input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.85;
 }
 
 .xp-chip-row {

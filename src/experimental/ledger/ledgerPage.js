@@ -922,6 +922,16 @@ async function refreshPage(container) {
 export async function renderLedgerPage(container, user) {
   state.user = user
 
+  try {
+    const linkedRef = sessionStorage.getItem('xp-ledger-reference') || ''
+    if (linkedRef) {
+      state.prefillRef = linkedRef
+      sessionStorage.removeItem('xp-ledger-reference')
+    }
+  } catch {
+    // Storage may be unavailable in restricted browser contexts.
+  }
+
   if (state.prefillRef) {
     state.filters.refSearch = state.prefillRef
     state.prefillRef = ''

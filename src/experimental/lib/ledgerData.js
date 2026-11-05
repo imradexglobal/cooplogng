@@ -211,6 +211,9 @@ export function computeLedger(rows, filters) {
 
   let opening = 0
   for (const r of scoped) {
+    // With no lower date bound, the selected period begins at the start of
+    // available history, so nothing belongs in the opening balance.
+    if (!from) continue
     if (r.status !== 'Approved') continue
     if (from && r.date >= from) continue
     if (to && r.date > to) continue

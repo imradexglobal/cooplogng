@@ -449,7 +449,7 @@ export function showBulkRemittanceModal(deps) {
         .bulk-page-shell .bulk-varied-row:last-child { border-bottom: 0; }
         .bulk-page-shell .bulk-varied-row:hover { background: color-mix(in srgb, var(--accent-primary) 4%, transparent); }
         .bulk-page-shell .bulk-varied-row input, .bulk-page-shell .bulk-varied-row select { width: 100%; min-width: 0; min-height: 2.25rem; padding: 0 .55rem; border: 1px solid var(--border-light); border-radius: .55rem; background: var(--bg-input); color: var(--text-primary); font-size: .78rem; }
-        .bulk-page-shell .bulk-varied-row .bulk-row-date { padding-right: 2rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5v14z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .55rem center; background-size: 1rem; cursor: pointer; }
+        .bulk-page-shell .bulk-varied-row .bulk-row-date { padding-right: 2rem; background-image: none !important; background-repeat: no-repeat; background-position: right .55rem center; background-size: 1rem; cursor: pointer; }
         .bulk-page-shell .bulk-varied-row .bulk-row-bank { padding-right: 1.8rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .45rem center; background-size: .9rem; }
         .bulk-page-shell .bulk-varied-row input:disabled, .bulk-page-shell .bulk-varied-row select:disabled { opacity: .5; cursor: not-allowed; background: var(--bg-secondary); }
         .bulk-page-shell .bulk-varied-row input:focus, .bulk-page-shell .bulk-members-toolbar input:focus { outline: 2px solid color-mix(in srgb, var(--accent-primary) 25%, transparent); border-color: var(--accent-primary); }
@@ -471,7 +471,7 @@ export function showBulkRemittanceModal(deps) {
         .bulk-page-shell .bulk-bottom-note { display: inline-flex; align-items: center; gap: .6rem; max-width: 42rem; font-size: .76rem; line-height: 1.35; color: var(--text-muted); }
         .bulk-page-shell .bulk-bottom-note-icon { display: inline-grid; place-items: center; flex: 0 0 auto; width: 1.55rem; height: 1.55rem; border: 1px solid color-mix(in srgb, var(--accent-primary) 25%, var(--border-light)); border-radius: 50%; color: var(--accent-primary); font-size: .72rem; font-weight: 800; }
         .bulk-page-shell .bulk-bottom-actions { display: flex; align-items: center; gap: .65rem; flex: 0 0 auto; }
-        .bulk-page-shell .bulk-bottom-actions #bulk-create { min-width: 10.5rem; min-height: 2.65rem; border-radius: .7rem; font-weight: 800; box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-primary) 22%, transparent); }
+        .bulk-page-shell #bulk-create { min-width: 10.5rem; min-height: 2.65rem; border-radius: .7rem; font-weight: 800; box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-primary) 22%, transparent); }
         @media (max-width: 900px) { .bulk-page-shell .bulk-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bulk-page-shell .bulk-table-head, .bulk-page-shell .bulk-varied-row { grid-template-columns: 24px minmax(150px, 1.2fr) 100px 125px 130px minmax(130px, 1fr) 28px; } }
         @media (min-width: 681px) { .bulk-page-shell #bulk-body { display: grid !important; grid-template-columns: minmax(430px, .9fr) minmax(0, 1.4fr); align-items: start; gap: 1.25rem; } .bulk-page-shell #bulk-panel-tabs { display: none !important; } .bulk-page-shell #bulk-multi-wrap { min-width: 0; width: 100%; margin: 0; } .bulk-page-shell .bulk-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; } .bulk-page-shell .bulk-description-field { grid-column: 1 / -1; } }
         @media (max-width: 680px) { .bulk-page-shell #bulk-body { display: flex !important; } .bulk-page-shell #bulk-panel-tabs { display: flex; gap: .5rem; position: sticky; top: -1px; z-index: 2; padding: .35rem; border: 1px solid var(--border-light); border-radius: .75rem; background: var(--bg-card); } .bulk-page-shell #bulk-panel-tabs button { flex: 1; min-height: 2.6rem; border: 0; border-radius: .55rem; background: transparent; color: var(--text-muted); font-weight: 750; cursor: pointer; } .bulk-page-shell #bulk-panel-tabs button[aria-selected="true"] { background: var(--accent-primary); color: #fff; } .bulk-page-shell #bulk-body[data-mobile-panel="setup"] #bulk-multi-wrap, .bulk-page-shell #bulk-body[data-mobile-panel="members"] .bulk-settings-card { display: none !important; } .bulk-page-shell .bulk-settings-grid { grid-template-columns: 1fr; } .bulk-page-shell .bulk-table-head { display: none; } .bulk-page-shell .bulk-varied-row { grid-template-columns: 24px 1fr 1fr 1fr; gap: .45rem; padding: .8rem; } .bulk-page-shell .bulk-member-name { grid-column: 2 / -1; } .bulk-page-shell .bulk-row-desc { grid-column: 2 / -1; } .bulk-page-shell .bulk-duplicate-row { grid-column: 1; grid-row: 3; } .bulk-page-shell .bulk-bottom-bar { flex-direction: column; align-items: stretch !important; } .bulk-page-shell .bulk-bottom-bar > div { justify-content: stretch; } .bulk-page-shell .bulk-bottom-bar button { flex: 1; } }
@@ -482,7 +482,7 @@ export function showBulkRemittanceModal(deps) {
             ${deps.standalone ? '<div class="bulk-title-mark">↗</div>' : ''}
             <div><h3>Bulk Remittance</h3>${deps.standalone ? '<p>Create many member remittances with one controlled workflow.</p>' : ''}</div>
           </div>
-          ${deps.standalone ? '<div class="bulk-save-badge"><span class="bulk-save-dot"></span> Draft saves automatically</div>' : ''}
+          ${deps.standalone ? '<div style="display:flex; align-items:center; gap:.75rem;"><div class="bulk-save-badge"><span class="bulk-save-dot"></span> Draft saves automatically</div><button type="button" id="bulk-create" class="btn btn-primary">Review &amp; Create</button></div>' : ''}
           ${deps.standalone ? '' : '<button type="button" id="bulk-close" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>'}
         </div>
         <div id="bulk-body" style="padding: ${deps.standalone ? '1.5rem clamp(1rem, 3vw, 2.5rem)' : '1.1rem 1.25rem'}; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; flex: 1;">
@@ -562,13 +562,10 @@ export function showBulkRemittanceModal(deps) {
             </div>
           </div>
         </div>
-        <div class="${deps.standalone ? 'bulk-bottom-bar' : ''}" style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 1rem ${deps.standalone ? 'clamp(1rem, 3vw, 2.5rem)' : '1.25rem'}; border-top: 1px solid var(--border-light);">
-          <span class="bulk-bottom-note" style="font-size: 0.75rem; color: var(--text-muted);">${deps.standalone ? '<span class="bulk-bottom-note-icon">i</span>' : ''}<span>Guarantors skipped in bulk. Each member gets an independent remittance.</span></span>
-          <div class="${deps.standalone ? 'bulk-bottom-actions' : ''}" style="display: flex; gap: 0.6rem;">
-            ${deps.standalone ? '' : '<button type="button" id="bulk-cancel" class="btn btn-secondary">Cancel</button>'}
-            <button type="button" id="bulk-create" class="btn btn-primary">Review &amp; Create</button>
-          </div>
-        </div>
+        ${deps.standalone ? '' : `<div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border-light);">
+          <button type="button" id="bulk-cancel" class="btn btn-secondary">Cancel</button>
+          <button type="button" id="bulk-create" class="btn btn-primary">Review &amp; Create</button>
+        </div>`}
       </div>
     `;
     if (deps.standalone && deps.hostContainer) deps.hostContainer.replaceChildren(overlay);
@@ -777,6 +774,28 @@ export function showBulkRemittanceModal(deps) {
     overlay.querySelector('#bulk-member-search').addEventListener('input', (e) => {
         searchTerm = e.target.value || '';
         paintMembers();
+    });
+    overlay.querySelector('#bulk-member-list').addEventListener('keydown', (event) => {
+        const current = event.target.closest?.('.bulk-varied-row input:not([type="checkbox"]), .bulk-varied-row select');
+        if (!current || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        const row = current.closest('.bulk-varied-row');
+        const rowCells = (target) => Array.from(target.querySelectorAll('input:not([type="checkbox"]), select'));
+        const rows = Array.from(overlay.querySelectorAll('#bulk-member-list .bulk-varied-row'));
+        const rowIndex = rows.indexOf(row);
+        const colIndex = rowCells(row).indexOf(current);
+        let destination = null;
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            const cells = rowCells(row);
+            destination = cells[colIndex + (event.key === 'ArrowLeft' ? -1 : 1)] || null;
+        } else {
+            const targetRow = rows[rowIndex + (event.key === 'ArrowUp' ? -1 : 1)];
+            destination = targetRow ? rowCells(targetRow)[colIndex] || null : null;
+        }
+        if (destination) {
+            event.preventDefault();
+            destination.focus();
+            if (destination instanceof HTMLInputElement && destination.type !== 'date') destination.select();
+        }
     });
     // Varied-amount rows: typing an amount auto-checks the member
     overlay.querySelector('#bulk-member-list').addEventListener('input', (e) => {

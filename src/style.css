@@ -170,6 +170,14 @@ input[type="date"] {
   padding-right: 2.25rem;
 }
 
+/* Keep numeric fields keyboard-driven; hide browser spinner controls. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+
 code {
   padding: 0.15rem 0.4rem;
   border-radius: 0.35rem;
