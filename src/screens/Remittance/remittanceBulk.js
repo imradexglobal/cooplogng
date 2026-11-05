@@ -110,7 +110,7 @@ export async function renderBulkRemittance(container, user) {
         container.innerHTML = '<div class="alert">Access Restricted: Members cannot use Bulk Remittance.</div>';
         return;
     }
-    const isActualAdmin = hasPermission(user.permissions, 'admin') || (user.username || '').toLowerCase() === 'admin';
+const isActualAdmin = hasPermission(user.permissions, 'admin') || (user.username || '').toLowerCase() === 'admin';
     const isAdmin = isActualAdmin || user.isAdmin || hasPermission(user.permissions, 'read_member');
     container.innerHTML = '<div style="padding: 2rem; color: var(--text-muted);">Loading Bulk Remittance...</div>';
     try {
@@ -121,12 +121,20 @@ export async function renderBulkRemittance(container, user) {
             fetchTransactionTypes(user.cooperativeId)
         ]);
         let timeoutId;
-        const [enterpriseData, members, banks, transactionTypes] = await Promise.race([
-            loadData,
-            new Promise((_, reject) => {
-                timeoutId = setTimeout(() => reject(new Error('Loading took too long. Check that the app is responsive, then try again.')), 30000);
-            })
-        ]).finally(() => clearTimeout(timeoutId));
+        let loadResult;
+        try {
+            loadResult = await Promise.race([
+                loadData,
+                new Promise((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error('Loading took too long. Check that the app is responsive, then try again.')), 30000);
+                })
+            ]);
+        } catch (raceError) {
+            throw raceError;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+        const [enterpriseData, members, banks, transactionTypes] = loadResult;
         const selectorMembers = !isActualAdmin && isAdmin
             ? await fetchAllMembers(user.cooperativeId, user.username, false)
             : members;
