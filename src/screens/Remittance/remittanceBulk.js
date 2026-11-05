@@ -404,7 +404,7 @@ export function showBulkRemittanceModal(deps) {
         .bulk-page-shell .bulk-save-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .65rem; border: 1px solid var(--border-light); border-radius: 999px; color: var(--text-muted); font-size: .72rem; background: var(--bg-card); white-space: nowrap; }
         .bulk-page-shell .bulk-save-dot { width: .42rem; height: .42rem; border-radius: 50%; background: #22c55e; }
         .bulk-page-shell #bulk-body { background: var(--bg-main); min-height: 0; }
-        .bulk-page-shell .bulk-section { width: min(100%, 1180px); margin: 0 auto; }
+        .bulk-page-shell .bulk-section { width: 100%; min-width: 0; margin: 0; }
         .bulk-page-shell .bulk-settings-card, .bulk-page-shell .bulk-members-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 1rem; box-shadow: 0 8px 28px rgba(15, 23, 42, .06); }
         .bulk-page-shell .bulk-settings-card { padding: clamp(1rem, 2vw, 1.4rem); }
         .bulk-page-shell .bulk-section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
@@ -465,7 +465,7 @@ export function showBulkRemittanceModal(deps) {
         .bulk-page-shell .bulk-bottom-actions { display: flex; align-items: center; gap: .65rem; flex: 0 0 auto; }
         .bulk-page-shell .bulk-bottom-actions #bulk-create { min-width: 10.5rem; min-height: 2.65rem; border-radius: .7rem; font-weight: 800; box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-primary) 22%, transparent); }
         @media (max-width: 900px) { .bulk-page-shell .bulk-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bulk-page-shell .bulk-table-head, .bulk-page-shell .bulk-varied-row { grid-template-columns: 24px minmax(150px, 1.2fr) 100px 125px 130px minmax(130px, 1fr) 28px; } }
-        @media (min-width: 681px) { .bulk-page-shell #bulk-body { display: grid !important; grid-template-columns: minmax(320px, .85fr) minmax(0, 1.35fr); align-items: start; gap: 1.25rem; } .bulk-page-shell #bulk-panel-tabs { display: none !important; } .bulk-page-shell #bulk-multi-wrap { min-width: 0; width: 100%; margin: 0; } }
+        @media (min-width: 681px) { .bulk-page-shell #bulk-body { display: grid !important; grid-template-columns: minmax(430px, .9fr) minmax(0, 1.4fr); align-items: start; gap: 1.25rem; } .bulk-page-shell #bulk-panel-tabs { display: none !important; } .bulk-page-shell #bulk-multi-wrap { min-width: 0; width: 100%; margin: 0; } .bulk-page-shell .bulk-settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; } .bulk-page-shell .bulk-description-field { grid-column: 1 / -1; } }
         @media (max-width: 680px) { .bulk-page-shell #bulk-body { display: flex !important; } .bulk-page-shell #bulk-panel-tabs { display: flex; gap: .5rem; position: sticky; top: -1px; z-index: 2; padding: .35rem; border: 1px solid var(--border-light); border-radius: .75rem; background: var(--bg-card); } .bulk-page-shell #bulk-panel-tabs button { flex: 1; min-height: 2.6rem; border: 0; border-radius: .55rem; background: transparent; color: var(--text-muted); font-weight: 750; cursor: pointer; } .bulk-page-shell #bulk-panel-tabs button[aria-selected="true"] { background: var(--accent-primary); color: #fff; } .bulk-page-shell #bulk-body[data-mobile-panel="setup"] #bulk-multi-wrap, .bulk-page-shell #bulk-body[data-mobile-panel="members"] .bulk-settings-card { display: none !important; } .bulk-page-shell .bulk-settings-grid { grid-template-columns: 1fr; } .bulk-page-shell .bulk-table-head { display: none; } .bulk-page-shell .bulk-varied-row { grid-template-columns: 24px 1fr 1fr 1fr; gap: .45rem; padding: .8rem; } .bulk-page-shell .bulk-member-name { grid-column: 2 / -1; } .bulk-page-shell .bulk-row-desc { grid-column: 2 / -1; } .bulk-page-shell .bulk-duplicate-row { grid-column: 1; grid-row: 3; } .bulk-page-shell .bulk-bottom-bar { flex-direction: column; align-items: stretch !important; } .bulk-page-shell .bulk-bottom-bar > div { justify-content: stretch; } .bulk-page-shell .bulk-bottom-bar button { flex: 1; } }
       </style>` : ''}
       <div class="${deps.standalone ? 'bulk-page-shell' : 'modal-content'}" style="${deps.standalone ? 'width: 100%; min-height: 100%; display: flex; flex-direction: column; background: var(--bg-main);' : 'max-width: 640px; width: 94%; max-height: 92vh; display: flex; flex-direction: column; background: var(--bg-card); border-radius: var(--radius-md); box-shadow: var(--shadow-xl);'}">
@@ -563,7 +563,8 @@ export function showBulkRemittanceModal(deps) {
         </div>
       </div>
     `;
-    (deps.hostContainer || document.body).appendChild(overlay);
+    if (deps.standalone && deps.hostContainer) deps.hostContainer.replaceChildren(overlay);
+    else (deps.hostContainer || document.body).appendChild(overlay);
     const close = () => {
         if (direction === 'deposit_varied') {
             saveBulkRemittanceDraft(draftKey, { cooperative_id: user.cooperativeId, user_id: user.id || user.username, payload: draftSnapshot() }).catch(() => {});
