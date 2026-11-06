@@ -262,6 +262,7 @@ import { calculateMonthlyLoanAdvice } from '../../services/data/loanAdvice.js';
     } else {
       selectorMembers = members;
     }
+    selectorMembers = selectorMembers.filter(m => String(m.status || '').toLowerCase() !== 'archived');
     historyState.members = members;
     historyState.managedMemberIds = members.map(m => String(m.id));
     members.forEach(m => historyState.membersMap[m.id] = m);

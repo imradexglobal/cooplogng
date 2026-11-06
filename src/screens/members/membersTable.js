@@ -741,6 +741,11 @@ export function getTableStyles() {
             color: var(--danger);
             border: 1px solid rgba(220,38,38,0.2);
         }
+        .status-Archived {
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            border: 1px solid var(--border-medium);
+        }
 
         /* ── Zebra striping ── */
         .styled-table tbody tr:nth-child(even) {

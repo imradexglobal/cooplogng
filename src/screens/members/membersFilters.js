@@ -8,8 +8,7 @@ import {
 import { renderMembersTable } from './membersTable.js'
 import { renderMembersStats } from './membersStats.js'
 import { hasPermission } from '../../services/permissionService.js'
-import { deleteMember, updateMember } from '../../services/dataService.js'
-import { checkMemberHasRemittances } from '../../services/sqliteService.js'
+import { archiveMember, updateMember } from '../../services/dataService.js'
 import { escapeHtml, getInitials, getAvatarColor } from '../../utils/formatters.js'
 import { showToast } from '../../services/toastService.js'
 
@@ -156,7 +155,7 @@ function updateSelectionBar(container) {
                 </div>
             ` : ''}
             ${canDelete ? `
-                <button class="action-btn danger" id="bulk-delete-btn">Delete Selected</button>
+                <button class="action-btn danger" id="bulk-delete-btn">Archive Selected</button>
             ` : ''}
         </div>
     `
@@ -279,31 +278,23 @@ function updateSelectionBar(container) {
     })
 
     bar.querySelector('#bulk-delete-btn')?.addEventListener('click', async () => {
-        if (confirm(`Are you sure you want to delete ${selectedIds.size} members? Members with financial records will be skipped.`)) {
-            let deletedCount = 0
-            let skippedCount = 0
+        if (confirm(`Archive ${selectedIds.size} selected members? Their transaction history will be retained.`)) {
+            let archivedCount = 0
             let errorCount = 0
-            const allMembers = getAllMembers()
             const username = container.dataset.username
             const coopId = container.dataset.coopId
 
             for (const id of selectedIds) {
                 try {
-                    const hasRecords = await checkMemberHasRemittances(coopId, id)
-                    if (hasRecords) {
-                        skippedCount++
-                        continue
-                    }
-                    
-                    await deleteMember(id, username, coopId)
-                    deletedCount++
+                    await archiveMember(id, username)
+                    archivedCount++
                 } catch (err) {
-                    console.error(`[Bulk Delete] Failed for member ${id}:`, err)
+                    console.error(`[Bulk Archive] Failed for member ${id}:`, err)
                     errorCount++
                 }
             }
 
-            showToast(`Operation Complete:\n- ${deletedCount} members deleted\n- ${skippedCount} members skipped (existing records)\n- ${errorCount} errors encountered`, "success")
+            showToast(`Operation Complete:\n- ${archivedCount} members archived\n- ${errorCount} errors encountered`, "success")
             
             setSelectionMode(false)
             const { loadMembersData } = await import('./membersState.js')
@@ -380,6 +371,7 @@ export function renderMembersFilters(container, user) {
                       <option value="Active" ${statusFilter === 'Active' ? 'selected' : ''}>Active</option>
                       <option value="Inactive" ${statusFilter === 'Inactive' ? 'selected' : ''}>Inactive</option>
                       <option value="Suspended" ${statusFilter === 'Suspended' ? 'selected' : ''}>Suspended</option>
+                      <option value="Archived" ${statusFilter === 'Archived' ? 'selected' : ''}>Archived</option>
                       <option value="Issues" ${statusFilter === 'Issues' ? 'selected' : ''}>Issues (Inact + Susp)</option>
                   </select>
 
@@ -832,7 +824,7 @@ async function showDuplicateReviewModal(container, user) {
                     <h3 style="margin:0; color:var(--text-primary); font-size:1.05rem;">Possible duplicates</h3>
                     <span class="dup-count-badge" id="dup-count" style="display:none;"></span>
                 </div>
-                <p style="font-size:0.78rem; color:var(--text-muted); margin:0.2rem 0 0;">Same mobile, Special ID, name, email, or registration number in this cooperative. Pick one to keep — the rest are archived, never deleted with history.</p>
+                <p style="font-size:0.78rem; color:var(--text-muted); margin:0.2rem 0 0;">Same mobile, Special ID, name, email, or registration number in this cooperative. Choose the member to keep, then review transactions before merging; duplicate members are archived.</p>
             </div>
             <button class="modal-close" id="dup-close" aria-label="Close">✕</button>
         </div>
@@ -913,8 +905,8 @@ async function showDuplicateReviewModal(container, user) {
                     </label>`
                 }).join('')}
                 <div class="dup-card-foot">
-                    <span class="dup-hint">Archived records keep audit trail and sync to cloud.</span>
-                    <button class="dup-merge-btn" data-merge="${gi}">Archive ${g.members.length - 1} duplicate${g.members.length - 1 > 1 ? 's' : ''}</button>
+                    <span class="dup-hint">All remaining transactions transfer to the member you keep.</span>
+                    <button class="dup-merge-btn" data-merge="${gi}">Review &amp; merge</button>
                 </div>
             </div>`
         }).join('')
@@ -932,21 +924,11 @@ async function showDuplicateReviewModal(container, user) {
                 const group = groups[gi]
                 const survivorId = selections.get(gi)
                 if (!group || !survivorId) return
-                if (!btn.classList.contains('confirm')) {
-                    btn.classList.add('confirm')
-                    btn.textContent = `Tap again to confirm`
-                    setTimeout(() => { btn.classList.remove('confirm'); btn.textContent = `Archive ${group.members.length - 1} duplicate${group.members.length - 1 > 1 ? 's' : ''}` }, 3500)
-                    return
-                }
                 btn.disabled = true
-                btn.textContent = 'Archiving…'
                 try {
-                    const { mergeDuplicateMembers } = await import('../../services/dataService.js')
-                    for (const m of group.members) {
-                        if (String(m.id) === String(survivorId)) continue
-                        await mergeDuplicateMembers(survivorId, m.id, user.username)
-                    }
-                    showToast('Duplicate archived.', 'success')
+                    const result = await showDuplicateMergeDialog(group, survivorId, user)
+                    if (!result) { btn.disabled = false; return }
+                    showToast(`Members merged. ${result.deletedRemittanceIds.length} duplicate transaction(s) and linked children removed; remaining history moved to the survivor.`, 'success')
                     const { findDuplicateMembers } = await import('../../services/dataService.js')
                     groups = await findDuplicateMembers(user.cooperativeId)
                     selections.clear()
@@ -958,8 +940,6 @@ async function showDuplicateReviewModal(container, user) {
                 } catch (err) {
                     showToast('Merge blocked: ' + err.message, 'error')
                     btn.disabled = false
-                    btn.classList.remove('confirm')
-                    btn.textContent = 'Try again'
                 }
             })
         })
@@ -986,4 +966,66 @@ async function showDuplicateReviewModal(container, user) {
     } catch (err) {
         body.innerHTML = `<div style="color:var(--danger); padding:1rem;">Scan failed: ${escapeHtml(err.message)}</div>`
     }
+}
+
+
+async function showDuplicateMergeDialog(group, survivorId, user) {
+    const survivor = group.members.find(m => String(m.id) === String(survivorId))
+    if (!survivor) throw new Error('Choose a member to keep before merging.')
+    const memberIds = new Set(group.members.map(m => String(m.id)))
+    const memberName = (m) => [m.first_name, m.middle_name, m.last_name].filter(Boolean).join(' ') || m.name || String(m.id)
+    const { fetchRemittances } = await import('../../services/dataService.js')
+    const all = await fetchRemittances(user.cooperativeId, null)
+    const transactions = (all || []).filter(r => memberIds.has(String(r.member_id)) && Number(r.autogen) !== 1)
+    transactions.sort((a, b) => String(b.remittance_date || b.created_at || '').localeCompare(String(a.remittance_date || a.created_at || '')))
+
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div')
+        overlay.className = 'modal-overlay open'
+        overlay.style.zIndex = '1200'
+        overlay.innerHTML = `
+          <div class="modal-content" style="width:min(760px,96vw);max-height:90vh;display:flex;flex-direction:column;">
+            <div class="modal-header">
+              <div><h3>Review member merge</h3><p style="margin:.25rem 0 0;color:var(--text-muted);font-size:.8rem;">Keeping <strong>${escapeHtml(memberName(survivor))}</strong>. Unchecked transactions are kept and reassigned; check only duplicate transactions to remove.</p></div>
+              <button type="button" class="modal-close" data-close aria-label="Close">✕</button>
+            </div>
+            <div style="padding:.75rem 1.1rem;color:var(--text-muted);font-size:.78rem;border-bottom:1px solid var(--border-light);">Deleting a parent transaction also cascade-deletes its remittance details, loans, guarantors, and generated child transactions. Automatically generated children are handled with their parent.</div>
+            <div style="padding:.5rem 1.1rem;overflow:auto;flex:1;">
+              ${transactions.length ? transactions.map(r => {
+                  const owner = group.members.find(m => String(m.id) === String(r.member_id))
+                  const date = String(r.remittance_date || r.created_at || '').slice(0, 10) || 'No date'
+                  const amount = Number(r.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  return `<label style="display:flex;align-items:flex-start;gap:.7rem;padding:.7rem .3rem;border-bottom:1px solid var(--border-light);cursor:pointer;">
+                    <input type="checkbox" class="merge-delete-remittance" value="${escapeHtml(String(r.id))}" style="margin-top:.25rem;accent-color:var(--danger);">
+                    <span style="flex:1;min-width:0;"><strong>${escapeHtml(date)} · ${escapeHtml(String(r.bank_name || ''))} · ${escapeHtml(String(r.transaction_type || 'Transaction'))}</strong><span style="display:block;font-size:.75rem;color:var(--text-muted);">${escapeHtml(memberName(owner))} · ₦${escapeHtml(amount)} · ${escapeHtml(String(r.description || 'No description'))} · Ref ${escapeHtml(String(r.id))}</span></span>
+                    <span style="font-size:.72rem;font-weight:700;color:var(--danger);white-space:nowrap;">Mark duplicate to delete</span>
+                  </label>`
+              }).join('') : '<div style="padding:1.5rem;text-align:center;color:var(--text-muted);">No parent remittances found. The member records can still be merged.</div>'}
+            </div>
+            <div class="modal-footer"><button type="button" class="secondary-button" data-cancel>Cancel</button><button type="button" class="primary-button" data-confirm>Merge members and keep history</button></div>
+          </div>`
+        document.body.appendChild(overlay)
+        let finished = false
+        const finish = (value) => { if (finished) return; finished = true; overlay.remove(); resolve(value) }
+        overlay.querySelector('[data-close]')?.addEventListener('click', () => finish(null))
+        overlay.querySelector('[data-cancel]')?.addEventListener('click', () => finish(null))
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null) })
+        overlay.querySelector('[data-confirm]')?.addEventListener('click', async (e) => {
+            const button = e.currentTarget
+            const duplicateIds = Array.from(overlay.querySelectorAll('.merge-delete-remittance:checked')).map(input => input.value)
+            if (duplicateIds.length && !confirm(`Permanently mark ${duplicateIds.length} selected duplicate transaction(s) deleted? Linked child transactions will be deleted too.`)) return
+            button.disabled = true
+            button.textContent = 'Merging…'
+            try {
+                const { mergeDuplicateMembers } = await import('../../services/dataService.js')
+                const loserIds = group.members.filter(m => String(m.id) !== String(survivorId)).map(m => String(m.id))
+                const result = await mergeDuplicateMembers(survivorId, loserIds, user.username, duplicateIds)
+                finish(result)
+            } catch (err) {
+                showToast('Merge failed: ' + (err?.message || err), 'error')
+                button.disabled = false
+                button.textContent = 'Try again'
+            }
+        })
+    })
 }

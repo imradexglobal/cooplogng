@@ -1,8 +1,8 @@
 import { generateId, hashPassword, generateRandom6Digit, isSha256Hex } from '../../utils/formatters.js'
 import { normalizePhone, normalizeSpecialId, specialIdKey, normalizeEmail, normalizeRegNo, regNoKey } from '../../utils/normalize.js'
 import {
-    getAllForCoop, getDocById_Global, queryOne, queryRows,
-    saveDoc, upsertRow
+    getAllForCoop, getDocById_Global, queryRows,
+    saveDoc
 } from '../sqliteService.js'
 
 export async function fetchAllMembers(cooperativeId, username = null, allAccess = false) {
@@ -289,49 +289,125 @@ export async function updateMember(id, data, modifiedBy) {
     await saveDoc('members', doc)
 }
 
-export async function deleteMember(id, modifiedBy) {
+export async function archiveMember(id, modifiedBy) {
     const existing = await getDocById_Global('members', id)
     if (!existing) throw new Error('Member not found')
-    const used = await queryOne(
-        'SELECT id FROM remittance WHERE cooperative_id = ? AND member_id = ? AND is_deleted = 0 LIMIT 1',
-        [existing.cooperative_id, id]
-    )
-    if (used) throw new Error('Cannot delete member with existing remittance records.')
     const now = new Date().toISOString()
+    // Keep the member row addressable so remittance history and audit references
+    // never become orphaned. Archived members remain available to history lookup.
     await saveDoc('members', {
         ...existing,
-        is_deleted: 1,
+        status: 'Archived',
+        is_deleted: 0,
         modified_at: now,
         modified_by: modifiedBy || 'system',
         is_synced: 0
     })
 }
 
-export async function mergeDuplicateMembers(survivorId, loserId, modifiedBy) {
-    if (String(survivorId) === String(loserId)) throw new Error('Cannot merge a member into itself.')
-    const survivor = await getDocById_Global('members', survivorId)
-    const loser = await getDocById_Global('members', loserId)
-    if (!survivor || !loser) throw new Error('Member not found')
-    if (String(survivor.cooperative_id) !== String(loser.cooperative_id)) {
-        throw new Error('Members belong to different cooperatives and cannot be merged.')
+// Backward-compatible API name: user-facing deletion is now a reversible archive.
+export const deleteMember = archiveMember
+
+export async function mergeDuplicateMembers(survivorId, loserIds, modifiedBy, duplicateRemittanceIds = []) {
+    if (!Array.isArray(loserIds)) loserIds = [loserIds]
+    const survivorKey = String(survivorId)
+    const uniqueLoserIds = [...new Set(loserIds.map(String))].filter(id => id && id !== survivorKey)
+    if (!uniqueLoserIds.length) throw new Error('Select at least one duplicate member to merge.')
+    const survivor = await getDocById_Global('members', survivorKey)
+    if (!survivor || survivor.is_deleted) throw new Error('The member selected to keep is unavailable.')
+    const losers = []
+    for (const loserId of uniqueLoserIds) {
+        const loser = await getDocById_Global('members', loserId)
+        if (!loser || loser.is_deleted) throw new Error(`Duplicate member ${loserId} is unavailable.`)
+        if (String(survivor.cooperative_id) !== String(loser.cooperative_id)) {
+            throw new Error('Members belong to different cooperatives and cannot be merged.')
+        }
+        losers.push(loser)
     }
-    // Safe merge only: never auto-reassign financial history. If the loser has
-    // remittance records, refuse and guide admin to reassign manually first.
-    // (deleteMember enforces the same rule for plain deletes.)
-    const used = await queryOne(
-        'SELECT id FROM remittance WHERE cooperative_id = ? AND member_id = ? AND is_deleted = 0 LIMIT 1',
-        [loser.cooperative_id, loserId]
-    )
-    if (used) throw new Error('Cannot auto-merge: the duplicate has remittance records. Reassign them to the survivor first.')
+
     const now = new Date().toISOString()
-    await saveDoc('members', {
-        ...loser,
-        is_deleted: 1,
-        modified_at: now,
-        modified_by: modifiedBy || 'system',
-        is_synced: 0
-    })
-    return { survivorId, loserId }
+    const mergedMemberSet = new Set([survivorKey, ...uniqueLoserIds])
+    const selectedDeleteIds = [...new Set((duplicateRemittanceIds || []).map(String))]
+    const { deleteRemittance } = await import('./remittances.js')
+
+    // Validate every requested removal before changing any member/transaction.
+    for (const remittanceId of selectedDeleteIds) {
+        const rem = await getDocById_Global('remittance', remittanceId)
+        if (!rem || rem.is_deleted || String(rem.cooperative_id) !== String(survivor.cooperative_id)) {
+            throw new Error('A selected duplicate transaction is no longer available. Refresh the duplicate review and try again.')
+        }
+        if (!mergedMemberSet.has(String(rem.member_id))) {
+            throw new Error('Only transactions belonging to members in this merge can be removed.')
+        }
+        if (Number(rem.autogen) === 1) {
+            throw new Error('Select the parent transaction, not an automatically generated child. Deleting the parent removes its linked children.')
+        }
+    }
+
+    // Deleting a selected parent uses the established soft-delete cascade, which
+    // also removes its remittance details, loans, guarantors, and auto children.
+    for (const remittanceId of selectedDeleteIds) {
+        await deleteRemittance(remittanceId, modifiedBy || 'system')
+    }
+
+    // Reassign all remaining live transactions (including generated children)
+    // to the chosen survivor before archiving duplicate member records.
+    for (const loser of losers) {
+        const remittances = await queryRows(
+            'SELECT * FROM remittance WHERE cooperative_id = ? AND member_id = ? AND is_deleted = 0',
+            [String(survivor.cooperative_id), String(loser.id)]
+        )
+        for (const rem of remittances || []) {
+            await saveDoc('remittance', {
+                ...rem,
+                member_id: survivorKey,
+                modified_at: now,
+                modified_by: modifiedBy || 'system',
+                is_synced: 0
+            })
+        }
+
+        // Keep loan and guarantor ownership consistent with the remittance.
+        for (const loan of await queryRows('SELECT * FROM loans WHERE cooperative_id = ? AND member_id = ? AND is_deleted = 0', [String(survivor.cooperative_id), String(loser.id)])) {
+            await saveDoc('loans', { ...loan, member_id: survivorKey, modified_at: now, modified_by: modifiedBy || 'system', is_synced: 0 })
+        }
+        for (const guarantor of await queryRows('SELECT * FROM loan_guarantors WHERE cooperative_id = ? AND member_id = ? AND is_deleted = 0', [String(survivor.cooperative_id), String(loser.id)])) {
+            await saveDoc('loan_guarantors', { ...guarantor, member_id: survivorKey, modified_at: now, modified_by: modifiedBy || 'system', is_synced: 0 })
+        }
+    }
+
+    // Keep the selected member's filled-in details; supplement blank fields from
+    // duplicate records, and combine manager assignments without overwriting.
+    const merged = { ...survivor }
+    const protectedFields = new Set(['id', 'cooperative_id', 'created_at', 'created_by', 'modified_at', 'modified_by', 'is_deleted', 'is_synced', 'sync_at', 'password_hash', 'firebase_uid', 'force_password_change', 'subscriptionStatus', 'expiry_date', 'status'])
+    for (const loser of losers) {
+        for (const [key, value] of Object.entries(loser)) {
+            if (protectedFields.has(key) || value === null || value === undefined || String(value).trim() === '') continue
+            if (merged[key] === null || merged[key] === undefined || String(merged[key]).trim() === '') merged[key] = value
+        }
+    }
+    const managers = [...new Set([survivor, ...losers].flatMap(m => String(m.account_manager || '').split(',').map(v => v.trim()).filter(Boolean))) ]
+    if (managers.length) merged.account_manager = managers.join(', ')
+    merged.id = survivorKey
+    merged.cooperative_id = String(survivor.cooperative_id)
+    merged.status = survivor.status === 'Archived' ? 'Active' : (survivor.status || 'Active')
+    merged.is_deleted = 0
+    merged.modified_at = now
+    merged.modified_by = modifiedBy || 'system'
+    merged.is_synced = 0
+    await saveDoc('members', merged)
+
+    for (const loser of losers) {
+        await saveDoc('members', {
+            ...loser,
+            status: 'Archived',
+            is_deleted: 0,
+            modified_at: now,
+            modified_by: modifiedBy || 'system',
+            is_synced: 0
+        })
+    }
+    return { survivorId: survivorKey, loserIds: uniqueLoserIds, deletedRemittanceIds: selectedDeleteIds }
 }
 
 export async function updateMemberPaymentAdvice(memberId, paymentAdvice, modifiedBy, cooperativeId) {

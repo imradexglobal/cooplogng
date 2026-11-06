@@ -498,6 +498,7 @@ export async function renderMembersForm(container, user, member = null) {
                             <option value="Active" ${member?.status === 'Active' ? 'selected' : ''}>Active</option>
                             <option value="Inactive" ${member?.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
                             <option value="Suspended" ${member?.status === 'Suspended' ? 'selected' : ''}>Suspended</option>
+                            <option value="Archived" ${member?.status === 'Archived' ? 'selected' : ''}>Archived</option>
                         </select>
                     </label>
                     <label class="field">

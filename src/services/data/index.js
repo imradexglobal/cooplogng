@@ -1,7 +1,7 @@
 export { clearMemberCache, isNotDeleted } from './utils.js'
 export {
     fetchAllMembers, fetchMembersBySearch, fetchMemberDoc,
-    fetchMemberPaymentAdvise, addMember, updateMember, deleteMember,
+    fetchMemberPaymentAdvise, addMember, updateMember, deleteMember, archiveMember,
     updateMemberPaymentAdvice, findDuplicateMembers, mergeDuplicateMembers
 } from './members.js'
 export { fetchEnterprises, addEnterprise, updateEnterprise, deleteEnterprise } from './enterprises.js'

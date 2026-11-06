@@ -1,6 +1,6 @@
 import { escapeHtml, formatDate, formatDateTime, getInitials, getAvatarColor } from '../../utils/formatters.js'
 import { enterpriseList } from './membersState.js'
-import { deleteMember } from '../../services/dataService.js'
+import { archiveMember } from '../../services/dataService.js'
 import { hasPermission } from '../../services/permissionService.js'
 import { getRemittances, checkMemberHasRemittances } from '../../services/sqliteService.js'
 import { showToast } from '../../services/toastService.js'
@@ -170,13 +170,13 @@ export async function renderMemberModal(m, user) {
              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
              Edit
            </button>` : ''
-    const deleteBtn     = canDelete && !hasRemittances
-        ? `<button type="button" class="md-btn md-btn-danger" id="delete-member-btn">
+    const deleteBtn     = canDelete
+        ? `<button type="button" class="md-btn md-btn-danger" id="archive-member-btn">
              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-             Delete
+             Archive
            </button>` : ''
-    const remittanceMsg = canDelete && hasRemittances
-        ? `<div class="md-remittance-note">Member has financial records<br>and cannot be deleted.</div>` : ''
+    const remittanceMsg = hasRemittances
+        ? `<div class="md-remittance-note">Archiving hides this member from new activity; existing financial history is preserved.</div>` : ''
     const ledgerBtn     = `<button type="button" class="md-btn md-btn-primary" id="view-ledger-btn">
          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
          View Ledger
@@ -559,15 +559,15 @@ export async function renderMemberModal(m, user) {
         window.location.hash = `members/edit/${m.id}`
     })
 
-    // ── Delete ────────────────────────────────────────────────────────────────
-    modal.querySelector('#delete-member-btn')?.addEventListener('click', async () => {
-        if (confirm(`Are you sure you want to completely delete ${m.name}? This action cannot be undone.`)) {
-            const btn = modal.querySelector('#delete-member-btn')
-            btn.textContent = 'Deleting...'
+    // ── Archive ───────────────────────────────────────────────────────────────
+    modal.querySelector('#archive-member-btn')?.addEventListener('click', async () => {
+        if (confirm(`Archive ${m.name}? The member remains in history and can be restored by changing the status.`)) {
+            const btn = modal.querySelector('#archive-member-btn')
+            btn.textContent = 'Archiving...'
             btn.disabled = true
 
             try {
-                await deleteMember(m.id, user.username, user.cooperativeId)
+                await archiveMember(m.id, user.username)
                 modal.remove()
                 const { loadMembersData } = await import('./membersState.js')
                 const { renderMembersPage } = await import('./membersPage.js')
@@ -577,7 +577,7 @@ export async function renderMemberModal(m, user) {
             } catch (err) {
                 btn.innerHTML = `<svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Delete`
                 btn.disabled = false
-                showToast('Delete failed: ' + err.message, 'error')
+                showToast('Archive failed: ' + err.message, 'error')
             }
         }
     })
