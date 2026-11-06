@@ -856,8 +856,9 @@ async function showDuplicateReviewModal(container, user) {
 
     body.innerHTML = `<div class="dup-skel"></div><div class="dup-skel"></div><div class="dup-skel"></div>`
 
+    const isSoftDeleted = (member) => member?.is_deleted === true || Number(member?.is_deleted) === 1
     const defaultSurvivor = (members) => [...members].sort((a, b) =>
-        String(a.created_at || '').localeCompare(String(b.created_at || '')))[0]
+        Number(isSoftDeleted(a)) - Number(isSoftDeleted(b)) || String(a.created_at || '').localeCompare(String(b.created_at || '')))[0]
 
     function render() {
         const visible = groups.map((g, gi) => ({ g, gi })).filter(({ g }) => {
@@ -897,7 +898,7 @@ async function showDuplicateReviewModal(container, user) {
                             <span class="dup-name">${escapeHtml(name)}</span>
                             <span class="dup-meta">Reg ${escapeHtml(String(m.registration_no ?? '—'))} • ${escapeHtml(m.mobile || '—')} • ${escapeHtml(m.special_id || '—')}</span>
                             <span class="dup-chips">
-                                <span class="dup-chip">${escapeHtml(m.status || 'Active')}</span>
+                                <span class="dup-chip">${isSoftDeleted(m) ? 'Soft-deleted · recoverable' : escapeHtml(m.status || 'Active')}</span>
                                 ${m.created_at ? `<span class="dup-chip">Joined ${escapeHtml(String(m.created_at).slice(0, 10))}</span>` : ''}
                                 ${m.created_by ? `<span class="dup-chip">by ${escapeHtml(String(m.created_by))}</span>` : ''}
                             </span>
@@ -1013,7 +1014,7 @@ async function showDuplicateMergeDialog(group, survivorId, user) {
         overlay.querySelector('[data-confirm]')?.addEventListener('click', async (e) => {
             const button = e.currentTarget
             const duplicateIds = Array.from(overlay.querySelectorAll('.merge-delete-remittance:checked')).map(input => input.value)
-            if (duplicateIds.length && !confirm(`Permanently mark ${duplicateIds.length} selected duplicate transaction(s) deleted? Linked child transactions will be deleted too.`)) return
+            if (duplicateIds.length && !confirm(`Remove ${duplicateIds.length} selected duplicate transaction(s) from active history? This is a soft delete; linked child transactions will be removed too.`)) return
             button.disabled = true
             button.textContent = 'Merging…'
             try {

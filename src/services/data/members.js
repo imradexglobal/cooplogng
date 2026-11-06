@@ -4,6 +4,9 @@ import {
     getAllForCoop, getDocById_Global, queryRows,
     saveDoc
 } from '../sqliteService.js'
+import { getAllItems } from '../indexedDbService.js'
+
+const isDeletedRecord = (record) => record?.is_deleted === true || Number(record?.is_deleted) === 1
 
 export async function fetchAllMembers(cooperativeId, username = null, allAccess = false) {
     const members = await getAllForCoop(cooperativeId, 'members')
@@ -77,7 +80,8 @@ function findLocalDuplicate(allMembers, { mobile, specialIdLower, excludeId }) {
 }
 
 export async function findDuplicateMembers(cooperativeId) {
-    const all = await getAllForCoop(String(cooperativeId), 'members')
+    const all = (await getAllItems('members'))
+        .filter(m => String(m.cooperative_id) === String(cooperativeId) && String(m.status || '').toLowerCase() !== 'archived')
     const byMobile = new Map()
     const bySpecial = new Map()
     const byName = new Map()
@@ -314,11 +318,11 @@ export async function mergeDuplicateMembers(survivorId, loserIds, modifiedBy, du
     const uniqueLoserIds = [...new Set(loserIds.map(String))].filter(id => id && id !== survivorKey)
     if (!uniqueLoserIds.length) throw new Error('Select at least one duplicate member to merge.')
     const survivor = await getDocById_Global('members', survivorKey)
-    if (!survivor || survivor.is_deleted) throw new Error('The member selected to keep is unavailable.')
+    if (!survivor) throw new Error('The member selected to keep is unavailable.')
     const losers = []
     for (const loserId of uniqueLoserIds) {
         const loser = await getDocById_Global('members', loserId)
-        if (!loser || loser.is_deleted) throw new Error(`Duplicate member ${loserId} is unavailable.`)
+        if (!loser) throw new Error(`Duplicate member ${loserId} is unavailable.`)
         if (String(survivor.cooperative_id) !== String(loser.cooperative_id)) {
             throw new Error('Members belong to different cooperatives and cannot be merged.')
         }
@@ -333,7 +337,7 @@ export async function mergeDuplicateMembers(survivorId, loserIds, modifiedBy, du
     // Validate every requested removal before changing any member/transaction.
     for (const remittanceId of selectedDeleteIds) {
         const rem = await getDocById_Global('remittance', remittanceId)
-        if (!rem || rem.is_deleted || String(rem.cooperative_id) !== String(survivor.cooperative_id)) {
+        if (!rem || isDeletedRecord(rem) || String(rem.cooperative_id) !== String(survivor.cooperative_id)) {
             throw new Error('A selected duplicate transaction is no longer available. Refresh the duplicate review and try again.')
         }
         if (!mergedMemberSet.has(String(rem.member_id))) {
@@ -353,9 +357,9 @@ export async function mergeDuplicateMembers(survivorId, loserIds, modifiedBy, du
     // Reassign all remaining live transactions (including generated children)
     // to the chosen survivor before archiving duplicate member records.
     for (const loser of losers) {
-        const remittances = await queryRows(
-            'SELECT * FROM remittance WHERE cooperative_id = ? AND member_id = ? AND is_deleted = 0',
-            [String(survivor.cooperative_id), String(loser.id)]
+        const remittances = (await getAllItems('remittance')).filter(rem =>
+            String(rem.cooperative_id) === String(survivor.cooperative_id) &&
+            String(rem.member_id) === String(loser.id) && !isDeletedRecord(rem)
         )
         for (const rem of remittances || []) {
             await saveDoc('remittance', {
@@ -368,10 +372,10 @@ export async function mergeDuplicateMembers(survivorId, loserIds, modifiedBy, du
         }
 
         // Keep loan and guarantor ownership consistent with the remittance.
-        for (const loan of await queryRows('SELECT * FROM loans WHERE cooperative_id = ? AND member_id = ? AND is_deleted = 0', [String(survivor.cooperative_id), String(loser.id)])) {
+        for (const loan of (await getAllItems('loans')).filter(row => String(row.cooperative_id) === String(survivor.cooperative_id) && String(row.member_id) === String(loser.id) && !isDeletedRecord(row))) {
             await saveDoc('loans', { ...loan, member_id: survivorKey, modified_at: now, modified_by: modifiedBy || 'system', is_synced: 0 })
         }
-        for (const guarantor of await queryRows('SELECT * FROM loan_guarantors WHERE cooperative_id = ? AND member_id = ? AND is_deleted = 0', [String(survivor.cooperative_id), String(loser.id)])) {
+        for (const guarantor of (await getAllItems('loan_guarantors')).filter(row => String(row.cooperative_id) === String(survivor.cooperative_id) && String(row.member_id) === String(loser.id) && !isDeletedRecord(row))) {
             await saveDoc('loan_guarantors', { ...guarantor, member_id: survivorKey, modified_at: now, modified_by: modifiedBy || 'system', is_synced: 0 })
         }
     }
@@ -390,7 +394,7 @@ export async function mergeDuplicateMembers(survivorId, loserIds, modifiedBy, du
     if (managers.length) merged.account_manager = managers.join(', ')
     merged.id = survivorKey
     merged.cooperative_id = String(survivor.cooperative_id)
-    merged.status = survivor.status === 'Archived' ? 'Active' : (survivor.status || 'Active')
+    merged.status = survivor.is_deleted || survivor.status === 'Archived' ? 'Active' : (survivor.status || 'Active')
     merged.is_deleted = 0
     merged.modified_at = now
     merged.modified_by = modifiedBy || 'system'

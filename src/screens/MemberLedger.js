@@ -299,6 +299,185 @@ export async function renderMemberLedger(container, user) {
         .ltab .tab-label-full { display: inline; }
         .ltab .tab-label-short { display: none; }
       }
+
+      /* Account Summary visual refresh — aligned with the Loan and Ledger pages. */
+      .ledger-outer {
+        font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+        color: var(--text-primary);
+        background: var(--bg-main);
+        -webkit-font-smoothing: antialiased;
+      }
+      .ledger-sticky-header {
+        padding: 1.25rem 1.5rem 0.9rem;
+        background: var(--bg-main);
+        border-bottom-color: var(--border-light);
+      }
+      .ledger-scroll-body { padding: 1rem 1.5rem 2rem; }
+      .lhdr h2 {
+        font-size: 1.55rem !important;
+        line-height: 1.15;
+        letter-spacing: -0.035em;
+      }
+      .lhdr .sub { font-size: 0.82rem; line-height: 1.45; }
+
+      .scards {
+        grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+        gap: 0.85rem;
+        margin: 0 0 0.9rem;
+      }
+      .scard {
+        position: relative;
+        overflow: hidden;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--border-light);
+        border-radius: 14px;
+        background: var(--bg-card);
+        box-shadow: var(--shadow-sm);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+      }
+      .scard::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 3px;
+        background: var(--border-medium);
+      }
+      .scard:nth-child(2)::before { background: var(--success); }
+      .scard:nth-child(3)::before { background: var(--danger); }
+      .scard:nth-child(4)::before { background: var(--accent-primary); }
+      .scard:hover { border-color: var(--border-medium); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+      .scard .lbl {
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.35rem;
+      }
+      .scard .val {
+        font-size: clamp(1.1rem, 2vw, 1.45rem);
+        letter-spacing: -0.025em;
+      }
+
+      .sfils {
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.8rem 0.9rem;
+        margin: 0 0 0.85rem;
+        border: 1px solid var(--border-light);
+        border-radius: 14px;
+        background: var(--bg-card);
+        box-shadow: var(--shadow-sm);
+      }
+      .sfils > div { gap: 0.65rem !important; }
+      .sfils label { gap: 0.4rem; font-size: 0.67rem; letter-spacing: 0.06em; }
+      .sfils select {
+        min-height: 40px;
+        padding: 0.5rem 0.7rem;
+        border: 1px solid var(--border-medium);
+        border-radius: 9px;
+        background: var(--bg-input);
+        font: inherit;
+        font-size: 0.82rem;
+        color: var(--text-primary);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+      .sfils select:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-primary) 20%, transparent); }
+      .lzero-btn {
+        min-height: 40px;
+        padding: 0.45rem 0.8rem !important;
+        border: 1px solid var(--border-medium) !important;
+        border-radius: 9px !important;
+        background: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        font-size: 0.8rem !important;
+        font-weight: 650;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+      .lzero-btn:hover { background: var(--bg-secondary) !important; border-color: var(--accent-primary) !important; }
+
+      .ltabs {
+        gap: 0.35rem;
+        padding: 0.3rem;
+        border: 1px solid var(--border-light);
+        border-radius: 12px;
+        background: var(--bg-secondary);
+        box-shadow: none;
+      }
+      .ltab { min-height: 42px; font-size: 0.82rem; }
+      .ltab:hover { border-color: var(--border-medium); }
+      .ltab.active {
+        border-color: var(--border-light);
+        background: var(--bg-card);
+        color: var(--accent-primary);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .lreport-section { margin-top: 0.9rem; }
+      .lreport-title { margin: 0 0 0.55rem; font-size: 0.95rem; letter-spacing: -0.01em; }
+      .tc {
+        overflow: auto;
+        border: 1px solid var(--border-light);
+        border-radius: 14px;
+        background: var(--bg-card);
+        box-shadow: var(--shadow-sm);
+      }
+      .tc .styled-table { border-collapse: separate; border-spacing: 0; }
+      .tc .styled-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 0.72rem 0.85rem;
+        border-bottom: 1px solid var(--border-light);
+        background: var(--bg-secondary);
+        color: var(--text-muted);
+        font-size: 0.67rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .tc .styled-table tbody td {
+        padding: 0.7rem 0.85rem;
+        border-bottom: 1px solid var(--border-light);
+        color: var(--text-secondary);
+        font-size: 0.82rem;
+      }
+      .tc .styled-table tbody tr:last-child td { border-bottom: 0; }
+      .tc .styled-table tbody tr:hover td { background: var(--bg-hover, var(--bg-secondary)); }
+      .tc .styled-table .ledger-total-row th {
+        padding: 0.7rem 0.85rem;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        font-size: 0.8rem;
+        font-weight: 750;
+      }
+      .lmc {
+        padding: 0.85rem 0.95rem;
+        margin-bottom: 0.65rem;
+        border: 1px solid var(--border-light);
+        border-radius: 14px;
+        background: var(--bg-card);
+        box-shadow: var(--shadow-sm);
+      }
+      .lch { padding-bottom: 0.55rem; margin-bottom: 0.65rem; font-size: 0.9rem; }
+      .lreport-note { border-radius: 12px; }
+
+      @media (max-width: 999px) {
+        .ledger-sticky-header { padding: 0.65rem 0.75rem 0.5rem; }
+        .ledger-scroll-body { padding: 0.75rem 0.75rem 1.5rem; }
+        .scards { gap: 0.6rem; margin-bottom: 0.75rem; }
+        .scard { padding: 0.75rem 0.8rem; }
+        .scard:hover { transform: none; }
+        .sfils { align-items: stretch !important; padding: 0.75rem; }
+        .sfils > div { width: 100%; }
+        .sfils > div:first-child { display: grid !important; grid-template-columns: 1fr 0.72fr; }
+        .sfils label { justify-content: space-between; }
+        .sfils label:first-child { min-width: 0; }
+        .sfils label:first-child select { min-width: 0 !important; width: 100%; }
+        .sfils label:nth-child(2) select { min-width: 0; width: 100%; }
+        .sfils > div:last-child { justify-content: space-between; }
+        .sfils > span { line-height: 1.5; }
+        .ltabs { width: 100%; }
+        .tc { border-radius: 12px; }
+      }
     </style>
 
     <div class="ledger-outer">
@@ -933,13 +1112,13 @@ export async function renderMemberLedger(container, user) {
       </section>`
 
     contentContainer.innerHTML = `
-      ${summaryFilterBar}
       <div class="scards">
         <div class="scard"><div class="lbl">Opening balance</div><div class="val">${formatCurrency(openingBalance)}</div></div>
         <div class="scard"><div class="lbl">Credits</div><div class="val text-green">${formatCurrency(monthlyCreditTotal)}</div></div>
         <div class="scard"><div class="lbl">Debits</div><div class="val text-red">${formatCurrency(monthlyDebitTotal)}</div></div>
         <div class="scard"><div class="lbl">${view.isMemberScope ? 'Member net worth' : 'Bank balance'}</div><div class="val ${closingBalance < 0 ? 'text-red' : ''}">${formatCurrency(closingBalance)}</div></div>
       </div>
+      ${summaryFilterBar}
       ${transactionNote ? `<div class="lreport-note">${transactionNote}</div>` : ''}
       ${memberAccountTabs}
       ${accountSectionHtml}

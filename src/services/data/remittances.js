@@ -40,6 +40,17 @@ async function _ensureRemittanceNotSealed(remittanceId, operationLabel) {
     throw new Error(`Cannot ${operationLabel} a reconciled remittance. Unseal the associated bank reconciliation first.`)
 }
 
+async function _ensureMemberCanReceiveRemittance(cooperativeId, memberId) {
+    const id = String(memberId || '')
+    if (!id || id === '0' || id === '0000000000') return
+    const member = await getDocById_Global('members', id)
+    if (!member || member.is_deleted === true || Number(member.is_deleted) === 1 ||
+        String(member.cooperative_id) !== String(cooperativeId) ||
+        String(member.status || '').toLowerCase() === 'archived') {
+        throw new Error('This member is unavailable or archived. Select an active member before saving a new remittance.')
+    }
+}
+
 // Returns the active (not Unsealed) bank_reconciliation_summary whose
 // period covers (bankName, remittanceDate), or null when the slot is open.
 async function _isPeriodSealed(cooperativeId, bankName, remittanceDate) {
@@ -114,6 +125,7 @@ export async function fetchTransactionTypes(cooperativeId) {
 export async function addRemittance(data, createdBy) {
     const now = new Date().toISOString()
     const id = data.id || generateRemittanceId(String(data.cooperative_id), data.autogen)
+    await _ensureMemberCanReceiveRemittance(data.cooperative_id, data.member_id)
 
     let category = data.category || '';
     if (!category && data.transaction_type && data.cooperative_id) {
@@ -264,6 +276,10 @@ export async function addRemittance(data, createdBy) {
 export async function updateRemittance(id, data, modifiedBy) {
     const existing = await getDocById_Global('remittance', id)
     if (!existing) throw new Error('Remittance not found')
+    const requestedMemberId = data.member_id === undefined ? String(existing.member_id || '') : String(data.member_id || '')
+    if (requestedMemberId !== String(existing.member_id || '')) {
+        await _ensureMemberCanReceiveRemittance(existing.cooperative_id, requestedMemberId)
+    }
     const now = new Date().toISOString()
     let category = data.category || existing.category || '';
     if (!data.category && data.transaction_type && data.cooperative_id) {

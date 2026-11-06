@@ -136,9 +136,9 @@ const isActualAdmin = hasPermission(user.permissions, 'admin') || (user.username
             clearTimeout(timeoutId);
         }
         const [enterpriseData, members, banks, transactionTypes] = loadResult;
-        const selectorMembers = !isActualAdmin && isAdmin
+        const selectorMembers = (!isActualAdmin && isAdmin
             ? await fetchAllMembers(user.cooperativeId, user.username, false)
-            : members;
+            : members).filter(m => String(m.status || '').toLowerCase() !== 'archived');
         const historyState = { cooperativeId: user.cooperativeId, banks: banks || [], transactionTypes: (transactionTypes || []).filter(t => t.is_active), members: members || [], membersMap: {} };
         (members || []).forEach(m => { historyState.membersMap[m.id] = m; });
         showBulkRemittanceModal({

@@ -671,7 +671,7 @@ export function render(container, deps) {
                   </div>
                   <div class="field">
                     <label>Total Amount (₦)</label>
-                    <input type="number" step="0.01" name="amount" id="total-amount-input" value="${formData.amount}" required style="font-size: 1.25rem; font-weight: 700;" class="clear-on-zero" ${(previewMode && !editMode) || sealLocked ? 'disabled' : ''}>
+                    <input type="number" step="0.01" name="amount" id="total-amount-input" data-allow-negative="true" value="${formData.amount}" required style="font-size: 1.25rem; font-weight: 700;" class="clear-on-zero" ${(previewMode && !editMode) || sealLocked ? 'disabled' : ''}>
                   </div>
                 </div>
 
@@ -832,7 +832,7 @@ export function render(container, deps) {
                               ${advise === 0 ? '-' : advise.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2})}
                             </td>
                             <td style="padding: 0.2rem;">
-                              <input type="number" step="0.01" class="detail-amt-grid clear-on-zero" data-opening="${opening}" value="${inputAmt}" data-row-index="${idx}" ${(previewMode && !editMode) || e.compulsory_due ? 'disabled' : ''} ${!(previewMode && !editMode) && e.compulsory_due ? 'title="Compulsory due — charged separately on save"' : ''}>
+                              <input type="number" step="0.01" class="detail-amt-grid clear-on-zero" data-allow-negative="true" data-opening="${opening}" value="${inputAmt}" data-row-index="${idx}" ${(previewMode && !editMode) || e.compulsory_due ? 'disabled' : ''} ${!(previewMode && !editMode) && e.compulsory_due ? 'title="Compulsory due — charged separately on save"' : ''}>
                             </td>
                             <td class="row-closing-bal" style="padding: 0.4rem 0.6rem; font-weight: 600; color: ${closing < 0 ? 'var(--danger)' : 'inherit'}">
                               ${closing === 0 ? '-' : closing.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2})}

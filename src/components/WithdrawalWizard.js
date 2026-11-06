@@ -118,8 +118,8 @@ export async function showWithdrawalWizard() {
     : (canSelectMember ? 5 : 4);
 
   const renderModal = () => {
-    const modalContainer = document.getElementById('withdrawal-wizard-modal');
-    if (!modalContainer) return;
+    const wizardContainer = document.getElementById('withdrawal-wizard-content');
+    if (!wizardContainer) return;
     
     let stepContent = '';
     totalSteps = selectedEnterprise?.type === 'loan' 
@@ -443,13 +443,13 @@ export async function showWithdrawalWizard() {
 
     const isNextEnabled = calculateIsNextEnabled();
 
-    modalContainer.innerHTML = `
-      <div class="modal-content" style="max-width: 500px; display: flex; flex-direction: column; height: 95vh; max-height: 95vh; margin: auto;">
-        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-light); flex-shrink: 0;">
+    wizardContainer.innerHTML = `
+      <div class="withdrawal-wizard-card">
+        <div class="withdrawal-wizard-header">
           <h3 style="margin: 0; font-weight: 700; color: var(--text-primary);">${wizardTitle}</h3>
-          <button class="close-btn" onclick="document.getElementById('withdrawal-wizard-modal').remove()" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+          <button type="button" class="secondary-button withdrawal-page-exit-btn" id="withdrawal-page-exit-btn">Back to previous page</button>
         </div>
-        <div class="modal-body" style="padding: 1.5rem 1.25rem; overflow-y: auto; flex-grow: 1;">
+        <div class="withdrawal-wizard-body">
           <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
             ${Array.from({length: totalSteps}, (_, i) => i + 1).map(step => `
               <div style="flex: 1; height: 4px; border-radius: 2px; background: ${step <= wizardStep ? 'var(--accent-primary)' : 'var(--border-light)'};"></div>
@@ -457,7 +457,7 @@ export async function showWithdrawalWizard() {
           </div>
           ${stepContent}
         </div>
-        <div class="modal-footer" style="display: flex; justify-content: space-between; gap: 0.75rem; padding: 1rem; border-top: 1px solid var(--border-light); flex-shrink: 0;">
+        <div class="withdrawal-wizard-footer">
           ${wizardStep > (canSelectMember ? 1 : 1) ? `
             <button type="button" class="secondary-button" id="wizard-back-btn" style="background: transparent; border: 1px solid var(--border-medium); color: var(--text-primary); padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer;">Back</button>
           ` : '<div></div>'}
@@ -506,6 +506,10 @@ export async function showWithdrawalWizard() {
   };
 
   const attachModalListeners = () => {
+    document.getElementById('withdrawal-page-exit-btn')?.addEventListener('click', () => {
+      document.getElementById('withdrawal-wizard-modal')?.remove();
+      window.dispatchEvent(new Event('hashchange'));
+    });
     // Back button
     document.getElementById('wizard-back-btn')?.addEventListener('click', () => {
       wizardStep--;
@@ -836,22 +840,42 @@ export async function showWithdrawalWizard() {
     });
   };
 
-  const overlay = document.createElement('div');
-  overlay.id = 'withdrawal-wizard-modal';
-  overlay.className = 'modal-overlay open';
-  overlay.style.position = 'fixed';
-  overlay.style.inset = '0';
-  overlay.style.zIndex = '999999';
-  overlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-  overlay.style.padding = '1rem';
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
+  const page = document.createElement('section');
+  page.id = 'withdrawal-wizard-modal';
+  page.className = 'withdrawal-request-page';
+  page.innerHTML = `
+    <style>
+      .withdrawal-request-page { min-height: 100%; padding: clamp(1rem, 2.5vw, 2rem); background: var(--bg-main); color: var(--text-primary); }
+      .withdrawal-page-shell { width: min(100%, 1120px); margin: 0 auto; }
+      .withdrawal-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: 0 auto 1.25rem; }
+      .withdrawal-page-heading h1 { margin: 0; color: var(--text-primary); font-size: clamp(1.45rem, 2vw, 1.85rem); line-height: 1.15; letter-spacing: -0.035em; }
+      .withdrawal-page-heading p { margin: 0.45rem 0 0; color: var(--text-muted); font-size: 0.88rem; }
+      .withdrawal-wizard-content { width: 100%; }
+      .withdrawal-wizard-card { width: min(100%, 960px); min-height: min(680px, calc(100vh - 240px)); margin: 0 auto; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border-light); border-radius: 16px; background: var(--bg-card); box-shadow: var(--shadow-md); }
+      .withdrawal-wizard-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.35rem; border-bottom: 1px solid var(--border-light); }
+      .withdrawal-wizard-header h3 { font-size: 1.02rem; letter-spacing: -0.015em; }
+      .withdrawal-page-exit-btn { min-height: 38px; padding: 0.45rem 0.75rem; font-size: 0.78rem; white-space: nowrap; }
+      .withdrawal-wizard-body { flex: 1; padding: clamp(1rem, 2.5vw, 1.6rem); overflow: visible; }
+      .withdrawal-wizard-footer { display: flex; justify-content: space-between; gap: 0.75rem; padding: 1rem 1.35rem; border-top: 1px solid var(--border-light); }
+      @media (max-width: 640px) {
+        .withdrawal-request-page { padding: 0.85rem; }
+        .withdrawal-page-heading { align-items: flex-start; flex-direction: column; margin-bottom: 0.85rem; }
+        .withdrawal-wizard-card { min-height: 0; border-radius: 13px; }
+        .withdrawal-wizard-header { padding: 0.9rem; align-items: flex-start; }
+        .withdrawal-wizard-header h3 { padding-top: 0.45rem; }
+        .withdrawal-wizard-body { padding: 1rem 0.9rem; }
+        .withdrawal-wizard-footer { padding: 0.85rem 0.9rem; }
+      }
+    </style>
+    <div class="withdrawal-page-shell">
+      <header class="withdrawal-page-heading">
+        <div><h1>Withdrawal Request</h1><p>Complete the steps below to submit a savings withdrawal or loan request.</p></div>
+      </header>
+      <div class="withdrawal-wizard-content" id="withdrawal-wizard-content"></div>
+    </div>
+  `;
   const handleWizardEnter = (e) => {
-    if (!overlay.isConnected) {
+    if (!page.isConnected) {
       document.removeEventListener('keydown', handleWizardEnter);
       return;
     }
@@ -859,7 +883,7 @@ export async function showWithdrawalWizard() {
     const el = e.target;
     const tag = (el?.tagName || '').toLowerCase();
     if (tag === 'button') return;
-    const inModal = overlay.contains(el);
+    const inModal = page.contains(el);
     const isIdle = el === document.body || el === document.documentElement;
     if (!inModal && !isIdle) return;
     if (!isIdle && tag !== 'input' && tag !== 'textarea' && tag !== 'select') return;
@@ -870,6 +894,8 @@ export async function showWithdrawalWizard() {
     nextBtn.click();
   };
   document.addEventListener('keydown', handleWizardEnter);
-  document.body.appendChild(overlay);
+  const pageHost = document.getElementById('dashboard-main-content');
+  if (!pageHost) return;
+  pageHost.replaceChildren(page);
   renderModal();
 }

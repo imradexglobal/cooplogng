@@ -178,8 +178,9 @@ export function applyFilters() {
     _filteredMembers = _allMembers.filter(m => {
         // 1. Status Dropdown Filter ('Issues' pseudo-status = Inactive OR Suspended)
         const matchesStatus = statusFilter === "All Status"
-            || (statusFilter === "Issues" && (m.status === "Inactive" || m.status === "Suspended"))
-            || m.status === statusFilter
+            ? String(m.status || '').toLowerCase() !== 'archived'
+            : (statusFilter === "Issues" && (m.status === "Inactive" || m.status === "Suspended"))
+              || m.status === statusFilter
         if (!matchesStatus) return false
 
         // 2. Manager Dropdown Filter

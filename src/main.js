@@ -59,17 +59,20 @@ import { syncBus, SyncEvents } from './services/syncEventBus.js'
 
 const app = document.querySelector('#app')
 
-// Keep numeric inputs genuinely numeric across the app (including paste),
-// without interfering with normal editing/navigation keys.
+// Keep numeric inputs numeric across the app while allowing negative values
+// by default. A nonnegative min (or data-allow-negative="false") opts out.
 app?.addEventListener('keydown', (event) => {
   const input = event.target;
   if (!(input instanceof HTMLInputElement) || input.type !== 'number') return;
-  if (['e', 'E', '+'].includes(event.key) || (event.key === '-' && !(Number(input.min) < 0))) event.preventDefault();
+  const hasNonnegativeMin = input.min !== '' && Number(input.min) >= 0;
+  const allowsNegative = input.dataset.allowNegative !== 'false' && !hasNonnegativeMin;
+  if (['e', 'E', '+'].includes(event.key) || (event.key === '-' && !allowsNegative)) event.preventDefault();
 });
 app?.addEventListener('beforeinput', (event) => {
   const input = event.target;
   if (!(input instanceof HTMLInputElement) || input.type !== 'number' || !event.data) return;
-  const allowsNegative = Number(input.min) < 0;
+  const hasNonnegativeMin = input.min !== '' && Number(input.min) >= 0;
+  const allowsNegative = input.dataset.allowNegative !== 'false' && !hasNonnegativeMin;
   const candidate = input.value.slice(0, input.selectionStart ?? input.value.length)
     + event.data
     + input.value.slice(input.selectionEnd ?? input.value.length);
@@ -330,6 +333,9 @@ function handleRouting() {
     persistActiveTab('dashboard').catch(() => {})
     document.body.className = 'tab-dashboard'
     return
+  }
+  if (tab === 'withdrawal-request' && state.activeTab !== 'withdrawal-request') {
+    state.withdrawalReturnTab = state.activeTab || 'dashboard'
   }
   state.activeTab = tab
   state.routeParts = parts
@@ -1282,7 +1288,7 @@ app.addEventListener('click', async (event) => {
   }
 
   if (action === 'withdrawal-request') {
-    showWithdrawalWizard();
+    window.location.hash = 'withdrawal-request';
     return;
   }
 })
@@ -2279,6 +2285,7 @@ function renderDashboard() {
     'bulk-remittance': 'Bulk Remittance',
     'monthly-summary': 'Account Summary',
     advice: 'Payment Advice',
+    'withdrawal-request': 'Withdrawal Request',
     reports: 'Reports',
     reconciliation: 'Reconciliation',
     settings: 'Settings',
@@ -2372,7 +2379,7 @@ function renderDashboard() {
               <span>Payment Advice</span>
             </button>
           ` : ''}
-          <button class="nav-item ${state.activeTab === 'withdrawal-request' ? 'active' : ''}" data-action="withdrawal-request">
+          <button class="nav-item ${state.activeTab === 'withdrawal-request' ? 'active' : ''}" data-action="nav-tab" data-tab="withdrawal-request">
             <span class="nav-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V5m0 0L5 12m7-7l7 7"/></svg></span>
             <span>Withdrawal Request</span>
           </button>
@@ -2911,6 +2918,7 @@ async function renderDashboardContent() {
 async function _renderDashboardContentInner() {
   const container = document.getElementById('dashboard-main-content')
   if (!container) return
+  if (document.getElementById('withdrawal-wizard-modal') && state.activeTab !== 'withdrawal-request') return
 
   const isAdmin = hasPermission(state.welcomeUser.permissions, 'admin') 
     || String(state.welcomeUser.username || '').toLowerCase() === 'admin' 
@@ -3030,6 +3038,8 @@ async function _renderDashboardContentInner() {
   } else if (state.activeTab === 'dev-settings') {
     const { renderDevSettings } = await import('./screens/DevSettings.js')
     await renderDevSettings(container, displayUser)
+  } else if (state.activeTab === 'withdrawal-request') {
+    if (!document.getElementById('withdrawal-wizard-modal')) await showWithdrawalWizard()
   }
 
   // Keep mobile page title in sync
@@ -5463,6 +5473,18 @@ async function finalizeLoanRequest() {
   showToast('Withdrawal/Loan request submitted successfully!', 'success');
 }
 
+function leaveWithdrawalRequest() {
+  const returnTab = state.withdrawalReturnTab || 'dashboard';
+  state.withdrawalReturnTab = null;
+  const currentTab = window.location.hash.replace(/^#\/?/, '').split('/')[0];
+  if (currentTab === returnTab) {
+    state.activeTab = returnTab;
+    renderDashboard();
+    return;
+  }
+  window.location.hash = returnTab;
+}
+
 async function showWithdrawalWizard() {
   const { 
     fetchEnterprises,
@@ -5472,13 +5494,18 @@ async function showWithdrawalWizard() {
   } = await import('./services/dataService.js');
   const { showToast } = await import('./services/toastService.js');
   const { generateId, formatCurrency, escapeHtml } = await import('./utils/formatters.js');
+  const { pickImageFile } = await import('./utils/photoPicker.js');
+  const { compressImage } = await import('./utils/imageUtils.js');
   
   const existingModal = document.getElementById('withdrawal-wizard-modal');
   if (existingModal) existingModal.remove();
 
   // Check if user is admin
   const isAdmin = state.welcomeUser.role === 'admin' || 
-    (state.welcomeUser.permissions || []).includes('admin');
+    (state.welcomeUser.permissions || []).includes('admin') ||
+    hasPermission(state.welcomeUser.permissions, 'read_member') ||
+    String(state.welcomeUser.username || '').toLowerCase() === 'admin' ||
+    String(state.welcomeUser.username || '').toLowerCase() === String(state.welcomeUser.coopShortName || '').toLowerCase();
 
   // Get required data first
   const enterprises = await fetchEnterprises(state.welcomeUser.cooperativeId, true);
@@ -5507,6 +5534,7 @@ async function showWithdrawalWizard() {
     let withdrawalAmount = 0;
     let loanDuration = 1;
     let guarantors = [];
+    let physicalFormImages = [];
     let totalSteps = isAdmin ? 5 : 4;
 
   const filterEnterprise = (e) => {
@@ -5546,8 +5574,8 @@ async function showWithdrawalWizard() {
   };
 
   const renderModal = () => {
-    const modalContainer = document.getElementById('withdrawal-wizard-modal');
-    if (!modalContainer) return;
+    const wizardContainer = document.getElementById('withdrawal-wizard-content');
+    if (!wizardContainer) return;
     
     let stepContent = '';
     totalSteps = selectedEnterprise?.type === 'loan' 
@@ -5699,31 +5727,15 @@ async function showWithdrawalWizard() {
         <div style="padding: 1rem 0; min-height: 400px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h4 style="margin: 0;">Select Guarantors</h4>
-            <button type="button" id="wizard-add-guarantor-btn" class="ghost-button" style="color: var(--accent-primary); height: auto; padding: 0.5rem 1rem;">+ Add Guarantor</button>
           </div>
           <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Select members to guarantee this loan.</p>
           
-          <div id="wizard-guarantors-list" style="display: flex; flex-direction: column; gap: 0.85rem;">
-            ${guarantors.map((g, gi) => `
-              <div class="wizard-guarantor-row" data-index="${gi}" style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--bg-card); padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--border-medium);">
-                <div style="display: grid; grid-template-columns: 1fr 120px auto; gap: 0.75rem; align-items: center;">
-                  <div style="position: relative; z-index: 999999;">
-                    <input type="text" class="wizard-guarantor-search" placeholder="Search guarantor name..." value="${escapeHtml(g.name || '')}" style="width: 100%; height: 2.75rem; padding: 0 0.75rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
-                    <div class="wizard-guarantor-suggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 999999; max-height: 200px; overflow-y: auto; margin-top: 0.25rem;"></div>
-                    <input type="hidden" class="wizard-guarantor-id" value="${g.member_id || ''}">
-                  </div>
-                  <input type="number" class="wizard-guarantor-amt" value="${g.amount || ''}" placeholder="Amount" style="height: 2.75rem; padding: 0 0.75rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
-                  <button type="button" class="wizard-remove-guarantor" style="color: var(--danger); border: 0; background: transparent; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">&times;</button>
-                </div>
-                <div class="wizard-g-info-row" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 0.25rem;">
-                  <div class="wizard-g-selected-display" style="font-size: 0.75rem; color: var(--accent-primary); font-weight: 600;">
-                    ${g.name ? `Selected: ${g.name}` : ''}
-                  </div>
-                </div>
-              </div>
-            `).join('')}
-            ${guarantors.length === 0 ? '<p id="wizard-empty-guarantors-msg" style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 2rem; border: 1px dashed var(--border-light); border-radius: 0.5rem;">No guarantors added yet. Click "+ Add Guarantor" to start.</p>' : ''}
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 150px auto;gap:0.6rem;align-items:start;">
+            <div style="position:relative;"><input type="text" id="wizard-guarantor-search" placeholder="Search guarantor name..." style="width:100%;height:2.75rem;padding:0 0.75rem;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-medium);border-radius:var(--radius-sm);"><div id="wizard-guarantor-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-card);border:1px solid var(--border-medium);border-radius:0.5rem;box-shadow:var(--shadow-lg);z-index:999999;max-height:200px;overflow-y:auto;margin-top:0.25rem;"></div></div>
+            <input type="number" id="wizard-guarantor-amt" min="0" placeholder="Amount" style="height:2.75rem;padding:0 0.75rem;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-medium);border-radius:var(--radius-sm);">
+            <button type="button" id="wizard-add-guarantor-btn" class="primary-button" style="height:2.75rem;white-space:nowrap;">Add to table</button>
           </div>
+          <div style="overflow-x:auto;margin-top:1rem;"><table style="width:100%;border-collapse:collapse;text-align:left;"><thead><tr><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);">Guarantor</th><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);">Amount</th><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);"></th></tr></thead><tbody id="wizard-guarantors-list">${guarantors.map((g, gi) => `<tr><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);">${escapeHtml(g.name || 'Unknown')}</td><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);">${formatCurrency(g.amount || 0)}</td><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);"><button type="button" class="wizard-remove-guarantor" data-index="${gi}" style="color:var(--danger);border:0;background:transparent;cursor:pointer;">Remove</button></td></tr>`).join('')}</tbody><tfoot><tr><th style="padding:0.75rem;">Total</th><th id="wizard-guarantors-total" style="padding:0.75rem;">${formatCurrency(guarantors.reduce((sum, g) => sum + (Number(g.amount) || 0), 0))}</th><th></th></tr></tfoot></table></div>
         </div>
       `;
     } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 7) || (!isAdmin && wizardStep === 6))) {
@@ -5733,6 +5745,7 @@ async function showWithdrawalWizard() {
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Confirm Loan Request</h4>
+          ${isAdmin ? `<div class="field"><label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Physical withdrawal form (1–3 images required)</label><button type="button" class="secondary-button" id="withdrawal-form-image-btn" ${physicalFormImages.length >= 3 ? 'disabled' : ''}>${physicalFormImages.length >= 3 ? 'Maximum of 3 images attached' : 'Add form image'}</button><div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:0.75rem;">${physicalFormImages.map((image, index) => `<div style="position:relative;"><button type="button" class="withdrawal-form-image-preview" data-index="${index}" aria-label="View form image ${index + 1} full screen" style="padding:0;border:1px solid var(--border-light);background:transparent;cursor:zoom-in;"><img src="${image}" alt="Physical form image ${index + 1}" style="width:110px;height:90px;object-fit:cover;display:block;border-radius:0.5rem;"></button><button type="button" class="withdrawal-form-image-remove" data-index="${index}" aria-label="Remove image ${index + 1}" style="position:absolute;right:-7px;top:-7px;border:0;border-radius:50%;background:var(--danger);color:#fff;width:24px;height:24px;cursor:pointer;">&times;</button></div>`).join('')}</div><p style="font-size:0.8rem;color:var(--text-muted);">Click a thumbnail to view full screen. Up to three photos are accepted.</p></div>` : ''}
           <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem; border: 1px solid var(--border-light);">
             ${isAdmin ? `
               <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
@@ -5773,6 +5786,7 @@ async function showWithdrawalWizard() {
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Confirm Savings Withdrawal</h4>
+          ${isAdmin ? `<div class="field"><label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Physical withdrawal form (1–3 images required)</label><button type="button" class="secondary-button" id="withdrawal-form-image-btn" ${physicalFormImages.length >= 3 ? 'disabled' : ''}>${physicalFormImages.length >= 3 ? 'Maximum of 3 images attached' : 'Add form image'}</button><div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:0.75rem;">${physicalFormImages.map((image, index) => `<div style="position:relative;"><button type="button" class="withdrawal-form-image-preview" data-index="${index}" aria-label="View form image ${index + 1} full screen" style="padding:0;border:1px solid var(--border-light);background:transparent;cursor:zoom-in;"><img src="${image}" alt="Physical form image ${index + 1}" style="width:110px;height:90px;object-fit:cover;display:block;border-radius:0.5rem;"></button><button type="button" class="withdrawal-form-image-remove" data-index="${index}" aria-label="Remove image ${index + 1}" style="position:absolute;right:-7px;top:-7px;border:0;border-radius:50%;background:var(--danger);color:#fff;width:24px;height:24px;cursor:pointer;">&times;</button></div>`).join('')}</div><p style="font-size:0.8rem;color:var(--text-muted);">Click a thumbnail to view full screen. Up to three photos are accepted.</p></div>` : ''}
           <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem; border: 1px solid var(--border-light);">
             ${isAdmin ? `
               <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
@@ -5795,13 +5809,13 @@ async function showWithdrawalWizard() {
 
     const isNextEnabled = calculateIsNextEnabled();
 
-    modalContainer.innerHTML = `
-      <div class="modal-content" style="max-width: 500px; display: flex; flex-direction: column; height: 95vh; max-height: 95vh; margin: auto;">
-        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-light); flex-shrink: 0;">
+    wizardContainer.innerHTML = `
+      <div class="withdrawal-wizard-card">
+        <div class="withdrawal-wizard-header">
           <h3 style="margin: 0; font-weight: 700; color: var(--text-primary);">${wizardTitle}</h3>
-          <button class="close-btn" onclick="document.getElementById('withdrawal-wizard-modal').remove()" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+          <button type="button" class="secondary-button withdrawal-page-exit-btn" id="withdrawal-page-exit-btn">Back to previous page</button>
         </div>
-        <div class="modal-body" style="padding: 1.5rem 1.25rem; overflow-y: auto; flex-grow: 1;">
+        <div class="withdrawal-wizard-body">
           <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
             ${Array.from({length: totalSteps}, (_, i) => i + 1).map(step => `
               <div style="flex: 1; height: 4px; border-radius: 2px; background: ${step <= wizardStep ? 'var(--accent-primary)' : 'var(--border-light)'};"></div>
@@ -5809,7 +5823,7 @@ async function showWithdrawalWizard() {
           </div>
           ${stepContent}
         </div>
-        <div class="modal-footer" style="display: flex; justify-content: space-between; gap: 0.75rem; padding: 1rem; border-top: 1px solid var(--border-light); flex-shrink: 0;">
+        <div class="withdrawal-wizard-footer">
           ${wizardStep > (isAdmin ? 1 : 1) ? `
             <button type="button" class="secondary-button" id="wizard-back-btn" style="background: transparent; border: 1px solid var(--border-medium); color: var(--text-primary); padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: 700; cursor: pointer;">Back</button>
           ` : '<div></div>'}
@@ -5853,6 +5867,7 @@ async function showWithdrawalWizard() {
   };
 
   const attachModalListeners = () => {
+    document.getElementById('withdrawal-page-exit-btn')?.addEventListener('click', leaveWithdrawalRequest);
     // Back button
     document.getElementById('wizard-back-btn')?.addEventListener('click', () => {
       wizardStep--;
@@ -5955,113 +5970,60 @@ async function showWithdrawalWizard() {
       // Guarantor management
       const addGuarantorBtn = document.getElementById('wizard-add-guarantor-btn');
       const guarantorsList = document.getElementById('wizard-guarantors-list');
-      
-      const setupGuarantorSearch = (row) => {
-        const searchInput = row.querySelector('.wizard-guarantor-search');
-        const suggestions = row.querySelector('.wizard-guarantor-suggestions');
-        const hiddenId = row.querySelector('.wizard-guarantor-id');
-        const amtInput = row.querySelector('.wizard-guarantor-amt');
-        const display = row.querySelector('.wizard-g-selected-display');
-        const removeBtn = row.querySelector('.wizard-remove-guarantor');
-        const gi = parseInt(row.dataset.index);
-        
-        searchInput?.addEventListener('input', async (e) => {
-          const text = (e.target.value || '').toLowerCase().trim();
-          if (!text) {
-            suggestions.style.display = 'none';
-            return;
-          }
-          
-          const matches = allMembers.filter(m => {
-            const isSelf = m.id === selectedMemberId;
-            if (isSelf) return false;
-            const nameMatch = (m.name || '').toLowerCase().includes(text);
-            const regMatch = String(m.registration_no || m.file_no || '').toLowerCase().includes(text);
-            return nameMatch || regMatch;
-          }).slice(0, 8);
-          
-          if (matches.length > 0) {
-            suggestions.innerHTML = matches.map(m => `
-              <div class="wizard-g-suggestion" data-id="${m.id}" data-name="${escapeHtml(m.name)}" data-file="${escapeHtml(m.file_no || m.registration_no || 'N/A')}" style="padding: 0.75rem 1rem; cursor: pointer; border-bottom: 1px solid var(--border-light);">
-                <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">${escapeHtml(m.name)}</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted);">File/Reg: ${m.file_no || m.registration_no || 'N/A'}</div>
-              </div>
-            `).join('');
-            suggestions.style.display = 'block';
-            
-            suggestions.querySelectorAll('.wizard-g-suggestion').forEach(item => {
-              item.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                const { id, name } = item.dataset;
-                hiddenId.value = id;
-                searchInput.value = name;
-                display.innerText = `Selected: ${name}`;
-                suggestions.style.display = 'none';
-                
-                // Update state
-                guarantors[gi] = {
-                  ...guarantors[gi],
-                  member_id: id,
-                  name
-                };
-              });
-            });
-          } else {
-            suggestions.innerHTML = '<div style="padding: 0.75rem; color: var(--text-muted); font-style: italic;">No members found</div>';
-            suggestions.style.display = 'block';
-          }
-        });
-        
-        searchInput?.addEventListener('blur', () => {
-          setTimeout(() => { suggestions.style.display = 'none' }, 200);
-        });
-        
-        amtInput?.addEventListener('input', (e) => {
-          const currentIdx = parseInt(row.dataset.index);
-          guarantors[currentIdx].amount = parseFloat(e.target.value || 0);
-        });
-        
-        removeBtn?.addEventListener('click', () => {
-          const currentIdx = parseInt(row.dataset.index);
-          guarantors.splice(currentIdx, 1);
-          renderModal();
-        });
-      };
-      
-      if (addGuarantorBtn && guarantorsList) {
-        addGuarantorBtn.addEventListener('click', () => {
-          const gIdx = guarantors.length;
-          const gTempId = generateId();
-          guarantors.push({ member_id: '', name: '', amount: 0, tempId: gTempId });
-          
-          const emptyMsg = guarantorsList.querySelector('#wizard-empty-guarantors-msg');
-          if (emptyMsg) emptyMsg.remove();
-          
-          const rowHtml = `
-            <div class="wizard-guarantor-row" data-index="${gIdx}" data-id="${gTempId}" style="display: flex; flex-direction: column; gap: 0.5rem; background: var(--bg-card); padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--border-medium);">
-              <div style="display: grid; grid-template-columns: 1fr 120px auto; gap: 0.75rem; align-items: center;">
-                <div style="position: relative; z-index: 999999;">
-                  <input type="text" class="wizard-guarantor-search" placeholder="Search guarantor name..." style="width: 100%; height: 2.75rem; padding: 0 0.75rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
-                  <div class="wizard-guarantor-suggestions" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-medium); border-radius: 0.5rem; box-shadow: var(--shadow-lg); z-index: 999999; max-height: 200px; overflow-y: auto; margin-top: 0.25rem;"></div>
-                  <input type="hidden" class="wizard-guarantor-id">
-                </div>
-                <input type="number" class="wizard-guarantor-amt" value="0" placeholder="Amount" style="height: 2.75rem; padding: 0 0.75rem; background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-medium); border-radius: var(--radius-sm);">
-                <button type="button" class="wizard-remove-guarantor" style="color: var(--danger); border: 0; background: transparent; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">&times;</button>
-              </div>
-              <div class="wizard-g-info-row" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 0.25rem;">
-                <div class="wizard-g-selected-display" style="font-size: 0.75rem; color: var(--accent-primary); font-weight: 600;"></div>
-              </div>
-            </div>
-          `;
-          guarantorsList.insertAdjacentHTML('beforeend', rowHtml);
-          setupGuarantorSearch(guarantorsList.lastElementChild);
-        });
-      }
-      
-      document.querySelectorAll('.wizard-guarantor-row').forEach(row => {
-        setupGuarantorSearch(row);
+      const searchInput = document.getElementById('wizard-guarantor-search');
+      const suggestions = document.getElementById('wizard-guarantor-suggestions');
+      const amountInput = document.getElementById('wizard-guarantor-amt');
+      let selectedGuarantor = null;
+      searchInput?.addEventListener('input', async () => {
+        selectedGuarantor = null;
+        const text = searchInput.value.toLowerCase().trim();
+        if (!text) { suggestions.style.display = 'none'; return; }
+        let searchableMembers = allMembers;
+        try { searchableMembers = await fetchAllMembers(state.welcomeUser.cooperativeId, state.welcomeUser.username, true); } catch (error) { console.warn('[Withdrawal] Could not refresh guarantor list; using cached members.', error); }
+        const matches = searchableMembers.filter(m => String(m.id) !== String(selectedMemberId) && !guarantors.some(g => String(g.member_id) === String(m.id)) && [m.name, m.first_name, m.middle_name, m.last_name, m.registration_no, m.file_no, m.special_id, m.mobile].some(value => String(value || '').toLowerCase().includes(text))).slice(0, 8);
+        suggestions.innerHTML = matches.length ? matches.map(m => `<button type="button" class="wizard-g-suggestion" data-id="${escapeHtml(m.id)}" data-name="${escapeHtml(m.name || [m.first_name, m.middle_name, m.last_name].filter(Boolean).join(' '))}" style="display:block;width:100%;text-align:left;padding:0.75rem 1rem;background:var(--bg-card);color:var(--text-primary);border:0;border-bottom:1px solid var(--border-light);cursor:pointer;"><strong>${escapeHtml(m.name || [m.first_name, m.middle_name, m.last_name].filter(Boolean).join(' '))}</strong><div style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(m.file_no || m.registration_no || m.mobile || '')}</div></button>`).join('') : '<div style="padding:0.75rem;color:var(--text-muted);">No members found</div>';
+        suggestions.style.display = 'block';
+        suggestions.querySelectorAll('.wizard-g-suggestion').forEach(item => item.addEventListener('mousedown', event => { event.preventDefault(); selectedGuarantor = { member_id: item.dataset.id, name: item.dataset.name }; searchInput.value = item.dataset.name; suggestions.style.display = 'none'; }));
       });
+      searchInput?.addEventListener('blur', () => setTimeout(() => { suggestions.style.display = 'none'; }, 200));
+      addGuarantorBtn?.addEventListener('click', () => {
+        const amount = Number(amountInput?.value);
+        if (!selectedGuarantor) { showToast('Search for and select a guarantor first.', 'warning'); return; }
+        if (!Number.isFinite(amount) || amount <= 0) { showToast('Enter a guarantor amount greater than zero.', 'warning'); return; }
+        guarantors.push({ ...selectedGuarantor, amount });
+        renderModal();
+      });
+      guarantorsList?.querySelectorAll('.wizard-remove-guarantor').forEach(button => button.addEventListener('click', () => { guarantors.splice(Number(button.dataset.index), 1); renderModal(); }));
     }
+
+    document.getElementById('withdrawal-form-image-btn')?.addEventListener('click', async () => {
+      if (physicalFormImages.length >= 3) return;
+      const file = await pickImageFile({ title: 'Attach physical withdrawal form' });
+      if (!file) return;
+      try {
+        physicalFormImages.push(await compressImage(file));
+        renderModal();
+      } catch (error) {
+        showToast('Could not read that image. Please choose another.', 'error');
+      }
+    });
+    document.querySelectorAll('.withdrawal-form-image-preview').forEach(button => button.addEventListener('click', () => {
+      const image = physicalFormImages[Number(button.dataset.index)];
+      if (!image) return;
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay open';
+      Object.assign(overlay.style, { position: 'fixed', inset: '0', zIndex: '1000000', background: 'rgba(0,0,0,0.94)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' });
+      overlay.innerHTML = `<button type="button" aria-label="Close full-screen image" style="position:fixed;top:1rem;right:1rem;z-index:1;border:0;border-radius:50%;width:44px;height:44px;background:#fff;color:#111;font-size:1.6rem;cursor:pointer;">&times;</button><img src="${image}" alt="Physical withdrawal form full-screen preview" style="max-width:100%;max-height:100%;object-fit:contain;">`;
+      const close = () => overlay.remove();
+      overlay.querySelector('button').addEventListener('click', close);
+      overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
+      document.addEventListener('keydown', function onKey(event) { if (event.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } });
+      document.body.appendChild(overlay);
+    }));
+    document.querySelectorAll('.withdrawal-form-image-remove').forEach(button => button.addEventListener('click', () => {
+      physicalFormImages.splice(Number(button.dataset.index), 1);
+      renderModal();
+    }));
 
     // Next button
     document.getElementById('wizard-next-btn')?.addEventListener('click', async () => {
@@ -6096,6 +6058,10 @@ async function showWithdrawalWizard() {
       } else {
         // Submit directly to database
         try {
+          if (isAdmin && (physicalFormImages.length < 1 || physicalFormImages.length > 3)) {
+            showToast('Attach between one and three images of the physical withdrawal form before submitting.', 'warning');
+            return;
+          }
           const ent = enterprises.find(e => e.id === selectedEnterprise.id);
           const selectedMember = allMembers.find(m => m.id === selectedMemberId);
           const transactionType = selectedEnterprise.type === 'loan' ? 'Member Loan' : 'Savings Withdrawal';
@@ -6135,6 +6101,7 @@ async function showWithdrawalWizard() {
             transaction_type: transactionType,
             remittance_date: new Date().toISOString().split('T')[0],
             details: details,
+            ...(isAdmin ? { withdrawal_form_images: physicalFormImages, withdrawal_form_image: physicalFormImages[0] } : {}),
             isLoanRequest: selectedEnterprise.type === 'loan',
             isWithdrawalRequest: true,
             cooperative_id: state.welcomeUser.cooperativeId,
@@ -6151,9 +6118,7 @@ async function showWithdrawalWizard() {
 
           await addRemittance(remittanceData, state.welcomeUser.username);
 
-          document.getElementById('withdrawal-wizard-modal').remove();
-          
-          render();
+          leaveWithdrawalRequest();
           showToast('Request submitted successfully!', 'success');
         } catch (err) {
           showToast('Error submitting request: ' + err.message, 'error');
@@ -6162,21 +6127,43 @@ async function showWithdrawalWizard() {
     });
   };
 
-  const overlay = document.createElement('div');
-  overlay.id = 'withdrawal-wizard-modal';
-  overlay.className = 'modal-overlay open';
-  overlay.style.position = 'fixed';
-  overlay.style.inset = '0';
-  overlay.style.zIndex = '999999';
-  overlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
-  overlay.style.display = 'flex';
-  overlay.style.alignItems = 'center';
-  overlay.style.justifyContent = 'center';
-  overlay.style.padding = '1rem';
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-  document.body.appendChild(overlay);
+  const page = document.createElement('section');
+  page.id = 'withdrawal-wizard-modal';
+  page.className = 'withdrawal-request-page';
+  page.innerHTML = `
+    <style>
+      .withdrawal-request-page { min-height: 100%; padding: clamp(1rem, 2.5vw, 2rem); background: var(--bg-main); color: var(--text-primary); }
+      .withdrawal-page-shell { width: min(100%, 1120px); margin: 0 auto; }
+      .withdrawal-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: 0 auto 1.25rem; }
+      .withdrawal-page-heading h1 { margin: 0; color: var(--text-primary); font-size: clamp(1.45rem, 2vw, 1.85rem); line-height: 1.15; letter-spacing: -0.035em; }
+      .withdrawal-page-heading p { margin: 0.45rem 0 0; color: var(--text-muted); font-size: 0.88rem; }
+      .withdrawal-wizard-content { width: 100%; }
+      .withdrawal-wizard-card { width: min(100%, 960px); min-height: min(680px, calc(100vh - 240px)); margin: 0 auto; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--border-light); border-radius: 16px; background: var(--bg-card); box-shadow: var(--shadow-md); }
+      .withdrawal-wizard-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.35rem; border-bottom: 1px solid var(--border-light); }
+      .withdrawal-wizard-header h3 { font-size: 1.02rem; letter-spacing: -0.015em; }
+      .withdrawal-page-exit-btn { min-height: 38px; padding: 0.45rem 0.75rem; font-size: 0.78rem; white-space: nowrap; }
+      .withdrawal-wizard-body { flex: 1; padding: clamp(1rem, 2.5vw, 1.6rem); overflow: visible; }
+      .withdrawal-wizard-footer { display: flex; justify-content: space-between; gap: 0.75rem; padding: 1rem 1.35rem; border-top: 1px solid var(--border-light); }
+      @media (max-width: 640px) {
+        .withdrawal-request-page { padding: 0.85rem; }
+        .withdrawal-page-heading { align-items: flex-start; flex-direction: column; margin-bottom: 0.85rem; }
+        .withdrawal-wizard-card { min-height: 0; border-radius: 13px; }
+        .withdrawal-wizard-header { padding: 0.9rem; align-items: flex-start; }
+        .withdrawal-wizard-header h3 { padding-top: 0.45rem; }
+        .withdrawal-wizard-body { padding: 1rem 0.9rem; }
+        .withdrawal-wizard-footer { padding: 0.85rem 0.9rem; }
+      }
+    </style>
+    <div class="withdrawal-page-shell">
+      <header class="withdrawal-page-heading">
+        <div><h1>Withdrawal Request</h1><p>Complete the steps below to submit a savings withdrawal or loan request.</p></div>
+      </header>
+      <div class="withdrawal-wizard-content" id="withdrawal-wizard-content"></div>
+    </div>
+  `;
+  const pageHost = document.getElementById('dashboard-main-content');
+  if (!pageHost) return;
+  pageHost.replaceChildren(page);
   renderModal();
 }
 

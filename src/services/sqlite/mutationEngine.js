@@ -91,24 +91,31 @@ export async function saveDoc(tableName, doc, skipEnqueue = false) {
                     }
                     const childRems = await getAllByIndex('remittance', 'loan_id', loan.id)
                     for (const childRem of childRems) {
-                        if (childRem.autogen === 1 && (childRem.is_deleted === 0 || !childRem.is_deleted)) {
+                        if (Number(childRem.autogen) === 1 && (childRem.is_deleted === 0 || !childRem.is_deleted)) {
                             await saveDoc('remittance', { ...childRem, is_deleted: 1 })
                         }
                     }
                 }
             }
-            // Direct autogen children (dues/penalty autos link loan_id straight
-            // to the parent remittance id — no loan bridge). Deleting the parent
-            // cascades to them on every delete path (single, bulk, sync-applied).
-            // Loan-charge children are unaffected: their loan_id is a loan id,
-            // never a remittance id (distinct id formats).
-            const directChildren = await getAllByIndex('remittance', 'loan_id', doc.id)
+            // Find generated children across current and legacy link formats:
+            // parent_remittance_id, loan_id pointing directly to the parent,
+            // or a parent-ID prefix. Loan-charge children are found above by
+            // their loan record and remain part of that same cascade.
+            const allRemittances = await getAllItems('remittance')
+            const parentId = String(doc.id)
+            const directChildren = allRemittances.filter(child =>
+                Number(child.autogen) === 1 && (
+                    String(child.parent_remittance_id || '') === parentId ||
+                    String(child.loan_id || '') === parentId ||
+                    String(child.id || '').startsWith(`${parentId}-`)
+                )
+            )
             for (const child of directChildren) {
-                if (child.autogen === 1 && (child.is_deleted === 0 || !child.is_deleted)) {
+                if (Number(child.autogen) === 1 && (child.is_deleted === 0 || !child.is_deleted)) {
                     await saveDoc('remittance', { ...child, is_deleted: 1 })
                 }
             }
-            if (doc.autogen === 1 && doc.loan_id) {
+            if (Number(doc.autogen) === 1 && doc.loan_id) {
                 const loan = await getDocById_Global('loans', doc.loan_id)
                 if (loan && loan.remittance_id) {
                     const parentRem = await getDocById_Global('remittance', loan.remittance_id)
