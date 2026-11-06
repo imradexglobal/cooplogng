@@ -1088,7 +1088,7 @@ export function showBulkRemittanceModal(deps) {
         const failures = [];
         const coopId = user.cooperativeId;
         const autoShareEnterprises = (enterpriseData || []).filter(x => !(x.is_deleted === 1 || x.deleted === 1));
-        const autoShareDetailsFor = async (memberId, remittanceAmount) => {
+        const autoShareDetailsFor = async (memberId, remittanceAmount, balanceByEnterprise = {}) => {
             const adviceRows = await fetchMemberPaymentAdvise(memberId).catch(() => []);
             const adviceByEnterprise = {};
             (adviceRows || []).forEach(row => {
@@ -1098,6 +1098,7 @@ export function showBulkRemittanceModal(deps) {
                 remittanceAmount,
                 enterprises: autoShareEnterprises,
                 adviceByEnterprise,
+                balanceByEnterprise,
                 member: pickable.find(m => String(m.id) === String(memberId))
             });
             const positiveAllocations = allocation.allocations.filter(a => parseFloat(a.allocatedAmount) > 0);
@@ -1368,7 +1369,7 @@ id: generateId(String(coopId)),
                 } else if (!isDuePenalty) {
                     // Deposit (fixed or varied): positive distribution, Member Deposit
                     const depositDetails = isVaried
-                        ? await autoShareDetailsFor(mid, Math.abs(curAmt))
+                        ? await autoShareDetailsFor(mid, Math.abs(curAmt), openings)
                         : [{ id: generateId(String(coopId)), enterprise_id: ent.id, amount: Math.abs(curAmt) }];
                     await addRemittance({
                         id: parentRemId,

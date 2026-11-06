@@ -67,7 +67,8 @@ export async function previewAutoShare({
   cooperativeId,
   memberId,
   remittanceAmount,
-  member
+  member,
+  balanceByEnterprise = {}
 }) {
   // Load enterprises for this cooperative
   const enterprises = await loadEligibleEnterprises(cooperativeId);
@@ -83,6 +84,7 @@ export async function previewAutoShare({
     remittanceAmount,
     enterprises,
     adviceByEnterprise,
+    balanceByEnterprise,
     member
   });
 
@@ -150,8 +152,13 @@ export async function confirmAutoShare({
   bankName,
   description,
   createdBy,
-  canApprove = false
+  canApprove = false,
+  balanceByEnterprise = {},
+  enterprises = []
 }) {
+  if (!(Number(remittanceAmount) > 0)) {
+    throw new Error('Auto Share is available only for positive remittance amounts.');
+  }
   const remittanceStatus = resolveAutoShareStatus(canApprove);
   // Build detail rows for the remittance
   const detailRows = (allocations || []).map(detail => ({
@@ -161,6 +168,23 @@ export async function confirmAutoShare({
     notes: `Auto Share v2: allocated at priority ${detail.priority || 0}`,
     loan_info: null
   })).filter(detail => detail.amount > 0);
+
+  // Re-check the signed loan balance at save time. The preview is editable,
+  // so this guard prevents a user from manually changing a loan allocation
+  // above its outstanding balance after the initial calculation.
+  for (const detail of detailRows) {
+    const enterprise = enterprises.find(ent => String(ent?.id) === String(detail.enterprise_id));
+    const accountType = String(enterprise?.account_type || enterprise?.type || '').trim().toLowerCase();
+    if (accountType === 'loan') {
+      const balance = Array.isArray(balanceByEnterprise)
+        ? balanceByEnterprise.find(row => String(row?.id) === String(detail.enterprise_id))?.sum_of_amount
+        : balanceByEnterprise?.[String(detail.enterprise_id)];
+      const maxRepayment = Math.max(0, -(Number(balance) || 0));
+      if (detail.amount > maxRepayment + 0.000001) {
+        throw new Error(`Loan allocation for ${enterprise?.account_name || detail.enterprise_id} cannot exceed the outstanding balance of ${maxRepayment.toFixed(2)}.`);
+      }
+    }
+  }
 
   const remittanceCents = Math.round((Number(remittanceAmount) || 0) * 100);
   const totalDetailCents = detailRows.reduce((sum, detail) => sum + Math.round(detail.amount * 100), 0);
@@ -172,7 +196,8 @@ export async function confirmAutoShare({
     amount: Math.round(detail.amount * 100) / 100
   }));
 
-  // Create or update the remittance record
+  // Create the main remittance record. Auto Share allocation details are not
+  // child remittances, so the parent remains editable like a normal deposit.
   const remittanceData = {
     cooperative_id: String(cooperativeId),
     member_id: memberId || '0000000000',
@@ -183,7 +208,7 @@ export async function confirmAutoShare({
     transaction_type: 'Member Deposit',
     status: remittanceStatus,
     details: adjustedDetails,
-    autogen: 1, // Mark as Auto Generated
+    autogen: 0,
     parent_remittance_id: null,
     isLoanRequest: false,
     isWithdrawalRequest: false

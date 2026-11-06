@@ -57,6 +57,19 @@ export function attachEventListeners(container, deps) {
     } catch (e) {}
     const form = container.querySelector('#payment-form');
     if (form) {
+      const updateAutoShareAvailability = () => {
+        const autoShareBtn = container.querySelector('#auto-share-btn');
+        if (!autoShareBtn) return;
+        const amount = Number(formData.amount);
+        const hasMember = !!formData.member_id && formData.member_id !== '0000000000';
+        const hasRequiredFields = !!formData.remittance_date && !!formData.bank_name && amount > 0 && hasMember;
+        const needsNote = String(formData.bank_name || '').toLowerCase() === 'internal transfer';
+        const ready = hasRequiredFields && (!needsNote || !!String(formData.description || '').trim());
+        autoShareBtn.disabled = !ready;
+        autoShareBtn.title = ready
+          ? 'Preview an automatic allocation of this remittance using the member’s payment advice'
+          : 'Complete the required remittance fields before using Auto Share';
+      };
       container.querySelectorAll('input[type="date"]').forEach(wrapDateInput);
       const adminCheck = container.querySelector('#admin-mode-check');
       if (adminCheck) {
@@ -72,6 +85,7 @@ export function attachEventListeners(container, deps) {
         const wasValid = isFormValid();
         syncFormData();
         saveSavedForm(formData);
+        updateAutoShareAvailability();
         const nowValid = isFormValid();
         if (wasValid !== nowValid) {
           const submitBtn = document.getElementById('submit-log-btn') || document.getElementById('update-log-btn');
@@ -85,6 +99,7 @@ export function attachEventListeners(container, deps) {
         syncFormData();
         saveSavedForm(formData);
         checkDirty();
+        updateAutoShareAvailability();
         if (isFormValid()) {
           formData.details.forEach(d => {
             const ent = enterpriseData.find(e => e.id === (d.enterprise_id || d.item));
@@ -96,6 +111,7 @@ export function attachEventListeners(container, deps) {
           });
         }
       });
+      updateAutoShareAvailability();
       const memSearch = container.querySelector('#member-search-input');
       const memSuggestions = container.querySelector('#member-search-suggestions');
       const memSelect = container.querySelector('#member-id-select');
@@ -334,6 +350,10 @@ export function attachEventListeners(container, deps) {
           showToast('Please select a member first.', 'warning');
           return;
         }
+        if (!(Number(formData.amount) > 0)) {
+          showToast('Auto Share is available only for positive remittance amounts.', 'warning');
+          return;
+        }
         
         // Show loading state
         showWorkspaceSpinner(container);
@@ -357,6 +377,7 @@ export function attachEventListeners(container, deps) {
             remittanceAmount: formData.amount,
             enterprises: activeEnterprises,
             adviceByEnterprise,
+            balanceByEnterprise: openingBalances,
             member: formData.member_id ? { id: memberId } : undefined
           });
           

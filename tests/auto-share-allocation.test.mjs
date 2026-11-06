@@ -55,6 +55,28 @@ test('auto_rem on a loan account is never used as a Savings remainder target', (
   assert.deepEqual(byId(result), { loan: 0, savings: 15 });
 });
 
+test('loan allocation is capped at the outstanding negative balance', () => {
+  const result = allocateAutoShare({
+    remittanceAmount: 300,
+    enterprises: [enterprise('loan', 0, 'Loan'), enterprise('savings')],
+    adviceByEnterprise: { loan: 250 },
+    balanceByEnterprise: { loan: -100 }
+  });
+  assert.deepEqual(byId(result), { loan: 100, savings: 200 });
+  assert.equal(result.allocatedTotal, 300);
+});
+
+test('when there is no Savings account, Auto Share leaves excess funds unallocated rather than overpaying a loan', () => {
+  const result = allocateAutoShare({
+    remittanceAmount: 200,
+    enterprises: [enterprise('loan', 0, 'Loan')],
+    adviceByEnterprise: { loan: 200 },
+    balanceByEnterprise: { loan: -100 }
+  });
+  assert.deepEqual(byId(result), { loan: 100 });
+  assert.equal(result.remainder, 100);
+});
+
 test('minor-unit rounding always allocates the exact remittance total', () => {
   const result = allocateAutoShare({
     remittanceAmount: 10.01,

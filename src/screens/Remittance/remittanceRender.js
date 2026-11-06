@@ -6,6 +6,14 @@ export function render(container, deps) {
     const { formData, historyState, enterpriseData, members, selectorMembers, banks, transactionTypes, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, sealLocked = false, isAdmin, isMember, canApprove, canDelete, canReverse, trackFocus, restoreFocus, getFormattedName, attachHistoryEventListeners, user } = deps;
     trackFocus();
     const selectedMember = formData.member_id ? historyState.membersMap[formData.member_id] : null;
+    const autoShareNeedsNote = String(formData.bank_name || '').toLowerCase() === 'internal transfer';
+    const autoShareReady = !previewMode
+      && !!formData.remittance_date
+      && !!formData.bank_name
+      && Number(formData.amount) > 0
+      && !!formData.member_id
+      && formData.member_id !== '0000000000'
+      && (!autoShareNeedsNote || !!String(formData.description || '').trim());
 
     container.innerHTML = `
       <style>
@@ -748,7 +756,7 @@ export function render(container, deps) {
               </form>
             </div>
             <div class="form-actions">
-              ${!isMember ? `<button type="button" id="auto-share-btn" class="btn btn-secondary" title="Preview an automatic allocation of this remittance using the member’s payment advice">Auto Share</button>` : ''}
+              ${!isMember ? `<button type="button" id="auto-share-btn" class="btn btn-secondary" ${autoShareReady ? '' : 'disabled'} title="${autoShareReady ? 'Preview an automatic allocation of this remittance using the member’s payment advice' : 'Complete the required remittance fields before using Auto Share'}">Auto Share</button>` : ''}
               <button type="button" id="clear-log-btn" class="btn btn-secondary">${previewMode ? 'Add New Remittance' : 'Clear Form'}</button>
               ${editMode ?
                 `<button type="button" id="update-log-btn" class="btn btn-primary">Update Remittance</button>` :

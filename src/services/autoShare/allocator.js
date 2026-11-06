@@ -24,6 +24,18 @@ function isSavings(ent) {
   return String(ent?.account_type || ent?.type || '').trim().toLowerCase() === 'savings';
 }
 
+function isLoan(ent) {
+  return String(ent?.account_type || ent?.type || '').trim().toLowerCase() === 'loan';
+}
+
+function getBalance(balanceByEnterprise, id) {
+  if (Array.isArray(balanceByEnterprise)) {
+    const row = balanceByEnterprise.find(item => String(item?.id) === String(id));
+    return Number(row?.sum_of_amount) || 0;
+  }
+  return Number(balanceByEnterprise?.[String(id)]) || 0;
+}
+
 function isExcluded(ent) {
   return Number(ent?.revenue) === 1 || Number(ent?.is_penalty) === 1 || Number(ent?.compulsory_due) === 1;
 }
@@ -57,6 +69,8 @@ function allocateRemainderUnits(totalUnits, recipients, weights) {
  * @param {number} options.remittanceAmount Total remittance in major units
  * @param {Array} options.enterprises Enterprise records (including auto_rem)
  * @param {Object} options.adviceByEnterprise Enterprise ID -> advised amount
+ * @param {Object|Array} [options.balanceByEnterprise] Signed account balances;
+ *   loan receivables are negative and are capped at their outstanding magnitude
  * @param {Object} [options.member]
  * @param {number} [options.currencyScale=2]
  */
@@ -64,6 +78,7 @@ function allocateAutoShare({
   remittanceAmount,
   enterprises = [],
   adviceByEnterprise = {},
+  balanceByEnterprise = {},
   member,
   currencyScale = DEFAULT_CURRENCY_SCALE
 }) {
@@ -76,11 +91,14 @@ function allocateAutoShare({
   });
   const rows = eligible.map(ent => {
     const advised = Number(adviceByEnterprise?.[String(ent.id)]) || 0;
+    const loanCapacity = isLoan(ent) ? Math.max(0, -getBalance(balanceByEnterprise, ent.id)) : null;
+    const requiredUnits = Math.max(0, toUnits(advised, scale));
     return {
       enterpriseId: String(ent.id),
       enterpriseName: ent.account_name || 'Unknown',
       priority: Number(ent.distribution_priority) || 0,
-      requiredUnits: Math.max(0, toUnits(advised, scale)),
+      requiredUnits: loanCapacity === null ? requiredUnits : Math.min(requiredUnits, toUnits(loanCapacity, scale)),
+      loanCapacityUnits: loanCapacity === null ? null : toUnits(loanCapacity, scale),
       allocatedUnits: 0,
       status: 'Skipped',
       reason: 'No required allocation (no payment advice)'
@@ -100,7 +118,9 @@ function allocateAutoShare({
 
   const configuredTargets = eligible.filter(ent => isSavings(ent) && Number(ent.auto_rem) > 0);
   const savingsTargets = eligible.filter(isSavings);
-  const fallbackTargets = savingsTargets.length ? savingsTargets : eligible;
+  // Remainder funds must never be routed to a Loan account. Loans may receive
+  // only their outstanding balance through the advice allocation above.
+  const fallbackTargets = savingsTargets;
   const remainderTargets = configuredTargets.length ? configuredTargets : fallbackTargets;
   let remainderPolicy = configuredTargets.length ? 'auto_rem' : (remainderTargets.length ? 'equal_fallback' : 'unallocated');
   const hadRemainder = remainingUnits > 0;

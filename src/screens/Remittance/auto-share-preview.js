@@ -9,6 +9,13 @@ function showAutoSharePreview(preview, memberId, cooperativeId, deps) {
   }));
   const money = units => formatCurrency(units / 100);
   const formatInputAmount = units => (units / 100).toFixed(2).replace(/\.?0+$/, '');
+  const loanCapUnits = row => {
+    const enterprise = (deps.enterpriseData || []).find(ent => String(ent?.id) === String(row?.enterpriseId));
+    const type = String(enterprise?.account_type || enterprise?.type || '').trim().toLowerCase();
+    if (type !== 'loan') return null;
+    const balance = deps.openingBalances?.[String(row.enterpriseId)];
+    return Math.max(0, Math.round(-(Number(balance) || 0) * 100));
+  };
   const modalId = 'auto-share-preview-modal';
   document.getElementById(modalId)?.remove();
 
@@ -33,19 +40,24 @@ function showAutoSharePreview(preview, memberId, cooperativeId, deps) {
   const warningItems = (preview.warnings || []).map(w => `<li style="margin:.25rem 0;font-size:.8rem;">${escapeHtml(w?.message || String(w))}</li>`).join('');
 
   modal.innerHTML = `
-    <div style="padding:1.25rem 1.5rem 0;overflow-y:auto;flex:1 1 auto;min-height:0;">
+    <div style="padding:1.25rem 1.5rem 0;overflow:hidden;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.75rem;">
         <h3 style="margin:0;">Auto Share Allocation Preview</h3>
         <button type="button" class="close-preview-btn" aria-label="Close" style="background:transparent;border:0;font-size:1.5rem;cursor:pointer;color:var(--text-muted);">&times;</button>
       </div>
       <p style="margin:.4rem 0;font-size:.88rem;color:var(--text-muted);">Remittance amount: <strong id="auto-share-remittance-total">${money(totalUnits)}</strong></p>
-      <p style="margin:.4rem 0;font-size:.88rem;color:var(--text-muted);">Detail total: <strong id="auto-share-detail-total">${money(rows.reduce((sum, row) => sum + row.amountUnits, 0))}</strong></p>
-      <p style="margin:.4rem 0 .8rem;font-size:.88rem;color:var(--text-muted);">Unallocated balance: <strong id="auto-share-unallocated">${money(Math.max(0, totalUnits - rows.reduce((sum, row) => sum + row.amountUnits, 0)))}</strong></p>
-      <p style="margin:.4rem 0;font-size:.8rem;color:var(--text-muted);">Edit any allocation; the remaining row is automatically balanced so the details always equal the remittance.</p>
-      ${rows.length ? `<label style="display:flex;align-items:center;gap:.45rem;margin:.6rem 0;font-size:.82rem;color:var(--text-muted);"><input type="checkbox" id="auto-share-show-zeroes"> Show zero allocations</label><div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;margin:.5rem 0 1rem;">
-        <thead><tr style="background:var(--bg-header);"><th style="padding:.55rem;text-align:left;font-size:.75rem;">Enterprise</th><th style="padding:.55rem;text-align:center;font-size:.75rem;">Priority</th><th style="padding:.55rem;text-align:right;font-size:.75rem;">Required</th><th style="padding:.55rem;text-align:right;font-size:.75rem;">Allocated (editable)</th><th style="padding:.55rem;text-align:center;font-size:.75rem;">Status</th></tr></thead>
-        <tbody>${tableRows}</tbody></table></div>` : '<p style="margin:1rem 0;color:var(--danger);">No eligible enterprise is available. Add an eligible enterprise before confirming this remittance.</p>'}
-      ${warningItems ? `<div style="margin:1rem 0;padding:.75rem;background:var(--bg-warning);border-radius:var(--radius-sm);border:1px solid var(--border-light);"><strong style="font-size:.83rem;">Allocation notes</strong><ul style="margin:.5rem 0 0 1rem;padding:0;">${warningItems}</ul></div>` : ''}
+      <div style="display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;margin:.2rem 0 .55rem;padding:.65rem .75rem;background:var(--bg-secondary);border:1px solid var(--border-light);border-radius:var(--radius-sm);font-size:.86rem;">
+        <span>Distribution: <strong id="auto-share-detail-total">${money(rows.reduce((sum, row) => sum + row.amountUnits, 0))}</strong></span>
+        <span>Difference: <strong id="auto-share-difference">${money(totalUnits - rows.reduce((sum, row) => sum + row.amountUnits, 0))}</strong></span>
+      </div>
+      <p style="margin:.25rem 0 .65rem;font-size:.8rem;color:var(--text-muted);">Edit any allocation independently. The difference must be zero before you can confirm.</p>
+      ${rows.length ? `<label style="display:flex;align-items:center;gap:.45rem;margin:.1rem 0 .35rem;font-size:.82rem;color:var(--text-muted);"><input type="checkbox" id="auto-share-show-zeroes"> Show zero allocations</label>` : ''}
+      <div style="overflow:auto;flex:1 1 auto;min-height:0;padding-right:.25rem;">
+        ${rows.length ? `<table style="width:100%;min-width:620px;border-collapse:collapse;margin:.5rem 0 1rem;">
+          <thead style="position:sticky;top:0;z-index:2;background:var(--bg-header);"><tr style="background:var(--bg-header);"><th style="padding:.55rem;text-align:left;font-size:.75rem;">Enterprise</th><th style="padding:.55rem;text-align:center;font-size:.75rem;">Priority</th><th style="padding:.55rem;text-align:right;font-size:.75rem;">Required</th><th style="padding:.55rem;text-align:right;font-size:.75rem;">Allocated (editable)</th><th style="padding:.55rem;text-align:center;font-size:.75rem;">Status</th></tr></thead>
+          <tbody>${tableRows}</tbody></table>` : '<p style="margin:1rem 0;color:var(--danger);">No eligible enterprise is available. Add an eligible enterprise before confirming this remittance.</p>'}
+        ${warningItems ? `<div style="margin:1rem 0;padding:.75rem;background:var(--bg-warning);border-radius:var(--radius-sm);border:1px solid var(--border-light);"><strong style="font-size:.83rem;">Allocation notes</strong><ul style="margin:.5rem 0 0 1rem;padding:0;">${warningItems}</ul></div>` : ''}
+      </div>
     </div>
     <div style="display:flex;gap:.75rem;padding:1rem 1.5rem;border-top:1px solid var(--border-light);background:var(--bg-card);">
       <button type="button" id="confirm-auto-share" class="btn btn-primary" style="flex:1;min-height:44px;font-size:.95rem;" ${rows.length ? '' : 'disabled'}>Confirm Allocation</button>
@@ -75,7 +87,12 @@ function showAutoSharePreview(preview, memberId, cooperativeId, deps) {
     const detailTotalEl = modal.querySelector('#auto-share-detail-total');
     const remainingEl = modal.querySelector('#auto-share-unallocated');
     detailTotalEl.textContent = money(allocatedUnits);
-    remainingEl.textContent = money(Math.max(0, remaining));
+    if (remainingEl) remainingEl.textContent = money(Math.max(0, remaining));
+    const differenceEl = modal.querySelector('#auto-share-difference');
+    if (differenceEl) {
+      differenceEl.textContent = money(remaining);
+      differenceEl.style.color = remaining === 0 ? 'var(--success)' : 'var(--danger)';
+    }
     detailTotalEl.style.color = remaining === 0 ? 'var(--success)' : 'var(--danger)';
     const confirmButton = modal.querySelector('#confirm-auto-share');
     confirmButton.disabled = rows.length === 0 || remaining !== 0 || rows.some(row => row.amountUnits < 0);
@@ -88,19 +105,8 @@ function showAutoSharePreview(preview, memberId, cooperativeId, deps) {
       const editedIndex = Number(input.dataset.index);
       const enteredAmount = Number(input.value);
       const requestedUnits = Math.max(0, Math.round((Number.isFinite(enteredAmount) ? enteredAmount : 0) * 100));
-      let editedUnits = requestedUnits;
-      const otherIndexes = rows.map((_, i) => i).filter(i => i !== editedIndex);
-      if (otherIndexes.length === 0) {
-        editedUnits = totalUnits;
-      } else {
-        const balanceIndex = otherIndexes[otherIndexes.length - 1];
-        const fixedUnits = otherIndexes.filter(i => i !== balanceIndex).reduce((sum, i) => sum + rows[i].amountUnits, 0);
-        editedUnits = Math.min(editedUnits, Math.max(0, totalUnits - fixedUnits));
-        rows[editedIndex].amountUnits = editedUnits;
-        rows[balanceIndex].amountUnits = totalUnits - fixedUnits - editedUnits;
-        const balancingInput = modal.querySelector(`.auto-share-amount[data-index="${balanceIndex}"]`);
-        if (balancingInput && balancingInput !== document.activeElement) balancingInput.value = formatInputAmount(rows[balanceIndex].amountUnits);
-      }
+      const loanCap = loanCapUnits(rows[editedIndex]);
+      const editedUnits = loanCap === null ? requestedUnits : Math.min(requestedUnits, loanCap);
       rows[editedIndex].amountUnits = editedUnits;
       if (editedUnits !== requestedUnits || (Number.isFinite(enteredAmount) && Math.abs(enteredAmount - editedUnits / 100) > 1e-8)) {
         input.value = formatInputAmount(editedUnits);
@@ -135,7 +141,9 @@ function showAutoSharePreview(preview, memberId, cooperativeId, deps) {
         bankName: formData.bank_name,
         description: formData.description || 'Auto Share Remittance',
         createdBy: user.username || 'system',
-        canApprove: deps.canApprove === true
+        canApprove: deps.canApprove === true,
+        balanceByEnterprise: deps.openingBalances || {},
+        enterprises: deps.enterpriseData || []
       });
       close();
       const statusMessage = result.status === 'Approved' ? 'approved' : 'submitted for approval';
