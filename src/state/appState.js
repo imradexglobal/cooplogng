@@ -5,12 +5,12 @@ import { DEFAULT_MEMBER_FIELDS } from '../services/reports/memberFields.js'
 
 function getDefaultTab(user) {
   if (!user) return 'dashboard';
-  const order = ['dashboard', 'ledger', 'advice', 'payments', 'members', 'reports', 'reconciliation', 'settings'];
+  const order = ['dashboard', 'monthly-summary', 'advice', 'payments', 'members', 'reports', 'reconciliation', 'settings'];
   const isMember = user.role === 'member';
   const can = (tab) => {
     switch (tab) {
       case 'dashboard': return isMember || hasPermission(user.permissions, 'dashboard_view');
-      case 'ledger': return isMember || hasPermission(user.permissions, 'read_ledger') || hasPermission(user.permissions, 'read_coop_ledger');
+      case 'monthly-summary': return isMember || hasPermission(user.permissions, 'read_ledger') || hasPermission(user.permissions, 'read_coop_ledger');
       case 'advice': return isMember;
       case 'payments': return !!user && user.role !== 'member';
       case 'members': return !isMember && hasPermission(user.permissions, 'read_member');

@@ -78,10 +78,10 @@ app?.addEventListener('beforeinput', (event) => {
 
 /**
  * Landing order for a just-logged-in user (first accessible tab wins):
- * Dashboard > Ledger > Remittance > Members > Reports > Reconciliation > Settings.
+ * Dashboard > Account Summary > Remittance > Members > Reports > Reconciliation > Settings.
  * Mirrors sidebar visibility so the landing tab always has a nav item.
  */
-const LANDING_ORDER = ['dashboard', 'ledger', 'advice', 'payments', 'bulk-remittance', 'members', 'reports', 'reconciliation', 'settings'];
+const LANDING_ORDER = ['dashboard', 'monthly-summary', 'advice', 'payments', 'bulk-remittance', 'members', 'reports', 'reconciliation', 'settings'];
 
 function canSeeRemittance(user) {
   // Staff/admin (any non-member role) can always see Remittance.
@@ -94,7 +94,7 @@ function canAccessTab(user, tab) {
   const isMember = user.role === 'member';
   switch (tab) {
     case 'dashboard': return isMember || hasPermission(user.permissions, 'dashboard_view');
-    case 'ledger': return isMember || hasPermission(user.permissions, 'read_ledger') || hasPermission(user.permissions, 'read_coop_ledger');
+    case 'monthly-summary': return isMember || hasPermission(user.permissions, 'read_ledger') || hasPermission(user.permissions, 'read_coop_ledger');
     case 'advice': return isMember;
     case 'payments': return canSeeRemittance(user);
     case 'bulk-remittance': return canSeeRemittance(user);
@@ -2277,7 +2277,7 @@ function renderDashboard() {
     members: 'Members',
     payments: 'Remittance',
     'bulk-remittance': 'Bulk Remittance',
-    ledger: 'Monthly & Yearly Summary',
+    'monthly-summary': 'Account Summary',
     advice: 'Payment Advice',
     reports: 'Reports',
     reconciliation: 'Reconciliation',
@@ -2361,9 +2361,9 @@ function renderDashboard() {
             </button>
           ` : ''}
           ${(state.welcomeUser.role === 'member' || hasPermission(state.welcomeUser.permissions, 'read_ledger')) ? `
-            <button class="nav-item ${state.activeTab === 'ledger' ? 'active' : ''}" data-action="nav-tab" data-tab="ledger/summary">
+            <button class="nav-item ${state.activeTab === 'monthly-summary' ? 'active' : ''}" data-action="nav-tab" data-tab="monthly-summary">
               <span class="nav-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></span>
-              <span>Monthly &amp; Yearly Summary</span>
+              <span>Account Summary</span>
             </button>
           ` : ''}
           ${state.welcomeUser.role === 'member' ? `
@@ -2454,9 +2454,9 @@ function renderDashboard() {
             </button>
           ` : ''}
           ${(state.welcomeUser.role === 'member' || hasPermission(state.welcomeUser.permissions, 'read_ledger')) ? `
-            <button class="bottom-nav-item ${state.activeTab === 'ledger' ? 'active' : ''}" data-action="nav-tab" data-tab="ledger/summary">
+            <button class="bottom-nav-item ${state.activeTab === 'monthly-summary' ? 'active' : ''}" data-action="nav-tab" data-tab="monthly-summary">
               <svg class="nav-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-              <span class="nav-label">Summary</span>
+              <span class="nav-label">Account Summary</span>
             </button>
           ` : ''}
           ${state.welcomeUser.role === 'member' ? `
@@ -2771,8 +2771,6 @@ function updateNavSelection() {
     const btnTab = btn.dataset.tab
     if (currentHash === btnTab || (currentHash.startsWith(btnTab + '/') && btnTab !== '')) {
       btn.classList.add('active')
-    } else if (btnTab === 'ledger/summary' && (currentHash === 'ledger' || currentHash === 'ledger/')) {
-      btn.classList.add('active')
     } else {
       btn.classList.remove('active')
     }
@@ -2782,8 +2780,6 @@ function updateNavSelection() {
   document.querySelectorAll('.bottom-nav-item').forEach((btn) => {
     const btnTab = btn.dataset.tab
     if (currentHash === btnTab || (currentHash.startsWith(btnTab + '/') && btnTab !== '')) {
-      btn.classList.add('active')
-    } else if (btnTab === 'ledger/summary' && (currentHash === 'ledger' || currentHash === 'ledger/')) {
       btn.classList.add('active')
     } else {
       btn.classList.remove('active')
@@ -2989,7 +2985,7 @@ async function _renderDashboardContentInner() {
   // Loaded via import.meta.glob instead of a static import so the bundle has
   // no hard edge to the folder: if src/experimental/ is removed, the glob
   // returns no loader and the app simply falls back to the dashboard.
-  if (state.activeTab === 'experimental-ledger' || state.activeTab === 'experimental-loans') {
+  if (state.activeTab === 'ledger' || state.activeTab === 'loan') {
     const experimentalLoaders = import.meta.glob('./experimental/index.js')
     const loadExperimental = experimentalLoaders['./experimental/index.js']
     if (loadExperimental) {
@@ -3014,7 +3010,7 @@ async function _renderDashboardContentInner() {
     await renderUnifiedPayment(container, displayUser, state.editingRemittance)
   } else if (state.activeTab === 'bulk-remittance') {
     await renderBulkRemittance(container, displayUser)
-  } else if (state.activeTab === 'ledger') {
+  } else if (state.activeTab === 'monthly-summary') {
     await renderMemberLedger(container, displayUser)
   } else if (state.activeTab === 'advice') {
     await renderPaymentAdvice(container, displayUser)
@@ -3078,15 +3074,15 @@ async function _renderDashboardContentInner() {
           });
         }
       }, 50);
-    } else if (state.activeTab === 'ledger') {
-      // Ledger: show member search in mobile top bar
+    } else if (state.activeTab === 'monthly-summary') {
+      // Account Summary: show member search in mobile top bar
       const isLedgerAdmin = state.welcomeUser.role !== 'member';
       const currentLedgerMemberName = window.__ledgerFilters
         ? (window.__ledgerFilters.memberId === 'All' ? '' : (window.__ledgerFilters.memberName || ''))
         : '';
       mobileTitleEl.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; padding-right: 0.5rem;">
-          <span style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); white-space: nowrap;">Monthly &amp; Yearly Summary</span>
+          <span style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); white-space: nowrap;">Account Summary</span>
           ${isLedgerAdmin ? `
           <div style="position: relative; flex: 1; max-width: 150px;">
             <input type="text" id="ledger-member-search-mobile"
@@ -3146,7 +3142,7 @@ async function _renderDashboardContentInner() {
   // Update mobile mask toggle button state and visibility
   const maskBtnMobile = document.getElementById('mask-toggle-mobile-btn');
   if (maskBtnMobile) {
-    if (state.activeTab === 'dashboard' || state.activeTab === 'ledger') {
+    if (state.activeTab === 'dashboard' || state.activeTab === 'monthly-summary') {
       maskBtnMobile.style.display = 'inline-flex';
       const maskBalances = localStorage.getItem('cooplog-mask-balances') === 'true';
       maskBtnMobile.innerHTML = maskBalances ? `

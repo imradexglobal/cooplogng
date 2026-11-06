@@ -253,7 +253,7 @@ export function openLoanDetail(loan, dataset, handlers = {}) {
       ${
         loan.remittanceId
           ? `<button type="button" class="xp-btn xp-btn-sm" style="margin-top:.7rem"
- data-xp-open-ledger="${escapeHtml(loan.remittanceId)}">View in General Ledger</button>`
+ data-xp-open-ledger="${escapeHtml(loan.remittanceId)}">View in Ledger</button>`
           : ''
       }
     </section>

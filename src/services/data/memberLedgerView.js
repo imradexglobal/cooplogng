@@ -128,6 +128,30 @@ function buildMemberAccountBalances(remittances, enterprises, memberId, start, e
   return [...accounts.values()].sort((a, b) => a.name.localeCompare(b.name))
 }
 
+function buildEnterpriseBalances(remittances, enterprises, start, end) {
+  const enterpriseById = new Map((enterprises || []).map((enterprise) => [String(enterprise.id), enterprise]))
+  const accounts = new Map()
+  const approved = remittances.filter((remittance) => remittance.status === 'Approved')
+  for (const remittance of approved) {
+    const date = dateOf(remittance)
+    if (!date || date > end) continue
+    const details = Array.isArray(remittance.details) ? remittance.details : []
+    for (const detail of details) {
+      if (!isMemberDetailIncluded(detail, enterpriseById)) continue
+      const amount = amountOf(detail.amount)
+      if (amount === 0) continue
+      const id = String(detail.enterprise_id || detail.item || UNALLOCATED_ACCOUNT_ID)
+      const name = enterpriseById.get(id)?.account_name || 'Unknown account'
+      if (!accounts.has(id)) accounts.set(id, { id, name, opening: 0, periodNet: 0, closing: 0 })
+      const account = accounts.get(id)
+      if (date < start) account.opening += amount
+      else if (inPeriod(date, start, end)) account.periodNet += amount
+    }
+  }
+  for (const account of accounts.values()) account.closing = account.opening + account.periodNet
+  return [...accounts.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
 function buildBankBalances(remittances, start, end) {
   const banks = new Map()
   for (const remittance of remittances) {
@@ -184,7 +208,6 @@ export function buildMemberLedgerView({ remittances = [], enterprises = [], memb
   let debits = 0
   const periodRows = []
   const paymentCreditsByMonth = new Array(12).fill(0)
-  const year = start.getFullYear()
 
   for (const remittance of ordered) {
     const date = dateOf(remittance)
@@ -193,8 +216,10 @@ export function buildMemberLedgerView({ remittances = [], enterprises = [], memb
     // Monthly paid indicators represent positive real bank/method receipts,
     // not zero-net internal reallocations or the dues settlement children.
     const amount = amountOf(remittance.amount)
-    if (!isInternalTransfer(remittance) && amount > 0 && date.getFullYear() === year) {
-      paymentCreditsByMonth[date.getMonth()] += amount
+    const fiscalMonthOffset = (date.getFullYear() - start.getFullYear()) * 12 +
+      date.getMonth() - start.getMonth()
+    if (!isInternalTransfer(remittance) && amount > 0 && fiscalMonthOffset >= 0 && fiscalMonthOffset < 12) {
+      paymentCreditsByMonth[fiscalMonthOffset] += amount
     }
 
     if (!inPeriod(date, start, end)) continue
@@ -237,6 +262,9 @@ export function buildMemberLedgerView({ remittances = [], enterprises = [], memb
   }
 
   const bankBalances = isMemberScope ? [] : buildBankBalances(scopedRemittances, start, end)
+  const enterpriseBalances = isMemberScope
+    ? []
+    : buildEnterpriseBalances(approved, enterprises, start, end)
   const memberAccountBalances = isMemberScope
     ? buildMemberAccountBalances(approved, enterprises, selectedMemberId, start, end)
     : []
@@ -250,6 +278,7 @@ export function buildMemberLedgerView({ remittances = [], enterprises = [], memb
     debits,
     closing: balance,
     bankBalances,
+    enterpriseBalances,
     memberAccountBalances,
     paymentCreditsByMonth,
   }

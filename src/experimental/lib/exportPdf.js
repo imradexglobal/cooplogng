@@ -87,7 +87,7 @@ function footer(doc) {
     doc.setTextColor(...GREY)
     doc.setFontSize(7.5)
     doc.text(
-      `Generated ${todayInput()} · CoopLog experimental · Page ${i} of ${count}`,
+      `Generated ${todayInput()} · CoopLog · Page ${i} of ${count}`,
       14,
       doc.internal.pageSize.getHeight() - 8
     )
@@ -115,7 +115,7 @@ export async function exportLedgerPdf(args) {
 
   let y = header(
     doc,
-    'General Ledger',
+    'Ledger',
     [
       `${user.cooperativeName || user.cooperativeId}  ·  ${scope}`,
       `Generated ${todayInput()} ${new Date().toLocaleTimeString('en-GB')}`,
@@ -202,7 +202,7 @@ export async function exportLoansPdf(args) {
 
   let y = header(
     doc,
-    'Loan Register',
+    'Loan',
     [
       `${user.cooperativeName || user.cooperativeId}  ·  ${filters.status === 'all' ? 'All statuses' : filters.status}`,
       `Generated ${todayInput()} ${new Date().toLocaleTimeString('en-GB')}`,

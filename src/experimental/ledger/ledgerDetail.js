@@ -207,7 +207,7 @@ export function openLedgerDetail(row, dataset, handlers = {}) {
       row.loanId || row.isLoanRequest
         ? `<button type="button" class="xp-btn xp-btn-primary" data-xp-open-loan="${escapeHtml(
             row.loanId || ''
-          )}">Open in Loan Management</button>`
+          )}">Open in Loan</button>`
         : ''
     }`
 

@@ -1276,7 +1276,7 @@ export async function renderAccountBalance(container, user) {
                 } else if (action === 'settings') {
                     window.location.hash = 'settings'
                 } else if (action === 'ledger') {
-                    window.location.hash = 'ledger/summary'
+                    window.location.hash = 'monthly-summary'
                 } else if (action === 'history') {
                     window.location.hash = 'history'
                 } else if (action === 'withdrawal-request') {

@@ -272,7 +272,7 @@ export function renderLanding(container, callbacks = {}) {
       <div class="lp-dash reveal" aria-hidden="true">
         <div class="lp-dash-top"><span class="lp-tdot"></span><span class="lp-tdot"></span><span class="lp-tdot"></span><span style="margin-left:0.6rem;font-size:0.75rem;color:var(--text-muted);">DEMO Cooperative — Dashboard</span></div>
         <div class="lp-dash-body">
-          <div class="lp-dash-side"><span class="on">Dashboard</span><span>Members</span><span>Remittance</span><span>Ledger</span><span>Reports</span><span>Settings</span></div>
+          <div class="lp-dash-side"><span class="on">Dashboard</span><span>Members</span><span>Remittance</span><span>Account Summary</span><span>Reports</span><span>Settings</span></div>
           <div class="lp-dash-main">
             <h4>Dashboard <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted);">Welcome back, Demo Admin!</span></h4>
             <div class="lp-cards">

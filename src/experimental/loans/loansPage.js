@@ -1,7 +1,7 @@
 /**
  * Experimental Loan Management page — independent re-implementation.
  *
- * Route: #experimental-loans
+ * Route: #loan
  *
  * Reads the existing loans / remittance / guarantor records through the
  * unchanged data services. The only writes it can perform are the existing
@@ -73,7 +73,7 @@ function renderShell(container) {
   container.innerHTML = `
     <div class="xp xp-loans">
       <div class="xp-print-head">
-        <strong>Loan Management — ${escapeHtml(
+        <strong>Loan — ${escapeHtml(
           state.user.cooperativeName || state.user.cooperativeId
         )}</strong><br/>
         <span>${escapeHtml(f.status === ALL ? 'All statuses' : f.status)} · generated ${escapeHtml(
@@ -83,8 +83,7 @@ function renderShell(container) {
 
       <header class="xp-head">
         <div>
-          <div class="xp-eyebrow">Experimental · independent build</div>
-          <h1>Loan Management</h1>
+          <h1>Loan</h1>
           <p class="xp-sub" id="xp-loan-scope">Applications, disbursements and repayments for
             <strong>${escapeHtml(state.user.cooperativeName || state.user.cooperativeId)}</strong></p>
         </div>
@@ -344,7 +343,7 @@ async function runExport(kind, el) {
     else await exportLoansPdf(args)
     toast(`${kind === 'excel' ? 'Excel' : 'PDF'} export generated for the current filters`, 'success')
   } catch (err) {
-    console.error('[experimental-loans] export failed', err)
+    console.error('[loan] export failed', err)
     toast(`Export failed: ${err.message || err}`, 'error')
   } finally {
     el.disabled = false
@@ -369,7 +368,7 @@ function openLoan(loanId) {
       } catch {
         // The ledger remains usable; only the optional reference prefilter is lost.
       }
-      window.location.hash = 'experimental-ledger'
+      window.location.hash = 'ledger'
     },
   })
 }
@@ -539,7 +538,7 @@ async function confirmApproval(loan) {
           await refreshPage(contentContainer())
           toast('Loan approved and disbursed', 'success')
         } catch (err) {
-          console.error('[experimental-loans] approve failed', err)
+          console.error('[loan] approve failed', err)
           toast(`Approval failed: ${err.message || err}`, 'error')
           btn.disabled = false
           btn.textContent = 'Approve & disburse'
@@ -589,7 +588,7 @@ async function confirmDecline(loan) {
           await refreshPage(contentContainer())
           toast('Loan request declined', 'success')
         } catch (err) {
-          console.error('[experimental-loans] decline failed', err)
+          console.error('[loan] decline failed', err)
           toast(`Decline failed: ${err.message || err}`, 'error')
           btn.disabled = false
           btn.textContent = 'Decline request'
@@ -929,7 +928,7 @@ async function loadData() {
     state.error = null
     recompute()
   } catch (err) {
-    console.error('[experimental-loans] load failed', err)
+    console.error('[loan] load failed', err)
     state.error = err
     state.summary = null
   }
@@ -943,7 +942,7 @@ async function refreshPage(container) {
 
 export async function renderLoansPage(container, user) {
   state.user = user
-  setMobileTitle('Loan Management', 'Experimental · loan register')
+  setMobileTitle('Loan', 'Loan register')
   container.innerHTML = `<div class="xp xp-loans">${loadingHTML('Loading loan data…')}</div>`
   await loadData()
   renderShell(container)

@@ -2,6 +2,7 @@ import { fetchAllMembers, fetchRemittances, fetchEnterprises } from '../services
 import { hasPermission } from '../services/permissionService.js'
 import { formatCurrency, escapeHtml } from '../utils/formatters.js'
 import { buildMemberLedgerView, isAutoDuesCharge } from '../services/data/memberLedgerView.js'
+import { queryRows } from '../services/sqliteService.js'
 
 if (!window.__ledgerFilters) {
   window.__ledgerFilters = {
@@ -49,8 +50,21 @@ function getMemberDisplay(memberId, memberName) {
   return memberName || 'Selected Member'
 }
 
+async function getCooperativeFirstMonth(cooperativeId) {
+  try {
+    const rows = await queryRows('SELECT coop_first_month FROM cooperatives WHERE id=?', [cooperativeId])
+    const raw = rows?.[0]?.coop_first_month
+    const month = Number(String(raw || '').split('-')[1])
+    if (month >= 1 && month <= 12) return month
+  } catch (error) {
+    console.warn('Failed to load cooperative first month:', error)
+  }
+  return 1
+}
+
 export async function renderMemberLedger(container, user) {
   const currentYear = new Date().getFullYear().toString()
+  const cooperativeFirstMonth = await getCooperativeFirstMonth(user.cooperativeId)
   const isAdmin = user.isAdmin || hasPermission(user.permissions, 'admin') || user.username?.toLowerCase() === 'admin'
   const isMember = user.role === 'member'
 
@@ -81,7 +95,12 @@ export async function renderMemberLedger(container, user) {
 
   const filters = window.__ledgerFilters
 
-  const monthsList = ['All', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const monthsList = [
+    'All',
+    ...Array.from({ length: 12 }, (_, offset) =>
+      new Date(2000, cooperativeFirstMonth - 1 + offset, 1).toLocaleString('default', { month: 'long' })
+    ),
+  ]
 
   const isGlobalView = () => filters.memberId === 'All'
 
@@ -205,6 +224,8 @@ export async function renderMemberLedger(container, user) {
       .tc table td { padding: 0.35rem 0.5rem; }
       .tc table tr { cursor: pointer; transition: background 0.1s; }
       .tc table tbody tr:hover { background: var(--bg-hover, var(--bg-secondary)); }
+      .ledger-activity-row { cursor: pointer; }
+      .ledger-activity-row:hover { outline: 2px solid color-mix(in srgb, var(--accent-primary) 28%, transparent); outline-offset: -2px; }
       .lreport-section { margin-top: 1rem; }
       .lreport-title { margin: 0 0 0.45rem; font-size: 0.95rem; font-weight: 800; color: var(--text-primary); }
       .lreport-note { margin: 0.5rem 0 0.75rem; padding: 0.6rem 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-secondary); font-size: 0.76rem; line-height: 1.45; }
@@ -215,10 +236,10 @@ export async function renderMemberLedger(container, user) {
       .lactivity-values .sv { font-size: 0.75rem; }
 
       /* Tab styles */
-      .ltabs { display: flex; gap: 0.35rem; margin-bottom: 0; background: var(--bg-input, #f1f5f9); padding: 0.3rem; border-radius: var(--radius-md); }
-      .ltab { flex: 1; padding: 0.45rem 0.75rem; border: none; background: transparent; color: var(--text-muted); font-weight: 600; font-size: 0.85rem; cursor: pointer; border-radius: var(--radius-sm); white-space: nowrap; transition: all 0.2s ease; text-align: center; }
-      .ltab:hover { color: var(--text-primary); background: var(--bg-hover, rgba(0,0,0,0.05)); }
-      .ltab.active { background: var(--bg-card, #ffffff); color: var(--accent-primary); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.1)); }
+      .ltabs { display: flex; gap: 0.4rem; margin-bottom: 0; background: var(--bg-input, #f1f5f9); padding: 0.35rem; border: 1px solid var(--border-medium); border-radius: var(--radius-md); box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.1)); }
+      .ltab { flex: 1; padding: 0.65rem 0.9rem; min-height: 44px; border: 1px solid transparent; background: transparent; color: var(--text-muted); font-weight: 700; font-size: 0.85rem; cursor: pointer; border-radius: var(--radius-sm); white-space: nowrap; transition: all 0.2s ease; text-align: center; }
+      .ltab:hover { color: var(--text-primary); background: var(--bg-hover, rgba(0,0,0,0.08)); border-color: var(--border-medium); }
+      .ltab.active { background: var(--bg-card, #ffffff); color: var(--accent-primary); border-color: var(--accent-primary); box-shadow: 0 2px 5px rgba(0,0,0,0.14); }
 
       @media (max-width: 999px) {
         .ldv { display: none; }
@@ -286,7 +307,7 @@ export async function renderMemberLedger(container, user) {
     <div class="ledger-sticky-header">
       <div class="lhdr" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 0.6rem;">
         <div style="flex: 1; min-width: 200px;">
-          <h2 style="margin: 0; font-size: 1.3rem; font-weight: 800;">Monthly &amp; Yearly Summary <span id="ledger-member-ids" style="font-weight: 800; color: var(--accent-primary);"></span></h2>
+          <h2 style="margin: 0; font-size: 1.3rem; font-weight: 800;">Account Summary <span id="ledger-member-ids" style="font-weight: 800; color: var(--accent-primary);"></span></h2>
           <p class="sub" id="ledger-subtitle" style="margin: 0.25rem 0 0 0; color: var(--text-muted);"></p>
         </div>
 
@@ -387,6 +408,7 @@ export async function renderMemberLedger(container, user) {
 
   // This legacy route is summary-only; old transaction/loan subroutes land here.
   window._activeLedgerTab = 'tab-summary'
+  window._memberAccountTab = window._memberAccountTab === 'activity' ? 'activity' : 'balances'
 
   let allMembersCache = null
   let memberSearchTimeout = null
@@ -620,13 +642,17 @@ export async function renderMemberLedger(container, user) {
   async function renderSummaryTab() {
     const { month, year } = window.__summaryFilters
     const yearNum = parseInt(year)
+    const selectedMonthIndex = parseInt(month)
+    const selectedMonthYear = selectedMonthIndex >= 0 && selectedMonthIndex < cooperativeFirstMonth - 1
+      ? yearNum + 1
+      : yearNum
 
     const monthStart = month === 'All'
-      ? new Date(yearNum, 0, 1)
-      : new Date(yearNum, parseInt(month), 1)
+      ? new Date(yearNum, cooperativeFirstMonth - 1, 1)
+      : new Date(selectedMonthYear, selectedMonthIndex, 1)
     const monthEnd = month === 'All'
-      ? new Date(yearNum, 11, 31, 23, 59, 59, 999)
-      : new Date(yearNum, parseInt(month) + 1, 0, 23, 59, 59, 999)
+      ? new Date(yearNum, cooperativeFirstMonth - 1 + 12, 0, 23, 59, 59, 999)
+      : new Date(selectedMonthYear, selectedMonthIndex + 1, 0, 23, 59, 59, 999)
 
     const allRemittances = await _getCachedRemittances()
     const enterpriseRows = await fetchEnterprises(user.cooperativeId, true)
@@ -715,25 +741,25 @@ export async function renderMemberLedger(container, user) {
     const nowYear = nowDate.getFullYear()
     const nowMonth = nowDate.getMonth()
     const monthlyCredit = view.paymentCreditsByMonth
-    const monthStyleFor = (idx) => {
+    const monthStyleFor = (fiscalMonthOffset) => {
       if (isNaN(yearNum)) return ''
-      if (yearNum > nowYear || (yearNum === nowYear && idx > nowMonth)) return ''
-      return monthlyCredit[idx] > 0
+      const monthDate = new Date(yearNum, cooperativeFirstMonth - 1 + fiscalMonthOffset, 1)
+      if (monthDate.getFullYear() > nowYear || (monthDate.getFullYear() === nowYear && monthDate.getMonth() > nowMonth)) return ''
+      return monthlyCredit[fiscalMonthOffset] > 0
         ? 'background:#15803d;color:#ffffff;font-weight:700;'
-        : 'background:#b91c1c;color:#ffffff;'
+        : 'background:#b91c1c;color:#ffffff;font-weight:700;'
     }
     const selectedMonthStyle = (() => {
       if (month === 'All') return ''
       const idx = parseInt(month)
       if (isNaN(idx) || idx < 0 || idx > 11) return ''
       if (isNaN(yearNum)) return ''
-      if (yearNum > nowYear || (yearNum === nowYear && idx > nowMonth)) return ''
-      return monthlyCredit[idx] > 0
-        ? 'background:#15803d;color:#ffffff;font-weight:700;'
-        : 'background:#b91c1c;color:#ffffff;'
+      const fiscalMonthOffset = (idx - (cooperativeFirstMonth - 1) + 12) % 12
+      return monthStyleFor(fiscalMonthOffset)
     })()
     const monthOptions = monthsList.map((m, i) => {
-      let val = m === 'All' ? 'All' : String(i - 1)
+      const calendarMonthIndex = (cooperativeFirstMonth - 1 + i - 1) % 12
+      let val = m === 'All' ? 'All' : String(calendarMonthIndex)
       let sel = val === month ? 'selected' : ''
       let style = m === 'All' ? '' : ` style="${monthStyleFor(i - 1)}"`
       return `<option value="${val}"${style} ${sel}>${m}</option>`
@@ -751,7 +777,7 @@ export async function renderMemberLedger(container, user) {
     const summaryFilterBar = `
       <div class="sfils" style="justify-content: space-between; align-items: center; width: 100%;">
         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-          <label>Month <select id="summary-month-select" title="Green = deposit made that month, red = none" style="margin-left: 0.25rem;${selectedMonthStyle}">${monthOptions}</select></label>
+          <label>Month <select id="summary-month-select" title="Green = deposit made that month, red = none" style="margin-left: 0.25rem; min-width: 150px; ${selectedMonthStyle}">${monthOptions}</select></label>
           <label>Year <select id="summary-year-select" style="margin-left: 0.25rem;">${yearOptions}</select></label>
           <span style="font-size: 0.68rem; color: var(--text-muted);"><span style="display:inline-block;width:0.6rem;height:0.6rem;border-radius:2px;background:#15803d;vertical-align:middle;"></span> paid <span style="display:inline-block;width:0.6rem;height:0.6rem;border-radius:2px;background:#b91c1c;vertical-align:middle;margin-left:0.35rem;"></span> none</span>
         </div>
@@ -769,6 +795,43 @@ export async function renderMemberLedger(container, user) {
       document.getElementById('summary-year-select')?.addEventListener('change', (e) => {
         window.__summaryFilters.year = e.target.value
         renderActiveTab()
+      })
+      document.querySelectorAll('[data-member-account-tab]').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          window._memberAccountTab = tab.dataset.memberAccountTab
+          renderActiveTab()
+        })
+      })
+      const remittanceById = new Map(page.map((row) => [String(row.remittance?.id), row.remittance]))
+      document.querySelectorAll('[data-ledger-remittance-id]').forEach((element) => {
+        const remittance = remittanceById.get(String(element.dataset.ledgerRemittanceId))
+        if (!remittance) return
+        element.addEventListener('click', (event) => {
+          event.preventDefault()
+          if (typeof window.showTransactionModal === 'function') window.showTransactionModal(remittance)
+        })
+        element.addEventListener('contextmenu', (event) => {
+          event.preventDefault()
+          document.getElementById('ledger-context-menu')?.remove()
+          const menu = document.createElement('div')
+          menu.id = 'ledger-context-menu'
+          menu.style.cssText = `position:fixed;left:${Math.min(event.clientX, window.innerWidth - 220)}px;top:${Math.min(event.clientY, window.innerHeight - 70)}px;z-index:5000;background:var(--bg-card);border:1px solid var(--border-medium);border-radius:var(--radius-md);box-shadow:var(--shadow-xl);padding:0.35rem;min-width:205px;`
+          menu.innerHTML = '<button type="button" class="primary-button" style="width:100%;white-space:nowrap;">Edit in Remittance</button>'
+          menu.querySelector('button').addEventListener('click', () => {
+            menu.remove()
+            window.dispatchEvent(new CustomEvent('edit-remittance', {
+              detail: { id: String(remittance.id), record: remittance },
+            }))
+          })
+          document.body.appendChild(menu)
+          setTimeout(() => {
+            const close = (closeEvent) => {
+              if (!menu.contains(closeEvent.target)) menu.remove()
+              document.removeEventListener('mousedown', close)
+            }
+            document.addEventListener('mousedown', close)
+          }, 0)
+        })
       })
     }
 
@@ -792,6 +855,13 @@ export async function renderMemberLedger(container, user) {
     const accountMobileHtml = entries.length
       ? entries.map((entry) => `<div class="lmc"><div class="lch"><span class="lname">${entry.isRestricted ? '🔒 ' : ''}${escapeHtml(entry.name)}</span></div><div class="lcg"><div class="ls"><span class="sl">Opening</span><span class="sv">${entry.isRestricted ? '***' : formatCurrency(entry.bbf)}</span></div><div class="ls"><span class="sl">Closing</span><span class="sv ${entry.closing < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.closing)}</span></div>${view.isMemberScope ? '' : `<div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${formatCurrency(entry.dr)}</span></div><div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${formatCurrency(entry.cr)}</span></div>`}</div></div>`).join('')
       : `<div class="card ledger-empty">No account balances for this period.</div>`
+    const enterpriseBalances = view.enterpriseBalances || []
+    const enterpriseBalanceRows = enterpriseBalances.length
+      ? enterpriseBalances.map((entry) => `<tr><td>${escapeHtml(entry.name)}</td><td class="text-right">${formatCurrency(entry.opening)}</td><td class="text-right ${entry.closing < 0 ? 'text-red' : ''}">${formatCurrency(entry.closing)}</td></tr>`).join('')
+      : `<tr><td colspan="3" class="ledger-empty">No enterprise balances for this period.</td></tr>`
+    const enterpriseBalanceMobile = enterpriseBalances.length
+      ? enterpriseBalances.map((entry) => `<div class="lmc"><div class="lch"><span class="lname">${escapeHtml(entry.name)}</span></div><div class="lcg"><div class="ls"><span class="sl">Opening</span><span class="sv">${formatCurrency(entry.opening)}</span></div><div class="ls"><span class="sl">Closing</span><span class="sv ${entry.closing < 0 ? 'text-red' : ''}">${formatCurrency(entry.closing)}</span></div></div></div>`).join('')
+      : `<div class="card ledger-empty">No enterprise balances for this period.</div>`
 
     const memberNameFor = (id) => id === '0000000000' ? 'Cooperative' : memberNames[id] || 'Member'
     const transactionCells = (row) => {
@@ -811,7 +881,7 @@ export async function renderMemberLedger(container, user) {
     const transactionDesktopRows = page.map((row) => {
       const cell = transactionCells(row)
       const memberCell = view.isMemberScope ? '' : `<td>${escapeHtml(memberNameFor(String(cell.remittance.member_id || '')))}</td>`
-      return `<tr><td>${escapeHtml(cell.date)}</td>${memberCell}<td>${escapeHtml(cell.transaction)}</td><td>${escapeHtml(cell.description)}</td><td>${escapeHtml(cell.method)}</td><td title="${escapeHtml(cell.reference)}">${escapeHtml(cell.shortReference)}</td><td class="text-green text-right">${row.credit ? formatCurrency(row.credit) : '—'}</td><td class="text-red text-right">${row.debit ? formatCurrency(row.debit) : '—'}</td><td class="text-right ${row.balanceAfter < 0 ? 'text-red' : ''}">${formatCurrency(row.balanceAfter)}</td></tr>`
+      return `<tr class="ledger-activity-row" data-ledger-remittance-id="${escapeHtml(String(cell.remittance.id))}" title="Left-click to view details · Right-click to edit in Remittance"><td>${escapeHtml(cell.date)}</td>${memberCell}<td>${escapeHtml(cell.transaction)}</td><td>${escapeHtml(cell.description)}</td><td>${escapeHtml(cell.method)}</td><td title="${escapeHtml(cell.reference)}">${escapeHtml(cell.shortReference)}</td><td class="text-green text-right">${row.credit ? formatCurrency(row.credit) : '—'}</td><td class="text-red text-right">${row.debit ? formatCurrency(row.debit) : '—'}</td><td class="text-right ${row.balanceAfter < 0 ? 'text-red' : ''}">${formatCurrency(row.balanceAfter)}</td></tr>`
     }).join('')
     const transactionMobileCards = page.map((row) => {
       const cell = transactionCells(row)
@@ -819,11 +889,12 @@ export async function renderMemberLedger(container, user) {
       const badgeClass = hasBothSides || (!row.credit && !row.debit) ? 't-neutral' : row.debit ? 't-debit' : 't-credit'
       const badgeLabel = hasBothSides ? 'Transfer' : row.debit ? 'Debit' : row.credit ? 'Credit' : 'No net change'
       const memberMeta = view.isMemberScope ? '' : `${escapeHtml(memberNameFor(String(cell.remittance.member_id || '')))} · `
-      return `<div class="lmc"><div class="lch-row"><span class="ldate">${escapeHtml(cell.date)}</span><span class="ltype ${badgeClass}">${badgeLabel}</span></div><div class="lname">${escapeHtml(cell.transaction)}</div><div class="ldesc">${escapeHtml(cell.description)}</div><div class="lmeta"><span>${memberMeta}${escapeHtml(cell.method)}</span><span title="${escapeHtml(cell.reference)}">Ref ${escapeHtml(cell.shortReference)}</span></div><div class="lcg-3 lactivity-values"><div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${row.credit ? formatCurrency(row.credit) : '—'}</span></div><div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${row.debit ? formatCurrency(row.debit) : '—'}</span></div><div class="ls"><span class="sl">Balance</span><span class="sv ${row.balanceAfter < 0 ? 'text-red' : ''}">${formatCurrency(row.balanceAfter)}</span></div></div></div>`
+      return `<div class="lmc ledger-activity-row" data-ledger-remittance-id="${escapeHtml(String(cell.remittance.id))}" title="Tap to view details · Right-click to edit in Remittance"><div class="lch-row"><span class="ldate">${escapeHtml(cell.date)}</span><span class="ltype ${badgeClass}">${badgeLabel}</span></div><div class="lname">${escapeHtml(cell.transaction)}</div><div class="ldesc">${escapeHtml(cell.description)}</div><div class="lmeta"><span>${memberMeta}${escapeHtml(cell.method)}</span><span title="${escapeHtml(cell.reference)}">Ref ${escapeHtml(cell.shortReference)}</span></div><div class="lcg-3 lactivity-values"><div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${row.credit ? formatCurrency(row.credit) : '—'}</span></div><div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${row.debit ? formatCurrency(row.debit) : '—'}</span></div><div class="ls"><span class="sl">Balance</span><span class="sv ${row.balanceAfter < 0 ? 'text-red' : ''}">${formatCurrency(row.balanceAfter)}</span></div></div></div>`
     }).join('')
 
     const accountSection = `
       <section class="lreport-section">
+        ${!view.isMemberScope ? `<h3 class="lreport-title">Enterprise account balances</h3><div class="ldv"><div class="tc"><table class="styled-table"><thead><tr><th>Enterprise</th><th class="text-right">Opening</th><th class="text-right">Closing</th></tr></thead><tbody>${enterpriseBalanceRows}</tbody></table></div></div><div class="lmv">${enterpriseBalanceMobile}</div>` : ''}
         <h3 class="lreport-title">${view.isMemberScope ? 'Member account balances' : 'Bank / cash balances'}</h3>
         <div class="ldv"><div class="tc"><table class="styled-table"><thead>${view.isMemberScope
           ? '<tr><th>Enterprise</th><th class="text-right">Opening</th><th class="text-right">Closing</th></tr>'
@@ -838,9 +909,28 @@ export async function renderMemberLedger(container, user) {
       : '<th>Date</th><th>Member</th><th>Transaction</th><th>Description</th><th>Bank / method</th><th>Reference</th><th class="text-right">Credit</th><th class="text-right">Debit</th><th class="text-right">Balance</th>'
     const openingRow = `<tr class="ledger-carry-row"><td colspan="${transactionColumnCount - 1}">Opening balance before this period</td><td class="text-right">${formatCurrency(view.opening)}</td></tr>`
     const emptyTransactions = `<tr><td colspan="${transactionColumnCount}" class="ledger-empty">No posted transactions for this period.</td></tr>`
-    const transactionNote = view.isMemberScope
-      ? 'Bank and member internal postings are included. The automatic dues-settlement transfer is collapsed; the compulsory due charge remains visible. Account closing balances still include the full posted allocations.'
-      : 'This cooperative-wide view includes approved bank / cash transactions only. Internal transfers and records without a bank / payment method are excluded from every balance and activity total.'
+    const transactionNote = ''
+    const balanceTabLabel = view.isMemberScope ? 'Member Account Balances' : 'Bank / Cash Balances'
+    const activityTabLabel = view.isMemberScope ? 'Member Account Activities' : 'Bank Activities'
+    const memberAccountTabs = `<div class="ltabs" style="margin-top: 1rem;">
+        <button class="ltab ${window._memberAccountTab === 'balances' ? 'active' : ''}" data-member-account-tab="balances"><span class="tab-label-full">${balanceTabLabel}</span><span class="tab-label-short">Balances</span></button>
+        ${!view.isMemberScope ? `<button class="ltab ${window._memberAccountTab === 'enterprise' ? 'active' : ''}" data-member-account-tab="enterprise"><span class="tab-label-full">Enterprise Account Balances</span><span class="tab-label-short">Enterprises</span></button>` : ''}
+        <button class="ltab ${window._memberAccountTab === 'activity' ? 'active' : ''}" data-member-account-tab="activity"><span class="tab-label-full">${activityTabLabel}</span><span class="tab-label-short">Activities</span></button>
+      </div>`
+    const accountSectionHtml = window._memberAccountTab !== 'balances'
+      ? ''
+      : accountSection
+    const enterpriseSectionHtml = !view.isMemberScope && window._memberAccountTab === 'enterprise'
+      ? `<section class="lreport-section"><h3 class="lreport-title">Enterprise account balances</h3><div class="ldv"><div class="tc"><table class="styled-table"><thead><tr><th>Enterprise</th><th class="text-right">Opening</th><th class="text-right">Closing</th></tr></thead><tbody>${enterpriseBalanceRows}</tbody></table></div></div><div class="lmv">${enterpriseBalanceMobile}</div></section>`
+      : ''
+    const activitySectionHtml = window._memberAccountTab !== 'activity'
+      ? ''
+      : `<section class="lreport-section">
+        <h3 class="lreport-title">${view.isMemberScope ? 'Member transaction activity' : 'Bank transaction activity'}</h3>
+        <div class="ldv"><div class="tc"><table class="styled-table ledger-activity-table"><thead><tr>${transactionHeaders}</tr></thead><tbody>${openingRow}${page.length ? transactionDesktopRows : emptyTransactions}</tbody></table></div></div>
+        <div class="lmv">${page.length ? transactionMobileCards : `<div class="card ledger-empty">No posted transactions for this period.</div>`}</div>
+        ${pagingFooter(page.length, view.periodRows.length)}
+      </section>`
 
     contentContainer.innerHTML = `
       ${summaryFilterBar}
@@ -850,14 +940,11 @@ export async function renderMemberLedger(container, user) {
         <div class="scard"><div class="lbl">Debits</div><div class="val text-red">${formatCurrency(monthlyDebitTotal)}</div></div>
         <div class="scard"><div class="lbl">${view.isMemberScope ? 'Member net worth' : 'Bank balance'}</div><div class="val ${closingBalance < 0 ? 'text-red' : ''}">${formatCurrency(closingBalance)}</div></div>
       </div>
-      <div class="lreport-note">${transactionNote}</div>
-      ${accountSection}
-      <section class="lreport-section">
-        <h3 class="lreport-title">${view.isMemberScope ? 'Member transaction activity' : 'Bank transaction activity'}</h3>
-        <div class="ldv"><div class="tc"><table class="styled-table ledger-activity-table"><thead><tr>${transactionHeaders}</tr></thead><tbody>${openingRow}${page.length ? transactionDesktopRows : emptyTransactions}</tbody></table></div></div>
-        <div class="lmv">${page.length ? transactionMobileCards : `<div class="card ledger-empty">No posted transactions for this period.</div>`}</div>
-        ${pagingFooter(page.length, view.periodRows.length)}
-      </section>
+      ${transactionNote ? `<div class="lreport-note">${transactionNote}</div>` : ''}
+      ${memberAccountTabs}
+      ${accountSectionHtml}
+      ${enterpriseSectionHtml}
+      ${activitySectionHtml}
     `
     bindSummaryControls()
     bindPaging()

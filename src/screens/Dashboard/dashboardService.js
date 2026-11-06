@@ -69,8 +69,8 @@ function renderDashboard() {
             </button>
           ` : ''}
           ${(state.welcomeUser.role === 'member' || hasPermission(state.welcomeUser.permissions, 'read_ledger')) ? `
-            <button class="nav-item ${state.activeTab === 'ledger' ? 'active' : ''}" data-action="nav-tab" data-tab="ledger/summary">
-              Ledger
+            <button class="nav-item ${state.activeTab === 'monthly-summary' ? 'active' : ''}" data-action="nav-tab" data-tab="monthly-summary">
+              Account Summary
             </button>
           ` : ''}
           <button class="nav-item ${state.activeTab === 'withdrawal-request' ? 'active' : ''}" data-action="withdrawal-request">
@@ -320,7 +320,7 @@ async function _renderDashboardContentInner() {
     await renderAccountBalance(container, displayUser)
   } else if (state.activeTab === 'payments') {
     await renderUnifiedPayment(container, displayUser, state.editingRemittance)
-  } else if (state.activeTab === 'ledger') {
+  } else if (state.activeTab === 'monthly-summary') {
     await renderMemberLedger(container, displayUser)
   } else if (state.activeTab === 'reports') {
     const displayUserReports = JSON.parse(JSON.stringify(displayUser));

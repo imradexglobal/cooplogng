@@ -80,7 +80,7 @@ export async function exportLedgerExcel(args) {
   const { user, dataset, filters, result, accountName, memberName } = args
   const ExcelJS = await loadExcelJS()
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'CoopLog Experimental Ledger'
+  workbook.creator = 'CoopLog Ledger'
   workbook.created = new Date()
 
   // ---------------------------------------------------------------- Ledger
@@ -90,7 +90,7 @@ export async function exportLedgerExcel(args) {
 
   const startRow = writeMetaBlock(sheet, [
     ['Cooperative', user.cooperativeName || user.cooperativeId],
-    ['Report', 'General Ledger (experimental)'],
+    ['Report', 'Ledger'],
     ['Scope', scopeLabel(filters, accountName, memberName)],
     ['Generated', `${todayInput()} — ${new Date().toLocaleTimeString('en-GB')}`],
     ['Opening balance', formatNumber(result.opening)],
@@ -225,13 +225,13 @@ export async function exportLoansExcel(args) {
   const { user, loans, summary, filters } = args
   const ExcelJS = await loadExcelJS()
   const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'CoopLog Experimental Loans'
+  workbook.creator = 'CoopLog Loan'
   workbook.created = new Date()
 
   const sheet = workbook.addWorksheet('Loans', { views: [{ state: 'frozen', ySplit: 1 }] })
   const start = writeMetaBlock(sheet, [
     ['Cooperative', user.cooperativeName || user.cooperativeId],
-    ['Report', 'Loan register (experimental)'],
+    ['Report', 'Loan register'],
     ['Generated', `${todayInput()} — ${new Date().toLocaleTimeString('en-GB')}`],
     ['Total disbursed', formatNumber(summary.disbursed)],
     ['Total outstanding', formatNumber(summary.outstanding)],

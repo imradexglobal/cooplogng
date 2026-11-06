@@ -9,7 +9,7 @@
  *     dashboard), and
  *   • no existing screen, component, hook or stylesheet is imported here.
  *
- * Routes: #experimental-ledger · #experimental-loans
+ * Routes: #ledger · #loan
  * Access: administrators only (both the nav entries and the routes).
  */
 
@@ -21,8 +21,8 @@ import { renderLedgerPage } from './ledger/ledgerPage.js'
 import { renderLoansPage } from './loans/loansPage.js'
 
 export const ROUTES = {
-  'experimental-ledger': { label: 'Ledger', title: 'General Ledger', render: renderLedgerPage },
-  'experimental-loans': { label: 'Loan Management', title: 'Loan Management', render: renderLoansPage },
+  'ledger': { label: 'Ledger', title: 'Ledger', render: renderLedgerPage },
+  'loan': { label: 'Loan', title: 'Loan', render: renderLoansPage },
 }
 
 const LEDGER_ICON = `
@@ -84,11 +84,11 @@ function injectNav(user) {
     const html = entries.map(([route, cfg]) => `
         <button class="nav-item${active === route ? ' active' : ''}" data-action="nav-tab"
                 data-tab="${route}" data-xp-nav="1" title="${escapeHtml(cfg.title)}">
-          <span class="nav-icon">${route === 'experimental-ledger' ? LEDGER_ICON : LOAN_ICON}</span>
+          <span class="nav-icon">${route === 'ledger' ? LEDGER_ICON : LOAN_ICON}</span>
           <span>${escapeHtml(cfg.label)}</span>
           <span class="xp-nav-badge">New</span>
         </button>`).join('')
-    const summaryLink = sidebar.querySelector('[data-tab="ledger/summary"]')
+    const summaryLink = sidebar.querySelector('[data-tab="monthly-summary"]')
     if (summaryLink) summaryLink.insertAdjacentHTML('beforebegin', html)
     else sidebar.insertAdjacentHTML('beforeend', html)
   }
@@ -98,10 +98,10 @@ function injectNav(user) {
     const html = entries.map(([route, cfg]) => `
         <button class="bottom-nav-item${active === route ? ' active' : ''}" data-action="nav-tab"
                 data-tab="${route}" data-xp-nav="1" title="${escapeHtml(cfg.title)}">
-          ${route === 'experimental-ledger' ? LEDGER_ICON : LOAN_ICON}
-          <span class="nav-label">${route === 'experimental-ledger' ? 'Ledger' : 'Loans'}</span>
+          ${route === 'ledger' ? LEDGER_ICON : LOAN_ICON}
+          <span class="nav-label">${route === 'ledger' ? 'Ledger' : 'Loan'}</span>
         </button>`).join('')
-    const summaryLink = bottom.querySelector('[data-tab="ledger/summary"]')
+    const summaryLink = bottom.querySelector('[data-tab="monthly-summary"]')
     if (summaryLink) summaryLink.insertAdjacentHTML('beforebegin', html)
     else bottom.insertAdjacentHTML('beforeend', html)
   }
@@ -113,13 +113,13 @@ export function addExperimentalNavigation(user) {
 }
 
 function renderDenied(container, user, reason) {
-  setMobileTitle('Access restricted', 'Experimental pages')
+  setMobileTitle('Access restricted', 'Ledger and Loan')
   container.innerHTML = `
     <div class="xp xp-denied-wrap">
       <div class="xp-denied">
-        <div class="xp-eyebrow">Experimental</div>
+        <div class="xp-eyebrow">Administrator area</div>
         <h2>Administrator access required</h2>
-        <p>${escapeHtml(reason)}</p>
+        <p>Ledger and Loan are limited to authorized administrators.</p>
         <button type="button" class="xp-btn xp-btn-primary" data-xp-back>Back to dashboard</button>
       </div>
     </div>`
@@ -129,8 +129,8 @@ function renderDenied(container, user, reason) {
 }
 
 /**
- * Called by src/main.js for the experimental routes.
- * @param {string} tab      'experimental-ledger' | 'experimental-loans'
+ * Called by src/main.js for the ledger and loan routes.
+ * @param {string} tab      'ledger' | 'loan'
  * @param {HTMLElement} container main content container
  * @param {object} user     displayUser (deep copy built by the host)
  */

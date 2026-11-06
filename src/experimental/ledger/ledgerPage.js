@@ -6,7 +6,7 @@
  * src/screens/AccountBalance.js or any other existing page component, hook or
  * stylesheet.
  *
- * Route: #experimental-ledger
+ * Route: #ledger
  */
 
 import {
@@ -199,14 +199,13 @@ function renderShell(container) {
   container.innerHTML = `
     <div class="xp xp-ledger">
       <div class="xp-print-head">
-        <strong>General Ledger — ${escapeHtml(user.cooperativeName || user.cooperativeId)}</strong><br/>
+        <strong>Ledger — ${escapeHtml(user.cooperativeName || user.cooperativeId)}</strong><br/>
         <span>${escapeHtml(scopeText())}</span>
       </div>
 
       <header class="xp-head">
         <div>
-          <div class="xp-eyebrow">Experimental · independent build</div>
-          <h1>General Ledger</h1>
+          <h1>Ledger</h1>
           <p class="xp-sub" id="xp-scope-line">${escapeHtml(scopeText())}</p>
         </div>
         <div class="xp-head-actions">
@@ -362,7 +361,7 @@ async function runExport(kind, el) {
     else await exportLedgerPdf(args)
     toast(`${kind === 'excel' ? 'Excel' : 'PDF'} export generated for the current filters`, 'success')
   } catch (err) {
-    console.error('[experimental-ledger] export failed', err)
+    console.error('[ledger] export failed', err)
     toast(`Export failed: ${err.message || err}`, 'error')
   } finally {
     el.disabled = false
@@ -450,7 +449,7 @@ function openRow(uid) {
   openLedgerDetail(row, state.dataset, {
     onOpenLoan(loanId) {
       if (loanId) sessionStorage.setItem('xp-loan-focus', loanId)
-      window.location.hash = 'experimental-loans'
+      window.location.hash = 'loan'
     },
     onEditRemittance(remittanceId, record) {
       window.dispatchEvent(new CustomEvent('edit-remittance', {
@@ -927,7 +926,7 @@ async function loadData() {
     state.error = null
     state.result = computeLedger(dataset.rows, state.filters)
   } catch (err) {
-    console.error('[experimental-ledger] load failed', err)
+    console.error('[ledger] load failed', err)
     state.error = err
     state.result = null
   }
@@ -958,7 +957,7 @@ export async function renderLedgerPage(container, user) {
     state.page = 1
   }
 
-  setMobileTitle('General Ledger', 'Experimental · accounting view')
+  setMobileTitle('Ledger', 'Account transaction register')
 
   container.innerHTML = `<div class="xp xp-ledger">${loadingHTML('Loading ledger data…')}</div>`
   await loadData()
