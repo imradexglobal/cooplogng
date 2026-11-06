@@ -103,6 +103,7 @@ export async function renderReports(container, user) {
             #preview-toolbar {
                 position: sticky;
                 top: 0;
+                left: 0;
                 z-index: 40;
                 min-height: 44px;
                 box-sizing: border-box;
@@ -186,6 +187,36 @@ export async function renderReports(container, user) {
             }
             .styled-table tbody tr:hover {
                 background-color: var(--bg-input);
+            }
+            .styled-table thead th.report-total-column,
+            .styled-table tbody td.report-total-column {
+                background: var(--bg-secondary);
+                color: var(--accent-primary);
+                font-weight: 800;
+                border-left: 2px solid var(--accent-primary);
+            }
+            .styled-table tbody tr.report-total-row td {
+                background: var(--bg-secondary) !important;
+                color: var(--text-primary);
+                font-weight: 800;
+                border-top: 2px solid var(--accent-primary);
+                border-bottom: 2px solid var(--accent-primary);
+            }
+            .styled-table tbody tr.report-total-row td.report-total-column {
+                background: var(--bg-secondary) !important;
+                color: var(--accent-primary);
+            }
+            .styled-table thead th.report-total-column {
+                position: sticky;
+                left: 0;
+                z-index: 50;
+                background: var(--bg-secondary) !important;
+            }
+            .styled-table tbody td.report-total-column {
+                position: sticky;
+                left: 0;
+                z-index: 10;
+                background: var(--bg-secondary) !important;
             }
             .btn-generate { 
                 background: var(--accent-primary); 
@@ -1168,6 +1199,12 @@ export async function renderReports(container, user) {
         if (previewView.page > totalPages) previewView.page = totalPages;
         const start = (previewView.page - 1) * PREVIEW_PAGE_SIZE;
         const pageRows = matches.slice(start, start + PREVIEW_PAGE_SIZE);
+        const trailingTotalIndex = headers.findIndex((header, index) =>
+            index === headers.length - 1 && /^total(?:\s|$)/i.test(String(header).trim())
+        );
+        const displayColumnIndexes = trailingTotalIndex === -1
+            ? headers.map((_, index) => index)
+            : [trailingTotalIndex, ...headers.map((_, index) => index).filter(index => index !== trailingTotalIndex)];
 
         if (!previewBody.querySelector('#preview-toolbar')) {
             previewBody.innerHTML = `
@@ -1225,9 +1262,11 @@ export async function renderReports(container, user) {
             <table class="styled-table" style="width: auto !important; min-width: 100% !important; border-collapse: separate !important;">
                 <thead>
                     <tr>
-                        ${headers.map((h, i) => {
+                        ${displayColumnIndexes.map((i) => {
+                            const h = headers[i];
                             const arrow = previewView.sortIdx === i ? (previewView.sortDir === 1 ? ' &#9650;' : ' &#9660;') : '';
-                            return `<th data-sort-idx="${i}" title="Click to sort" style="white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important;">${escapeHtml(h).replace(/ /g, '&nbsp;')}${arrow}</th>`;
+                            const totalClass = i === trailingTotalIndex ? ' class="report-total-column"' : '';
+                            return `<th${totalClass} data-sort-idx="${i}" title="Click to sort" style="white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important;">${escapeHtml(h).replace(/ /g, '&nbsp;')}${arrow}</th>`;
                         }).join('')}
                     </tr>
                 </thead>
@@ -1236,13 +1275,16 @@ export async function renderReports(container, user) {
 
         const renderRows = (rows) => rows.map(row => {
             const rowArray = Array.isArray(row) ? row : headers.map(h => row[h]);
+            const totalRowClass = isTotalRow(rowArray) ? ' class="report-total-row"' : '';
             return `
-                <tr>
-                    ${rowArray.map((val, idx) => {
+                <tr${totalRowClass}>
+                    ${displayColumnIndexes.map((idx) => {
+                        const val = rowArray[idx];
                         const header = headers[idx];
                         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                         const commonAmountHeaders = ['Amount', 'Total', 'Principal', 'Bal B/F', 'DR', 'CR', 'BL', 'Balance'];
                         const isAmount = typeof val === 'number' || ((val !== null && val !== undefined && val !== '') && (commonAmountHeaders.includes(header) || monthNames.includes(header)));
+                        const totalClass = idx === trailingTotalIndex ? ' class="report-total-column"' : '';
 
                         const shouldWrap = header === 'Description' || header === 'Notes' || header === 'Note';
 
@@ -1255,12 +1297,12 @@ export async function renderReports(container, user) {
                             const numVal = (val === null || val === undefined || val === '') ? 0 : Number(val);
                             const formatted = isNaN(numVal) ? escapeHtml(String(val)).replace(/ /g, '&nbsp;') : formatNumber(numVal).replace(/ /g, '&nbsp;');
                             const style = `style="${baseStyle} ${!isNaN(numVal) && numVal < 0 ? 'color: #dc2626; font-weight: 700;' : ''} text-align: right;"`;
-                            return `<td ${style}>${formatted}</td>`;
+                            return `<td${totalClass} ${style}>${formatted}</td>`;
                         }
 
                         const rawText = String(val ?? '');
                         const text = shouldWrap ? escapeHtml(rawText) : escapeHtml(rawText).replace(/ /g, '&nbsp;');
-                        return `<td style="${baseStyle}">${text}</td>`;
+                        return `<td${totalClass} style="${baseStyle}">${text}</td>`;
                     }).join('')}
                 </tr>
             `;

@@ -1,6 +1,7 @@
 import { fetchAllMembers, fetchRemittances, fetchEnterprises } from '../services/dataService.js'
 import { hasPermission } from '../services/permissionService.js'
 import { formatCurrency, escapeHtml } from '../utils/formatters.js'
+import { buildMemberLedgerView, isAutoDuesCharge } from '../services/data/memberLedgerView.js'
 
 if (!window.__ledgerFilters) {
   window.__ledgerFilters = {
@@ -204,6 +205,14 @@ export async function renderMemberLedger(container, user) {
       .tc table td { padding: 0.35rem 0.5rem; }
       .tc table tr { cursor: pointer; transition: background 0.1s; }
       .tc table tbody tr:hover { background: var(--bg-hover, var(--bg-secondary)); }
+      .lreport-section { margin-top: 1rem; }
+      .lreport-title { margin: 0 0 0.45rem; font-size: 0.95rem; font-weight: 800; color: var(--text-primary); }
+      .lreport-note { margin: 0.5rem 0 0.75rem; padding: 0.6rem 0.75rem; border: 1px solid var(--border-light); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-secondary); font-size: 0.76rem; line-height: 1.45; }
+      .ledger-total-row th { background: var(--bg-card); font-weight: 800; }
+      .ledger-carry-row td { background: var(--bg-secondary); font-weight: 700; }
+      .ledger-empty { padding: 1rem !important; color: var(--text-muted); text-align: center; }
+      .ledger-activity-table { min-width: 850px; }
+      .lactivity-values .sv { font-size: 0.75rem; }
 
       /* Tab styles */
       .ltabs { display: flex; gap: 0.35rem; margin-bottom: 0; background: var(--bg-input, #f1f5f9); padding: 0.3rem; border-radius: var(--radius-md); }
@@ -601,10 +610,11 @@ export async function renderMemberLedger(container, user) {
     const subtitleEl = document.getElementById('ledger-subtitle')
     if (!subtitleEl) return
     const viewLabel = isGlobalView()
-      ? `Showing <strong>${isAdmin ? 'Global' : 'Accessible'}</strong> summary`
-      : `Summary for <strong style="color: var(--accent-primary);">${escapeHtml(filters.memberName)}</strong>`
+      ? `Showing <strong>${isAdmin ? 'Global' : 'Accessible'} bank activity</strong>`
+      : `Member net worth for <strong style="color: var(--accent-primary);">${escapeHtml(filters.memberName)}</strong>`
     const totalClass = Number(networth) < 0 ? 'text-red' : 'text-green'
-    subtitleEl.innerHTML = `${viewLabel} | Total: <strong class="${totalClass}">${formatCurrency(networth)}</strong>`
+    const totalLabel = isGlobalView() ? 'Bank balance' : 'Member balance'
+    subtitleEl.innerHTML = `${viewLabel} | ${totalLabel}: <strong class="${totalClass}">${formatCurrency(networth)}</strong>`
   }
 
   async function renderSummaryTab() {
@@ -615,129 +625,96 @@ export async function renderMemberLedger(container, user) {
       ? new Date(yearNum, 0, 1)
       : new Date(yearNum, parseInt(month), 1)
     const monthEnd = month === 'All'
-      ? new Date(yearNum, 11, 31, 23, 59, 59)
-      : new Date(yearNum, parseInt(month) + 1, 0, 23, 59, 59)
+      ? new Date(yearNum, 11, 31, 23, 59, 59, 999)
+      : new Date(yearNum, parseInt(month) + 1, 0, 23, 59, 59, 999)
 
     const allRemittances = await _getCachedRemittances()
-    const approved = allRemittances.filter(r => r.status === 'Approved')
-
-    let filteredRemittances = approved
-    if (!isGlobalView()) {
-      filteredRemittances = filteredRemittances.filter(r => String(r.member_id) === String(filters.memberId))
-    }
-
-    let openingBalance = 0
-    let totalCredit = 0
-    let totalDebit = 0
-
-    const enterpriseOpening = {}
-    const enterprisePeriod = {}
-
-    const allEnts = await fetchEnterprises(user.cooperativeId)
-    const enterpriseIds = new Set()
-
-    for (const r of filteredRemittances) {
-      const d = new Date(r.remittance_date)
-      const amt = r.amount || 0
-      const details = r.details || []
-
-      if (d < monthStart) {
-        openingBalance += amt
-        for (const detail of details) {
-          const eid = detail.enterprise_id
-          if (eid) {
-            enterpriseIds.add(eid)
-            if (!enterpriseOpening[eid]) enterpriseOpening[eid] = 0
-            enterpriseOpening[eid] += parseFloat(detail.amount || 0)
-          }
-        }
-      } else if (d >= monthStart && d <= monthEnd) {
-        if (amt > 0) totalCredit += amt
-        else totalDebit += Math.abs(amt)
-
-        for (const detail of details) {
-          const eid = detail.enterprise_id
-          if (eid) {
-            enterpriseIds.add(eid)
-            if (!enterprisePeriod[eid]) enterprisePeriod[eid] = { cr: 0, dr: 0 }
-            const detAmt = parseFloat(detail.amount || 0)
-            if (detAmt > 0) enterprisePeriod[eid].cr += detAmt
-            else enterprisePeriod[eid].dr += Math.abs(detAmt)
-          }
-        }
-      }
-    }
-
-    const closingBalance = openingBalance + totalCredit - totalDebit
-
+    const enterpriseRows = await fetchEnterprises(user.cooperativeId, true)
+    const allEnts = Object.fromEntries(enterpriseRows.map((enterprise) => [String(enterprise.id), enterprise.account_name || 'Unknown']))
+    const view = buildMemberLedgerView({
+      remittances: allRemittances,
+      enterprises: enterpriseRows,
+      memberId: filters.memberId,
+      start: monthStart,
+      end: monthEnd,
+    })
+    const openingBalance = view.opening
+    const totalCredit = view.credits
+    const totalDebit = view.debits
+    const closingBalance = view.closing
     updateSubtitle(closingBalance)
 
-    Object.keys(allEnts).forEach(id => {
-      enterpriseIds.add(id)
-    })
-
-    let entries = Array.from(enterpriseIds).map(id => {
-      const opening = enterpriseOpening[id] || 0
-      const cr = enterprisePeriod[id]?.cr || 0
-      const dr = enterprisePeriod[id]?.dr || 0
-      const closing = opening + cr - dr
-      return { id, name: allEnts[id] || 'Unknown', bbf: opening, cr, dr, closing }
-    })
-
+    let entries
+    if (view.isMemberScope) {
+      const balancesById = new Map(view.memberAccountBalances.map((account) => [String(account.id), account]))
+      const accountIds = new Set([...Object.keys(allEnts), ...balancesById.keys()])
+      entries = [...accountIds].map((id) => {
+        const account = balancesById.get(String(id))
+        return {
+          id,
+          name: account?.name || allEnts[id] || 'Unknown account',
+          bbf: account?.opening || 0,
+          dr: 0,
+          cr: 0,
+          closing: account?.closing || 0,
+        }
+      })
+    } else {
+      entries = view.bankBalances.map((bank) => ({
+        id: bank.id,
+        name: bank.name,
+        bbf: bank.opening,
+        dr: bank.debit,
+        cr: bank.credit,
+        closing: bank.closing,
+      }))
+    }
     entries.sort((a, b) => a.name.localeCompare(b.name))
 
-    const localShowZeroes = window.__ledgerShowZeroes || false;
+    const localShowZeroes = window.__ledgerShowZeroes || false
     if (!localShowZeroes) {
-      entries = entries.filter(e => Math.abs(e.bbf) >= 0.01 || Math.abs(e.closing) >= 0.01 || Math.abs(e.dr) >= 0.01 || Math.abs(e.cr) >= 0.01)
+      entries = entries.filter((entry) =>
+        Math.abs(entry.bbf) >= 0.01 || Math.abs(entry.closing) >= 0.01 ||
+        Math.abs(entry.dr) >= 0.01 || Math.abs(entry.cr) >= 0.01
+      )
     }
 
     let allowedEntIds = []
     let allowedEntNames = []
     let hasAllAccess = false
 
-    if (!isAdmin && !isMember) {
+    if (view.isMemberScope && !isAdmin && !isMember) {
       const rightsString = user.enterprise_rights || user.enterprises || ''
-      const rights = rightsString.split(',').map(p => p.trim()).filter(p => p.length > 0)
-      if (rights.some(r => r.toLowerCase() === 'all')) {
+      const rights = rightsString.split(',').map((part) => part.trim()).filter((part) => part.length > 0)
+      if (rights.some((right) => right.toLowerCase() === 'all')) {
         hasAllAccess = true
       } else {
-        rights.forEach(r => {
-          const matchId = Object.keys(allEnts).find(id => id.toLowerCase() === r.toLowerCase())
+        rights.forEach((right) => {
+          const matchId = Object.keys(allEnts).find((id) => id.toLowerCase() === right.toLowerCase())
           if (matchId) allowedEntIds.push(matchId)
-          else allowedEntNames.push(r.toLowerCase())
+          else allowedEntNames.push(right.toLowerCase())
         })
       }
     }
 
-    entries = entries.map(e => {
+    entries = entries.map((entry) => {
+      if (!view.isMemberScope) return entry
       const hasAccess = isAdmin || isMember || hasAllAccess ||
-        allowedEntIds.includes(String(e.id)) ||
-        allowedEntNames.includes((e.name || '').toLowerCase())
-      if (!hasAccess) {
-        return { ...e, bbf: 0, dr: 0, cr: 0, closing: 0, isRestricted: true }
-      }
-      return e
+        allowedEntIds.includes(String(entry.id)) ||
+        allowedEntNames.includes((entry.name || '').toLowerCase())
+      return hasAccess
+        ? entry
+        : { ...entry, bbf: 0, dr: 0, cr: 0, closing: 0, isRestricted: true }
     })
 
-    const monthlyDebitTotal = entries.reduce((sum, entry) => sum + (entry.isRestricted ? 0 : Number(entry.dr) || 0), 0)
-    const monthlyCreditTotal = entries.reduce((sum, entry) => sum + (entry.isRestricted ? 0 : Number(entry.cr) || 0), 0)
+    const monthlyDebitTotal = totalDebit
+    const monthlyCreditTotal = totalCredit
 
-    // Month payment indicator: per-month +ve (deposit) totals for the selected
-    // year within the current member scope. Green = paid (>0), red = none (=0),
-    // unstyled = 'All' or a future month.
+    // Month payment indicator uses real bank/method receipts only.
     const nowDate = new Date()
     const nowYear = nowDate.getFullYear()
     const nowMonth = nowDate.getMonth()
-    const monthlyCredit = new Array(12).fill(0)
-    if (!isNaN(yearNum)) {
-      for (const r of filteredRemittances) {
-        const amt = Number(r.amount) || 0
-        if (amt <= 0) continue
-        const d = new Date(r.remittance_date)
-        if (isNaN(d)) continue
-        if (d.getFullYear() === yearNum) monthlyCredit[d.getMonth()] += amt
-      }
-    }
+    const monthlyCredit = view.paymentCreditsByMonth
     const monthStyleFor = (idx) => {
       if (isNaN(yearNum)) return ''
       if (yearNum > nowYear || (yearNum === nowYear && idx > nowMonth)) return ''
@@ -795,45 +772,92 @@ export async function renderMemberLedger(container, user) {
       })
     }
 
-    if (entries.length === 0) {
-      contentContainer.innerHTML = `
-      ${summaryFilterBar}
-      <div class="card" style="width: 100%; padding: 1rem; color: var(--text-muted); text-align: center; border: 1px solid var(--border-light); background: var(--bg-card); font-size: 0.85rem;">No ledger entries found for this period.</div>`
-      bindSummaryControls()
-      return
+    const page = paginate(view.periodRows)
+    const mobile = isMobileViewport()
+    const memberNames = {}
+    if (!view.isMemberScope) {
+      const members = await getMembersForSearch().catch(() => [])
+      for (const member of members || []) {
+        memberNames[String(member.id)] = `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Member'
+      }
     }
 
-    const page = paginate(entries)
-    const mobile = isMobileViewport()
+    const accountRowsHtml = entries.length
+      ? entries.map((entry) => view.isMemberScope
+        ? `<tr><td>${entry.isRestricted ? '🔒 ' : ''}${escapeHtml(entry.name)}</td><td class="text-right">${entry.isRestricted ? '***' : formatCurrency(entry.bbf)}</td><td class="text-right ${entry.closing < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.closing)}</td></tr>`
+        : `<tr><td>${escapeHtml(entry.name)}</td><td class="text-right">${formatCurrency(entry.bbf)}</td><td class="text-right text-red">${formatCurrency(entry.dr)}</td><td class="text-right text-green">${formatCurrency(entry.cr)}</td><td class="text-right ${entry.closing < 0 ? 'text-red' : ''}">${formatCurrency(entry.closing)}</td></tr>`
+      ).join('')
+      : `<tr><td colspan="${view.isMemberScope ? 3 : 5}" class="ledger-empty">No account balances for this period.</td></tr>`
 
-    const desktopRow = (entry) => `
-        <tr>
-          <td>${entry.isRestricted ? '🔒 ' : ''}${escapeHtml(entry.name)}</td>
-          <td class="text-right ${entry.bbf < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.bbf)}</td>
-          <td class="text-red text-right">${entry.isRestricted ? '***' : formatCurrency(entry.dr)}</td>
-          <td class="text-green text-right">${entry.isRestricted ? '***' : formatCurrency(entry.cr)}</td>
-          <td class="text-right ${entry.closing < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.closing)}</td>
-        </tr>`
+    const accountMobileHtml = entries.length
+      ? entries.map((entry) => `<div class="lmc"><div class="lch"><span class="lname">${entry.isRestricted ? '🔒 ' : ''}${escapeHtml(entry.name)}</span></div><div class="lcg"><div class="ls"><span class="sl">Opening</span><span class="sv">${entry.isRestricted ? '***' : formatCurrency(entry.bbf)}</span></div><div class="ls"><span class="sl">Closing</span><span class="sv ${entry.closing < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.closing)}</span></div>${view.isMemberScope ? '' : `<div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${formatCurrency(entry.dr)}</span></div><div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${formatCurrency(entry.cr)}</span></div>`}</div></div>`).join('')
+      : `<div class="card ledger-empty">No account balances for this period.</div>`
 
-    const mobileCard = (entry) => `
-        <div class="lmc"><div class="lch"><span class="lname">${entry.isRestricted ? '🔒 ' : ''}${escapeHtml(entry.name)}</span></div>
-        <div class="lcg">
-          <div class="ls"><span class="sl">Opening</span><span class="sv ${entry.bbf < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.bbf)}</span></div>
-          <div class="ls"><span class="sl">Closing</span><span class="sv ${entry.closing < 0 ? 'text-red' : ''}">${entry.isRestricted ? '***' : formatCurrency(entry.closing)}</span></div>
-          <div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${entry.isRestricted ? '***' : formatCurrency(entry.dr)}</span></div>
-          <div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${entry.isRestricted ? '***' : formatCurrency(entry.cr)}</span></div>
-        </div></div>`
+    const memberNameFor = (id) => id === '0000000000' ? 'Cooperative' : memberNames[id] || 'Member'
+    const transactionCells = (row) => {
+      const remittance = row.remittance
+      const dueAccounts = (remittance.details || []).map((detail) => allEnts[String(detail.enterprise_id || detail.item || '')]).filter(Boolean)
+      const transaction = row.isAutoDuesCharge ? 'Compulsory due charge' : remittance.transaction_type || (row.isInternalTransfer ? 'Internal transfer' : 'Bank transaction')
+      const description = row.isAutoDuesCharge
+        ? `Compulsory charge${dueAccounts.length ? ` — ${dueAccounts.join(', ')}` : ''}`
+        : remittance.description || remittance.transaction_type || '—'
+      const method = row.isInternalTransfer ? 'Internal transfer' : String(remittance.bank_name || '—')
+      const reference = String(remittance.id || '—')
+      const shortReference = reference.length > 14 ? `…${reference.slice(-12)}` : reference
+      const date = String(remittance.remittance_date || remittance.created_at || '').slice(0, 10) || '—'
+      return { remittance, transaction, description, method, reference, shortReference, date }
+    }
 
-    const listHtml = page.map(mobile ? mobileCard : desktopRow).join('')
+    const transactionDesktopRows = page.map((row) => {
+      const cell = transactionCells(row)
+      const memberCell = view.isMemberScope ? '' : `<td>${escapeHtml(memberNameFor(String(cell.remittance.member_id || '')))}</td>`
+      return `<tr><td>${escapeHtml(cell.date)}</td>${memberCell}<td>${escapeHtml(cell.transaction)}</td><td>${escapeHtml(cell.description)}</td><td>${escapeHtml(cell.method)}</td><td title="${escapeHtml(cell.reference)}">${escapeHtml(cell.shortReference)}</td><td class="text-green text-right">${row.credit ? formatCurrency(row.credit) : '—'}</td><td class="text-red text-right">${row.debit ? formatCurrency(row.debit) : '—'}</td><td class="text-right ${row.balanceAfter < 0 ? 'text-red' : ''}">${formatCurrency(row.balanceAfter)}</td></tr>`
+    }).join('')
+    const transactionMobileCards = page.map((row) => {
+      const cell = transactionCells(row)
+      const hasBothSides = row.credit > 0 && row.debit > 0
+      const badgeClass = hasBothSides || (!row.credit && !row.debit) ? 't-neutral' : row.debit ? 't-debit' : 't-credit'
+      const badgeLabel = hasBothSides ? 'Transfer' : row.debit ? 'Debit' : row.credit ? 'Credit' : 'No net change'
+      const memberMeta = view.isMemberScope ? '' : `${escapeHtml(memberNameFor(String(cell.remittance.member_id || '')))} · `
+      return `<div class="lmc"><div class="lch-row"><span class="ldate">${escapeHtml(cell.date)}</span><span class="ltype ${badgeClass}">${badgeLabel}</span></div><div class="lname">${escapeHtml(cell.transaction)}</div><div class="ldesc">${escapeHtml(cell.description)}</div><div class="lmeta"><span>${memberMeta}${escapeHtml(cell.method)}</span><span title="${escapeHtml(cell.reference)}">Ref ${escapeHtml(cell.shortReference)}</span></div><div class="lcg-3 lactivity-values"><div class="ls"><span class="sl text-green">Credit</span><span class="sv text-green">${row.credit ? formatCurrency(row.credit) : '—'}</span></div><div class="ls"><span class="sl text-red">Debit</span><span class="sv text-red">${row.debit ? formatCurrency(row.debit) : '—'}</span></div><div class="ls"><span class="sl">Balance</span><span class="sv ${row.balanceAfter < 0 ? 'text-red' : ''}">${formatCurrency(row.balanceAfter)}</span></div></div></div>`
+    }).join('')
 
-    const bodyHtml = mobile
-      ? `<div class="scards" style="grid-template-columns: repeat(2, minmax(0, 1fr));"><div class="scard"><div class="lbl">Monthly Debit (DR)</div><div class="val text-red">${formatCurrency(monthlyDebitTotal)}</div></div><div class="scard"><div class="lbl">Monthly Credit (CR)</div><div class="val text-green">${formatCurrency(monthlyCreditTotal)}</div></div></div><div class="lmv">${listHtml}</div>`
-      : `<div class="ldv"><div class="tc"><table class="styled-table"><thead><tr><th>Enterprise</th><th class="text-right">Opening (BBF)</th><th class="text-right">Debit (DR)</th><th class="text-right">Credit (CR)</th><th class="text-right">Closing</th></tr><tr style="background: var(--bg-card); font-weight: 800;"><th>Monthly Total</th><th class="text-right">—</th><th class="text-right text-red">${formatCurrency(monthlyDebitTotal)}</th><th class="text-right text-green">${formatCurrency(monthlyCreditTotal)}</th><th class="text-right">—</th></tr></thead><tbody>${listHtml}</tbody></table></div></div>`
+    const accountSection = `
+      <section class="lreport-section">
+        <h3 class="lreport-title">${view.isMemberScope ? 'Member account balances' : 'Bank / cash balances'}</h3>
+        <div class="ldv"><div class="tc"><table class="styled-table"><thead>${view.isMemberScope
+          ? '<tr><th>Enterprise</th><th class="text-right">Opening</th><th class="text-right">Closing</th></tr>'
+          : `<tr><th>Bank / method</th><th class="text-right">Opening</th><th class="text-right">Debit</th><th class="text-right">Credit</th><th class="text-right">Closing</th></tr><tr class="ledger-total-row"><th>Total</th><th class="text-right">${formatCurrency(view.opening)}</th><th class="text-right text-red">${formatCurrency(view.debits)}</th><th class="text-right text-green">${formatCurrency(view.credits)}</th><th class="text-right">${formatCurrency(view.closing)}</th></tr>`
+        }</thead><tbody>${accountRowsHtml}</tbody></table></div></div>
+        <div class="lmv">${accountMobileHtml}</div>
+      </section>`
+
+    const transactionColumnCount = view.isMemberScope ? 8 : 9
+    const transactionHeaders = view.isMemberScope
+      ? '<th>Date</th><th>Transaction</th><th>Description</th><th>Bank / method</th><th>Reference</th><th class="text-right">Credit</th><th class="text-right">Debit</th><th class="text-right">Balance</th>'
+      : '<th>Date</th><th>Member</th><th>Transaction</th><th>Description</th><th>Bank / method</th><th>Reference</th><th class="text-right">Credit</th><th class="text-right">Debit</th><th class="text-right">Balance</th>'
+    const openingRow = `<tr class="ledger-carry-row"><td colspan="${transactionColumnCount - 1}">Opening balance before this period</td><td class="text-right">${formatCurrency(view.opening)}</td></tr>`
+    const emptyTransactions = `<tr><td colspan="${transactionColumnCount}" class="ledger-empty">No posted transactions for this period.</td></tr>`
+    const transactionNote = view.isMemberScope
+      ? 'Bank and member internal postings are included. The automatic dues-settlement transfer is collapsed; the compulsory due charge remains visible. Account closing balances still include the full posted allocations.'
+      : 'This cooperative-wide view includes approved bank / cash transactions only. Internal transfers and records without a bank / payment method are excluded from every balance and activity total.'
 
     contentContainer.innerHTML = `
       ${summaryFilterBar}
-      ${bodyHtml}
-      ${pagingFooter(page.length, entries.length)}
+      <div class="scards">
+        <div class="scard"><div class="lbl">Opening balance</div><div class="val">${formatCurrency(openingBalance)}</div></div>
+        <div class="scard"><div class="lbl">Credits</div><div class="val text-green">${formatCurrency(monthlyCreditTotal)}</div></div>
+        <div class="scard"><div class="lbl">Debits</div><div class="val text-red">${formatCurrency(monthlyDebitTotal)}</div></div>
+        <div class="scard"><div class="lbl">${view.isMemberScope ? 'Member net worth' : 'Bank balance'}</div><div class="val ${closingBalance < 0 ? 'text-red' : ''}">${formatCurrency(closingBalance)}</div></div>
+      </div>
+      <div class="lreport-note">${transactionNote}</div>
+      ${accountSection}
+      <section class="lreport-section">
+        <h3 class="lreport-title">${view.isMemberScope ? 'Member transaction activity' : 'Bank transaction activity'}</h3>
+        <div class="ldv"><div class="tc"><table class="styled-table ledger-activity-table"><thead><tr>${transactionHeaders}</tr></thead><tbody>${openingRow}${page.length ? transactionDesktopRows : emptyTransactions}</tbody></table></div></div>
+        <div class="lmv">${page.length ? transactionMobileCards : `<div class="card ledger-empty">No posted transactions for this period.</div>`}</div>
+        ${pagingFooter(page.length, view.periodRows.length)}
+      </section>
     `
     bindSummaryControls()
     bindPaging()

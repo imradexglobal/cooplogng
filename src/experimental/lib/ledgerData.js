@@ -22,6 +22,9 @@ import { fetchEnterprises } from '../../services/data/enterprises.js'
 import { fetchAllMembers } from '../../services/data/members.js'
 import { syncBus, SyncEvents } from '../../services/syncEventBus.js'
 import { dayKey, monthKey, num, shortRef, toSet } from './format.js'
+import { isDuesSettlementTransfer, scopeRows } from './ledgerFilters.js'
+
+export { scopeRows }
 
 export const INTERNAL_ACCOUNT_ID = '__xp_internal__'
 export const ALL = 'all'
@@ -111,6 +114,7 @@ export async function loadLedgerDataset(user) {
       description: rem.description || '',
       isReversal,
       isAutogen: num(rem.autogen) === 1,
+      isDuesSettlementTransfer: isDuesSettlementTransfer(rem),
       isLoanRequest: !!rem.isLoanRequest,
       isWithdrawalRequest: !!rem.isWithdrawalRequest,
       loanId: rem.loan_id || '',
@@ -176,15 +180,6 @@ export function compareChrono(a, b) {
   const c = String(a.createdAt).localeCompare(String(b.createdAt))
   if (c !== 0) return c
   return String(a.ref).localeCompare(String(b.ref)) || String(a.uid).localeCompare(String(b.uid))
-}
-
-/** Rows belonging to the selected account + member (date-independent). */
-export function scopeRows(rows, filters) {
-  return rows.filter((r) => {
-    if (filters.accountId !== ALL && r.accountId !== filters.accountId) return false
-    if (filters.memberId !== ALL && r.memberId !== filters.memberId) return false
-    return true
-  })
 }
 
 function withinDates(date, from, to) {
