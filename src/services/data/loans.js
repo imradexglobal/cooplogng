@@ -4,6 +4,7 @@ import {
     getTransactionTypes
 } from '../sqliteService.js'
 import { addRemittance } from './remittances.js'
+import { calculateMonthlyLoanAdvice } from './loanAdvice.js'
 
 export async function fetchGuarantorStats(memberId, cooperativeId) {
     const { getGuarantorStatsLocal } = await import('../sqliteService.js')
@@ -137,6 +138,7 @@ export async function approveLoanRequest(remittanceId, approvedBy, options = {})
                     notes: loanData.notes || '',
                     remittance_id: remittanceId,
                     duration_months: duration,
+                    monthly_advice_amount: calculateMonthlyLoanAdvice(loanData.principalAmount || loanData.principal_amount || 0, duration),
                     admin_fee_id: null,
                     created_at: now,
                     created_by: approvedBy || 'system',
@@ -193,6 +195,7 @@ export async function approveLoanRequest(remittanceId, approvedBy, options = {})
         await saveDoc('loans', {
             ...loan,
             status: 'Active',
+            monthly_advice_amount: calculateMonthlyLoanAdvice(loan.principal_amount, loan.duration_months),
             issued_date: issuedDate,
             due_date: dueDate,
             modified_at: now,
@@ -284,7 +287,7 @@ export async function approveLoanRequest(remittanceId, approvedBy, options = {})
 
         if (loan.duration_months > 0 && loan.principal_amount > 0) {
             const { saveDoc: saveAdvice, queryRows: queryAdvice, loadDoc } = await import('../sqliteService.js')
-            const monthlyInst = parseFloat((loan.principal_amount / loan.duration_months).toFixed(2))
+            const monthlyInst = calculateMonthlyLoanAdvice(loan.principal_amount, loan.duration_months)
             const advises = await queryAdvice(
                 'SELECT * FROM payment_advise WHERE cooperative_id = ? AND member_id = ? AND enterprise_id = ? AND is_deleted = 0',
                 [String(cooperativeId), loan.member_id, loan.enterprise_id]

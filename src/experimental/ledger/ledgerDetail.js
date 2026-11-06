@@ -1,11 +1,12 @@
 /**
  * Experimental Ledger — transaction detail drawer.
  *
- * Read-only inspection view: shows the parent remittance, the specific
- * account line, sibling lines of the same entry and the traceability fields
- * (reference, parent, loan link, reversal tag, approval stamps).
+ * Inspection view: shows the parent remittance, the specific account line,
+ * sibling lines and traceability fields. Eligible users can hand the parent
+ * record to the existing Remittance edit flow.
  */
 
+import { hasPermission } from '../../services/permissionService.js'
 import { openDrawer, toast } from '../lib/ui.js'
 import { escapeHtml, formatDate, formatCurrency, shortRef } from '../lib/format.js'
 
@@ -30,11 +31,19 @@ function kv(key, value, mono = false) {
 /**
  * @param {object} row      ledger row
  * @param {object} dataset  { rows, memberMap, entMap }
- * @param {{onOpenLoan?:(loanId:string)=>void}} [handlers]
+ * @param {{onOpenLoan?:(loanId:string)=>void,onEditRemittance?:(id:string,record:object)=>void}} [handlers]
  */
 export function openLedgerDetail(row, dataset, handlers = {}) {
   const rem = row.rem || {}
   const siblings = (dataset.rows || []).filter((r) => r.remittanceId === row.remittanceId)
+  const user = dataset.user || {}
+  const isActualAdmin = hasPermission(user.permissions, 'admin') || String(user.username || '').toLowerCase() === 'admin'
+  const canUpdate = isActualAdmin || hasPermission(user.permissions, 'update_remittance')
+  const isChild = row.isAutogen || !!rem.autogen
+  const isReversed = row.isReversal || String(rem.description || '').toUpperCase().startsWith('REVERSAL:')
+  const isPendingLoanRequest = (rem.status || row.status) === 'Pending' &&
+    (row.isLoanRequest || rem.isLoanRequest || (Array.isArray(rem.loans) && rem.loans.length > 0))
+  const canEditRemittance = canUpdate && !isChild && !isReversed && !isPendingLoanRequest
 
   const detail = (rem.details || []).find((d) => String(d.id) === String(row.detailId))
   const loanInfo = detail && detail.loan_info ? detail.loan_info : null
@@ -188,6 +197,13 @@ export function openLedgerDetail(row, dataset, handlers = {}) {
   const footer = `
     <button type="button" class="xp-btn" data-xp-copy="${escapeHtml(row.ref)}">Copy reference</button>
     ${
+      canEditRemittance
+        ? `<button type="button" class="xp-btn xp-btn-primary" data-xp-edit-remittance="${escapeHtml(
+            row.remittanceId
+          )}">Edit in Remittance</button>`
+        : ''
+    }
+    ${
       row.loanId || row.isLoanRequest
         ? `<button type="button" class="xp-btn xp-btn-primary" data-xp-open-loan="${escapeHtml(
             row.loanId || ''
@@ -210,6 +226,12 @@ export function openLedgerDetail(row, dataset, handlers = {}) {
           toast('Reference copied to clipboard', 'success')
         } catch {
           toast(`Reference: ${value}`, 'info')
+        }
+      })
+      root.querySelector('[data-xp-edit-remittance]')?.addEventListener('click', () => {
+        drawer.close()
+        if (typeof handlers.onEditRemittance === 'function') {
+          handlers.onEditRemittance(row.remittanceId, rem)
         }
       })
       root.querySelector('[data-xp-open-loan]')?.addEventListener('click', (e) => {

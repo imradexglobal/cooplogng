@@ -3,7 +3,6 @@ import { hasPermission } from '../services/permissionService.js'
 import { formatCurrency, escapeHtml } from '../utils/formatters.js'
 
 if (!window.__ledgerFilters) {
-  const now = new Date()
   window.__ledgerFilters = {
     memberId: 'All',
     memberName: 'All Members (Global)'
@@ -47,17 +46,6 @@ if (!window.__ledgerClickHandler) {
 function getMemberDisplay(memberId, memberName) {
   if (!memberId || memberId === 'All') return 'All Members (Global)'
   return memberName || 'Selected Member'
-}
-
-function roundUpTo100(val) {
-  return Math.ceil(val / 100) * 100
-}
-
-function loanStatusClass(status) {
-  if (status === 'Active') return 'status-badge status-green'
-  if (status === 'Overdue') return 'status-badge status-red'
-  if (status === 'Pending' || status === 'Declined') return 'status-badge status-amber'
-  return 'status-badge status-gray'
 }
 
 export async function renderMemberLedger(container, user) {
@@ -392,7 +380,6 @@ export async function renderMemberLedger(container, user) {
   window._activeLedgerTab = 'tab-summary'
 
   let allMembersCache = null
-  let allMembersCache = null
   let memberSearchTimeout = null
 
   async function getMembersForSearch() {
@@ -549,7 +536,7 @@ export async function renderMemberLedger(container, user) {
   window.addEventListener('mobile-ledger-member-search', window._currentMobileLedgerSearchHandler)
 
 
-  const _ledgerCacheKey = () => String(filters.memberId || 'All')
+  const _ledgerCacheKey = () => String(user.cooperativeId || '')
 
   async function _getCachedRemittances() {
     const cache = window.__ledgerDataCache

@@ -97,6 +97,11 @@ export function setupEnterpriseListeners(user, cooperativeId) {
                   <div class="stg-helper">Lower numbers are settled first.</div>
                 </div>
                 <div class="field">
+                  <span>Auto remainder (Savings %)</span>
+                  <input type="number" step="0.01" id="ent-auto-rem-input" value="${ent?.auto_rem ?? 0}" min="0" max="100" ${(ent?.account_type || 'Savings').toLowerCase() !== 'savings' ? 'disabled' : ''}>
+                  <div class="stg-helper">Savings accounts only. Used to split any balance left after advice allocations.</div>
+                </div>
+                <div class="field">
                   <span>Compulsory Amount</span>
                   <input type="number" step="0.01" id="ent-compulsory-amount" value="${ent?.compulsory_amount ?? 0.00}" min="0">
                 </div>
@@ -129,14 +134,25 @@ export function setupEnterpriseListeners(user, cooperativeId) {
     overlay.querySelector('#close-modal-x').onclick = closeModal;
     overlay.querySelector('#cancel-ent-btn').onclick = closeModal;
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    const typeSelect = overlay.querySelector('#ent-type-input');
+    const autoRemInput = overlay.querySelector('#ent-auto-rem-input');
+    typeSelect.addEventListener('change', () => {
+      const isSavings = typeSelect.value.toLowerCase() === 'savings';
+      autoRemInput.disabled = !isSavings;
+      if (!isSavings) autoRemInput.value = '0';
+    });
 
     overlay.querySelector('#save-ent-btn').addEventListener('click', async () => {
       const name = overlay.querySelector('#ent-name-input').value.trim();
       const type = overlay.querySelector('#ent-type-input').value;
       if (!name || !type) { showToast('Account Name and Type are required.', 'warning'); return; }
+      const autoRemValue = parseFloat(autoRemInput.value || 0);
+      if (type.toLowerCase() !== 'savings' && autoRemValue > 0) { showToast('Auto remainder can only be set for a Savings account.', 'warning'); return; }
+      if (!Number.isFinite(autoRemValue) || autoRemValue < 0 || autoRemValue > 100) { showToast('Savings % must be between 0 and 100.', 'warning'); return; }
       const payload = {
         account_name: name,
         account_type: type,
+        auto_rem: type.toLowerCase() === 'savings' ? autoRemValue : 0,
         interest_rate: parseFloat(overlay.querySelector('#ent-interest-input').value || 0),
         interest_is_percent: overlay.querySelector('#ent-interest-percent').checked ? 1 : 0,
         loan_multiplier: parseFloat(overlay.querySelector('#ent-multiplier-input').value || 0),
@@ -191,7 +207,7 @@ export function setupEnterpriseListeners(user, cooperativeId) {
           <div style="overflow-x: auto;">
           <table class="crud-table">
             <thead><tr>
-              <th>Priority</th><th>Account Name</th><th>Type</th><th>Interest</th><th>Form Fee</th><th>Admin Charge</th><th style="width: 120px;">Actions</th>
+              <th>Priority</th><th>Account Name</th><th>Type</th><th>Savings %</th><th>Interest</th><th>Form Fee</th><th>Admin Charge</th><th style="width: 120px;">Actions</th>
             </tr></thead>
             <tbody>
               ${active.map(e => {
@@ -201,6 +217,7 @@ export function setupEnterpriseListeners(user, cooperativeId) {
                       <td>${e.distribution_priority || 0}</td>
                       <td style="font-weight: 600;">${escapeHtml(e.account_name || e.id)} ${isInUse ? '<span style="font-size: 0.7rem; color: var(--text-muted); font-style: italic; margin-left: 0.5rem;">(In Use)</span>' : ''}</td>
                       <td><span style="padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: ${(e.account_type || '').toLowerCase() === 'loan' ? 'var(--warning-bg)' : 'var(--success-bg)'}; color: ${(e.account_type || '').toLowerCase() === 'loan' ? 'var(--warning)' : 'var(--success)'};">${e.account_type || '—'}</span></td>
+                      <td>${(e.account_type || '').toLowerCase() === 'savings' && Number(e.auto_rem) > 0 ? `${Number(e.auto_rem).toLocaleString('en-NG', { maximumFractionDigits: 2 })}%` : '—'}</td>
                       <td>${fmtRate(e.interest_rate, e.interest_is_percent)}</td>
                       <td>${fmtRate(e.form_fee, e.form_fee_is_percent)}</td>
                       <td>${fmtRate(e.admin_charge, e.admin_charge_is_percent)}</td>

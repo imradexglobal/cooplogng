@@ -263,12 +263,36 @@ export function computeLedger(rows, filters) {
   const refTerm = String(filters.refSearch || '').trim().toLowerCase()
   const descTerm = String(filters.descSearch || '').trim().toLowerCase()
 
-  const display = ordered.filter((r) => {
+  // A reference is a direct transaction lookup, so search the full scoped
+  // history even when the summary/table date range is limited to a period.
+  // Calculate historical balances for those out-of-period rows separately;
+  // period totals and charts above remain unchanged.
+  let displayRows = ordered
+  if (refTerm) {
+    let historicalBalance = 0
+    displayRows = [...scoped].sort(compareChrono).map((r) => {
+      const balanceBefore = historicalBalance
+      const posted = r.status === 'Approved'
+      if (posted) historicalBalance += r.amount
+      return {
+        ...r,
+        openingBalance: 0,
+        balanceBefore,
+        balance: historicalBalance,
+        posted,
+      }
+    })
+  }
+
+  const normalizeRef = (value) => String(value || '').toLowerCase().replace(/[\s-]/g, '')
+  const normalizedRefTerm = normalizeRef(refTerm)
+  const display = displayRows.filter((r) => {
     if (typeFilter && r.transactionType !== typeFilter) return false
     if (statusFilter && r.status !== statusFilter) return false
     if (refTerm) {
       const hay = `${r.ref} ${r.shortRef}`.toLowerCase()
-      if (!hay.includes(refTerm)) return false
+      const normalizedHay = normalizeRef(hay)
+      if (!hay.includes(refTerm) && !normalizedHay.includes(normalizedRefTerm)) return false
     }
     if (descTerm) {
       const hay = `${r.displayDescription} ${r.transactionType} ${r.category} ${r.accountName}`.toLowerCase()

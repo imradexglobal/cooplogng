@@ -10,7 +10,8 @@
    which is how the host app records its theme choice).
    ========================================================================= */
 
-.xp {
+.xp,
+.xp-drawer {
   --xp-font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue",
     Arial, sans-serif;
 
@@ -68,7 +69,9 @@ html:not([data-theme="dark"]) .xp-drawer {
 /* ------------------------------------------------------------------ shell */
 
 .xp,
-.xp * {
+.xp *,
+.xp-drawer,
+.xp-drawer * {
   box-sizing: border-box;
 }
 
@@ -83,10 +86,22 @@ html:not([data-theme="dark"]) .xp-drawer {
   line-height: 1.45;
 }
 
+.xp-drawer {
+  font-family: var(--xp-font);
+  color: var(--xp-text);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
 .xp h1,
 .xp h2,
 .xp h3,
-.xp h4 {
+.xp h4,
+.xp-drawer h1,
+.xp-drawer h2,
+.xp-drawer h3,
+.xp-drawer h4 {
   margin: 0;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -94,6 +109,10 @@ html:not([data-theme="dark"]) .xp-drawer {
 }
 
 .xp button {
+  font-family: inherit;
+}
+
+.xp-drawer button {
   font-family: inherit;
 }
 
@@ -899,8 +918,9 @@ html[data-theme="dark"] .xp-pager-page.is-active {
 .xp-drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(9, 12, 18, 0.55);
-  backdrop-filter: blur(2px);
+  background: rgba(9, 12, 18, 0.2);
+  backdrop-filter: blur(10px) saturate(0.75);
+  -webkit-backdrop-filter: blur(10px) saturate(0.75);
   z-index: 9000;
   opacity: 0;
   transition: opacity 0.18s ease;
@@ -916,7 +936,9 @@ html[data-theme="dark"] .xp-pager-page.is-active {
   right: 0;
   height: 100vh;
   width: min(680px, 96vw);
-  background: var(--xp-surface);
+  background-color: var(--xp-surface);
+  background-image: none;
+  opacity: 1;
   border-left: 1px solid var(--xp-border);
   box-shadow: var(--xp-shadow-lg);
   z-index: 9001;

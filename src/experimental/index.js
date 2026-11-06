@@ -83,7 +83,7 @@ function injectNav(user) {
   if (sidebar && !sidebar.querySelector('[data-xp-nav]')) {
     const html = entries.map(([route, cfg]) => `
         <button class="nav-item${active === route ? ' active' : ''}" data-action="nav-tab"
-                data-tab="${route}" data-xp-nav="1" title="Experimental ${escapeHtml(cfg.title)}">
+                data-tab="${route}" data-xp-nav="1" title="${escapeHtml(cfg.title)}">
           <span class="nav-icon">${route === 'experimental-ledger' ? LEDGER_ICON : LOAN_ICON}</span>
           <span>${escapeHtml(cfg.label)}</span>
           <span class="xp-nav-badge">New</span>
@@ -97,7 +97,7 @@ function injectNav(user) {
   if (bottom && !bottom.querySelector('[data-xp-nav]')) {
     const html = entries.map(([route, cfg]) => `
         <button class="bottom-nav-item${active === route ? ' active' : ''}" data-action="nav-tab"
-                data-tab="${route}" data-xp-nav="1" title="Experimental ${escapeHtml(cfg.title)}">
+                data-tab="${route}" data-xp-nav="1" title="${escapeHtml(cfg.title)}">
           ${route === 'experimental-ledger' ? LEDGER_ICON : LOAN_ICON}
           <span class="nav-label">${route === 'experimental-ledger' ? 'Ledger' : 'Loans'}</span>
         </button>`).join('')

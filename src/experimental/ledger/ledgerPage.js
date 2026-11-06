@@ -47,6 +47,7 @@ const state = {
   typeOpts: [],
   result: null,
   error: null,
+  refSearchTimer: null,
 }
 
 /** Called by the Loan page when jumping across with a transaction reference. */
@@ -154,7 +155,7 @@ function filterShell() {
         <div class="xp-field">
           <label for="xp-f-ref">Reference search</label>
           <input id="xp-f-ref" class="xp-input" type="search" data-xp-filter="refSearch"
-                 placeholder="Transaction reference…" value="${escapeHtml(f.refSearch)}" />
+                 placeholder="Transaction reference (all dates)…" value="${escapeHtml(f.refSearch)}" />
         </div>
 
         <div class="xp-field xp-field-wide">
@@ -283,6 +284,16 @@ function bindEvents(root) {
     }
   })
 
+  root.addEventListener('input', (e) => {
+    const searchEl = e.target.closest('[data-xp-filter="refSearch"]')
+    if (!searchEl) return
+    if (state.refSearchTimer) clearTimeout(state.refSearchTimer)
+    state.refSearchTimer = setTimeout(() => {
+      state.refSearchTimer = null
+      applyFilters(root, { fromControl: searchEl })
+    }, 140)
+  })
+
   root.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.closest('.xp-filters')) {
       e.preventDefault()
@@ -360,6 +371,10 @@ async function runExport(kind, el) {
 }
 
 function applyFilters(root, { fromControl = null } = {}) {
+  if (state.refSearchTimer) {
+    clearTimeout(state.refSearchTimer)
+    state.refSearchTimer = null
+  }
   const f = state.filters
   if (fromControl) {
     const key = fromControl.getAttribute('data-xp-filter')
@@ -436,6 +451,11 @@ function openRow(uid) {
     onOpenLoan(loanId) {
       if (loanId) sessionStorage.setItem('xp-loan-focus', loanId)
       window.location.hash = 'experimental-loans'
+    },
+    onEditRemittance(remittanceId, record) {
+      window.dispatchEvent(new CustomEvent('edit-remittance', {
+        detail: { id: String(remittanceId), record },
+      }))
     },
   })
 }

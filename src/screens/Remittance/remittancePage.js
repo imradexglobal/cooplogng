@@ -15,8 +15,9 @@ import { showWorkspaceSpinner } from '../../components/workspaceSpinner.js';
 import { save as persistState, load as loadPersisted } from '../../services/statePersistence.js';
 import { previewAutoShare, confirmAutoShare, allocateAutoShare, validateAllocation } from '../../services/autoShare/index.js';
 import { showAutoSharePreview } from './auto-share-preview.js';
+import { calculateMonthlyLoanAdvice } from '../../services/data/loanAdvice.js';
 
-    export async function renderUnifiedPayment(container, user) {
+    export async function renderUnifiedPayment(container, user, requestedRemittance = null) {
     const isActualAdmin = hasPermission(user.permissions, 'admin') || (user.username || '').toLowerCase() === 'admin';
     const canApprove = isActualAdmin || hasPermission(user.permissions, 'approve_remittance');
     const canDelete = isActualAdmin || hasPermission(user.permissions, 'delete_remittance');
@@ -1471,7 +1472,9 @@ const handleSubmit = async () => {
             let adviseChanged = false;
             for (const oldLoan of oldRemit.loans) {
               if (oldLoan.principal_amount && oldLoan.duration_months && oldLoan.duration_months > 0) {
-                const oldMonthly = parseFloat((oldLoan.principal_amount / oldLoan.duration_months).toFixed(2));
+                const oldMonthly = Number(oldLoan.monthly_advice_amount) > 0
+                  ? Number(oldLoan.monthly_advice_amount)
+                  : parseFloat((oldLoan.principal_amount / oldLoan.duration_months).toFixed(2));
                 if (oldMonthly > 0) {
                   const idx = existingAdvise.findIndex(a => String(a.enterprise_id) === String(oldLoan.enterprise_id));
                   if (idx >= 0) {
@@ -1513,6 +1516,9 @@ const handleSubmit = async () => {
             status: lInfo.loanData.status || (status === 'Approved' ? 'Active' : 'Pending'),
             notes: lInfo.loanData.notes || '',
             duration_months: lInfo.loanData.durationMonths || 0,
+            monthly_advice_amount: status === 'Approved'
+              ? calculateMonthlyLoanAdvice(lInfo.loanData.principalAmount, lInfo.loanData.durationMonths)
+              : 0,
             guarantors: lInfo.guarantors
           });
           
@@ -1766,7 +1772,7 @@ const handleSubmit = async () => {
               
               for (const loan of formData.loans) {
                   if (loan.principal_amount && loan.duration_months && loan.duration_months > 0) {
-                      const monthlyPayment = parseFloat((loan.principal_amount / loan.duration_months).toFixed(2));
+                      const monthlyPayment = calculateMonthlyLoanAdvice(loan.principal_amount, loan.duration_months);
                       if (monthlyPayment > 0) {
                           const existingIndex = existingAdvise.findIndex(a => String(a.enterprise_id) === String(loan.enterprise_id));
                           if (existingIndex >= 0) {
@@ -2163,6 +2169,34 @@ const handleSubmit = async () => {
 
   Object.assign(deps, { formData, enterpriseData, members, selectorMembers, banks, transactionTypes, isMember, user, historyState, loadHistoryData, clearForm, clearSavedForm, render, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, panelSizes, isAdmin, isActualAdmin, canApprove, canDelete, canReverse, canUpdate, cooperativeId, PANEL_SIZE_KEY, syncFormData, checkDirty, saveSavedForm, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus, getFormattedName, attachHistoryEventListeners, showReverseModal, isMobile, confirmAutoShare, showToast });
   render();
+
+  if (requestedRemittance) {
+    const request = typeof requestedRemittance === 'object'
+      ? requestedRemittance
+      : { id: requestedRemittance };
+    const requestedId = String(request.id || request.record?.id || '');
+    let record = request.record && String(request.record.id) === requestedId
+      ? request.record
+      : historyState.allRemittances.find((item) => String(item.id) === requestedId);
+    if (!record && requestedId) {
+      try {
+        const allRecords = await fetchRemittances(cooperativeId, user);
+        record = (allRecords || []).find((item) => String(item.id) === requestedId);
+      } catch (err) {
+        console.error('[Remittance] Could not load requested Ledger transaction:', err);
+      }
+    }
+    if (record) {
+      historyState.selectedRemittanceId = String(record.id);
+      historyState.selectedRemittanceIds.clear();
+      historyState.selectedRemittanceIds.add(String(record.id));
+      updateHistoryTable();
+      updateDeleteSelectedButton();
+      await loadRemittanceToForm(record);
+    } else {
+      showToast('The selected transaction could not be found in Remittance.', 'error');
+    }
+  }
 
   return {
     clearForm,

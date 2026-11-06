@@ -1,5 +1,6 @@
 import { generateId, generateRemittanceId, escapeHtml, formatDateForInput, formatCurrency, formatNumber } from '../../utils/formatters.js';
 import { addRemittance, buildAccountBalance, fetchMemberDoc, updateMemberPaymentAdvice } from '../../services/dataService.js';
+import { calculateMonthlyLoanAdvice } from '../../services/data/loanAdvice.js';
 import { createDuesTransfer, createDuesIncomePickup, resolveDueFunding, createDueFundingTransfer } from '../../services/data/duesTransfer.js';
 import { getRemittances } from '../../services/sqliteService.js';
 import { allocateAutoShare } from '../../services/autoShare/index.js';
@@ -1099,11 +1100,17 @@ export function showBulkRemittanceModal(deps) {
                 adviceByEnterprise,
                 member: pickable.find(m => String(m.id) === String(memberId))
             });
-            return allocation.allocations.filter(a => parseFloat(a.allocatedAmount) > 0).map(a => ({
+            const positiveAllocations = allocation.allocations.filter(a => parseFloat(a.allocatedAmount) > 0);
+            const allocatedCents = positiveAllocations.reduce((sum, row) => sum + Math.round((parseFloat(row.allocatedAmount) || 0) * 100), 0);
+            const remittanceCents = Math.round((Number(remittanceAmount) || 0) * 100);
+            if (allocatedCents !== remittanceCents || allocation.remainder > 0) {
+                throw new Error('Auto Share could not allocate the full bulk remittance. Configure an eligible enterprise and try again.');
+            }
+            return positiveAllocations.map(a => ({
                 id: generateId(String(coopId)),
                 enterprise_id: String(a.enterpriseId),
                 amount: parseFloat(a.allocatedAmount),
-                auto_description: 'Auto Share allocation (priority-based, version v1)',
+                auto_description: 'Auto Share allocation (priority and Savings remainder, version v2)',
                 notes: `Auto Share: allocated at priority ${a.priority || 0}`
             }));
         };
@@ -1230,6 +1237,7 @@ id: generateId(String(coopId)),
                             status: status === 'Approved' ? 'Active' : 'Pending',
                             notes: desc,
                             duration_months: duration,
+                            monthly_advice_amount: status === 'Approved' ? calculateMonthlyLoanAdvice(curAmt, duration) : 0,
                             guarantors: []
                         }]
                     }, createdBy);
@@ -1275,7 +1283,7 @@ id: generateId(String(coopId)),
                     // Monthly advice update (same as single flow) — only on Approval
                     if (status === 'Approved' && duration > 0) {
                         try {
-                            const monthlyPayment = parseFloat((curAmt / duration).toFixed(2));
+                            const monthlyPayment = calculateMonthlyLoanAdvice(curAmt, duration);
                             if (monthlyPayment > 0) {
                                 const memberDoc = await fetchMemberDoc(mid);
                                 if (memberDoc) {

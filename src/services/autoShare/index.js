@@ -4,6 +4,7 @@ import { fetchEnterprises } from '../data/enterprises.js';
 import { addRemittance, updateRemittance } from '../../services/data/remittances.js';
 import { generateId } from '../../utils/formatters.js';
 import { getDocById_Global } from '../sqliteService.js';
+import { resolveAutoShareStatus } from './status.js';
 
 /**
  * Build the advice-by-enterprise map for a given member.
@@ -137,7 +138,7 @@ export async function previewAutoShare({
  * @param {string} options.bankName - Bank name
  * @param {string} options.description - Description
  * @param {string} [options.createdBy] - User who creates the remittance
- * @param {string} [options.status='Pending'] - Initial status
+ * @param {boolean} [options.canApprove=false] - Whether the current user may approve remittances
  * @returns {Promise<Object>} - { remittanceId, detailsSaved }
  */
 export async function confirmAutoShare({
@@ -149,34 +150,27 @@ export async function confirmAutoShare({
   bankName,
   description,
   createdBy,
-  status = 'Pending'
+  canApprove = false
 }) {
+  const remittanceStatus = resolveAutoShareStatus(canApprove);
   // Build detail rows for the remittance
-  const detailRows = allocations.map(detail => ({
+  const detailRows = (allocations || []).map(detail => ({
     enterprise_id: String(detail.enterprise_id),
     amount: parseFloat(detail.allocated_amount) || 0,
-    auto_description: `Auto Share allocation (priority-based, version v1)`,
-    notes: `Auto Share: allocated at priority ${detail.priority || 0}`,
+    auto_description: `Auto Share allocation (priority and Savings remainder, version v2)`,
+    notes: `Auto Share v2: allocated at priority ${detail.priority || 0}`,
     loan_info: null
+  })).filter(detail => detail.amount > 0);
+
+  const remittanceCents = Math.round((Number(remittanceAmount) || 0) * 100);
+  const totalDetailCents = detailRows.reduce((sum, detail) => sum + Math.round(detail.amount * 100), 0);
+  if (detailRows.some(detail => detail.amount < 0) || totalDetailCents !== remittanceCents) {
+    throw new Error('Auto Share details must equal the remittance amount exactly before saving.');
+  }
+  const adjustedDetails = detailRows.map(detail => ({
+    ...detail,
+    amount: Math.round(detail.amount * 100) / 100
   }));
-
-  // Ensure total does not exceed remittance amount (safety check)
-  const totalDetailAmount = detailRows.reduce(
-    (sum, d) => sum + (d.amount || 0),
-    0
-  );
-
-  // If total exceeds, proportionally reduce (should not happen if preview was valid)
-  const adjustedDetails = detailRows.map(d => {
-    if (totalDetailAmount > remittanceAmount && remittanceAmount > 0) {
-      const ratio = remittanceAmount / totalDetailAmount;
-      return {
-        ...d,
-        amount: Math.round((d.amount * ratio + Number.EPSILON) * 100) / 100
-      };
-    }
-    return d;
-  });
 
   // Create or update the remittance record
   const remittanceData = {
@@ -187,7 +181,7 @@ export async function confirmAutoShare({
     bank_name: bankName || '',
     description: description || 'Auto Share Remittance',
     transaction_type: 'Member Deposit',
-    status: status || 'Pending',
+    status: remittanceStatus,
     details: adjustedDetails,
     autogen: 1, // Mark as Auto Generated
     parent_remittance_id: null,
@@ -201,9 +195,9 @@ export async function confirmAutoShare({
   return {
     remittanceId: id,
     detailsSaved: adjustedDetails.length,
-    totalAllocated: totalDetailAmount,
-    remainder: remittanceAmount - totalDetailAmount,
-    status: 'Pending'
+    totalAllocated: totalDetailCents / 100,
+    remainder: 0,
+    status: remittanceStatus
   };
 }
 
