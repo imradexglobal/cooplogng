@@ -39,10 +39,13 @@ async function getCustomTypes(cooperativeId) {
 export async function getTransactionTypes(cooperativeId) {
     const defaults = getDefaultTypesAsDocs()
     const custom = await getCustomTypes(cooperativeId)
-    const customNames = new Set(custom.map(t => t.transaction_type?.toLowerCase()))
+    // Built-ins are code-owned, not cooperative-owned records. Ignore legacy
+    // stored copies so they cannot replace built-in classification or locks.
+    const defaultNames = new Set(defaults.map(t => String(t.transaction_type || '').trim().toLowerCase()))
+    const customOnly = custom.filter(t => !defaultNames.has(String(t.transaction_type || '').trim().toLowerCase()))
     const merged = [
-        ...defaults.filter(d => !customNames.has(d.transaction_type?.toLowerCase())),
-        ...custom
+        ...defaults,
+        ...customOnly
     ]
     return merged.sort((a, b) => String(a.transaction_type).localeCompare(String(b.transaction_type)))
 }

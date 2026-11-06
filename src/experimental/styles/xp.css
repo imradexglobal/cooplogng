@@ -410,6 +410,18 @@ html[data-theme="dark"] .xp-btn-primary {
   color: var(--xp-debit);
 }
 
+.xp-table tbody td.xp-is-credit {
+  color: var(--xp-credit);
+}
+
+.xp-table tbody td.xp-is-debit {
+  color: var(--xp-debit);
+}
+
+.xp-coop-wide-type {
+  color: var(--xp-accent);
+}
+
 /* ------------------------------------------------- reconciliation strip */
 
 .xp-recon {

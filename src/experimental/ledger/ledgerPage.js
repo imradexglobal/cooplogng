@@ -806,11 +806,10 @@ function paintTable(root) {
         <tr class="xp-row-clickable${rowCls}" data-xp-uid="${escapeHtml(row.uid)}" tabindex="0">
           <td data-label="Date">
             <span class="xp-cell-primary">${escapeHtml(formatDate(row.date))}</span>
-            <div class="xp-cell-sub">${escapeHtml(row.createdAt ? row.createdAt.slice(0, 10) : '')}</div>
           </td>
           <td data-label="Description" class="xp-cell-stack">
             <span class="xp-cell-primary">${escapeHtml(row.displayDescription || '—')}</span>
-            <div class="xp-cell-sub">${escapeHtml(row.transactionType || '')}${
+            <div class="xp-cell-sub${row.memberId === '0000000000' ? ' xp-coop-wide-type' : ''}">${escapeHtml(row.transactionType || '')}${
         row.category && row.category !== row.transactionType ? ` · ${escapeHtml(row.category)}` : ''
       }</div>
           </td>
@@ -819,7 +818,6 @@ function paintTable(root) {
       )}</span></td>
           <td data-label="Account">
             <span class="xp-cell-primary">${escapeHtml(row.accountName)}</span>
-            <div class="xp-cell-sub">${escapeHtml(row.accountType || '')}</div>
           </td>
           <td data-label="Member">
             <span>${escapeHtml(row.memberName)}</span>
