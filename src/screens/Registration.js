@@ -863,7 +863,6 @@ function buildRegistrationHtml(ctx) {
                     <div class="lock-ico">🔐</div>
                     <h2 id="reg-key-title">Activation Key Required</h2>
                     <p class="key-hint">Enter today's activation key to finalize your cooperative creation.</p>
-                    <div class="key-example" title="Example format YYDDMM">Format: YYDDMM</div>
                     ${activationKeyError ? `<div class="alert-error list">${escapeHtml(activationKeyError)}</div>` : ''}
                     <input type="text" id="reg-activation-key" class="key-entry" placeholder="XXXXXX"
                         autocomplete="off" spellcheck="false" maxlength="6" inputmode="numeric" ${isSubmitting ? 'disabled' : ''} />
@@ -1204,7 +1203,7 @@ export async function renderRegistration(container, onBack, onSuccess) {
                 if (key !== expectedActivationKey()) {
                     state.activationKeyError = 'Invalid activation key. Please try again.'
                     render()
-                    showToast('Submit failed: invalid activation key. Format: YYDDMM (year day month).', 'error')
+                    showToast('Submit failed: invalid activation key. Please try again.', 'error')
                     keyInput?.focus()
                     keyInput?.select()
                     return

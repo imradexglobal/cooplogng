@@ -323,7 +323,6 @@ export function setupSubscriptionListeners(user, cooperativeId) {
           </div>
           <div class="modal-body" style="padding: 1.25rem;">
             <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem;">${subtitle}</p>
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0 0 0.75rem 0;">Enter the activation key (YYDDMM format).</p>
             <input type="text" id="activation-key-input" placeholder="Enter activation key"
               style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-medium); font-size: 0.95rem; text-align: center; letter-spacing: 0.2em; background: var(--bg-input); color: var(--text-primary); margin-bottom: 0.75rem; box-sizing: border-box;">
             <div id="activation-key-error" style="color: var(--danger); font-size: 0.78rem; margin-bottom: 0.5rem; display: none;"></div>
