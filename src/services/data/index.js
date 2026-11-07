@@ -2,7 +2,7 @@ export { clearMemberCache, isNotDeleted } from './utils.js'
 export {
     fetchAllMembers, fetchMembersBySearch, fetchMemberDoc,
     fetchMemberPaymentAdvise, addMember, updateMember, deleteMember, archiveMember,
-    updateMemberPaymentAdvice, findDuplicateMembers, mergeDuplicateMembers
+    updateMemberBankInfo, updateMemberPaymentAdvice, findDuplicateMembers, mergeDuplicateMembers
 } from './members.js'
 export { fetchEnterprises, addEnterprise, updateEnterprise, deleteEnterprise } from './enterprises.js'
 export { fetchBanks, addBank, updateBank, deleteBank } from './banks.js'

@@ -1,4 +1,4 @@
-import { escapeHtml, generateId, wrapDateInput, formatDate, formatDateForInput, formatCurrency } from '../../utils/formatters.js';
+import { escapeHtml, escapeAttribute, generateId, wrapDateInput, formatDate, formatDateForInput, formatCurrency } from '../../utils/formatters.js';
 import { showToast } from '../../services/toastService.js';
 import { getLocalDateString } from '../../services/sqliteService.js';
 
@@ -227,6 +227,18 @@ export function showLoanReviewModal(
 
   const loanInfo = loanDetail.loan_info;
   const loanData = loanInfo.loanData;
+  const requestRecord = (historyState.allRemittances || []).find(record => String(record.id) === String(formData.id)) || {};
+  const readRequestImages = record => {
+    const images = Array.isArray(record?.withdrawal_form_images) ? record.withdrawal_form_images : [];
+    if (images.length) return images.filter(src => typeof src === 'string' && src);
+    const legacy = record?.withdrawal_form_image;
+    if (Array.isArray(legacy)) return legacy.filter(src => typeof src === 'string' && src);
+    if (typeof legacy === 'string' && legacy.startsWith('[')) {
+      try { const parsed = JSON.parse(legacy); if (Array.isArray(parsed)) return parsed.filter(src => typeof src === 'string' && src); } catch {}
+    }
+    return typeof legacy === 'string' && legacy ? [legacy] : [];
+  };
+  const requestImages = readRequestImages(requestRecord).length ? readRequestImages(requestRecord) : readRequestImages(formData);
   if (loanData) {
     if (!loanData.issueDate) {
       loanData.issueDate = formData.remittance_date || new Date().toISOString();
@@ -314,6 +326,7 @@ export function showLoanReviewModal(
           <button type="button" class="lr-x-btn" style="background:transparent;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-muted);line-height:1;">&times;</button>
         </div>
         <div class="modal-body" style="padding:1.25rem;overflow-y:auto;max-height:70vh;">
+          ${requestImages.length ? `<section style="margin-bottom:1rem;padding:0.85rem;background:var(--bg-main);border:1px solid var(--border-light);border-radius:0.65rem;"><div style="display:flex;justify-content:space-between;gap:0.5rem;align-items:center;"><strong style="color:var(--text-primary);">Physical form images</strong><span style="font-size:0.78rem;color:var(--text-muted);">${requestImages.length} attached</span></div><div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:0.65rem;">${requestImages.map((src, index) => `<div style="display:flex;flex-direction:column;align-items:center;gap:0.35rem;"><button type="button" class="lr-request-image-preview" data-image-index="${index}" aria-label="View form image ${index + 1} full screen" style="padding:0;border:1px solid var(--border-medium);border-radius:0.45rem;background:transparent;cursor:zoom-in;"><img src="${escapeAttribute(src)}" alt="Physical form image ${index + 1}" style="display:block;width:130px;height:96px;object-fit:cover;border-radius:0.4rem;"></button><button type="button" class="secondary-button lr-request-image-preview" data-image-index="${index}" style="padding:0.3rem 0.55rem;font-size:0.75rem;">View full screen</button></div>`).join('')}</div></section>` : '<section style="margin-bottom:1rem;padding:0.8rem;border:1px solid var(--border-light);border-radius:0.6rem;color:var(--text-muted);font-size:0.85rem;">No physical form image is attached to this request.</section>'}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
             <div class="field">
               <label>Approval Date *</label>
@@ -399,6 +412,19 @@ export function showLoanReviewModal(
   };
 
   const attachModalListeners = () => {
+    modalDiv.querySelectorAll('.lr-request-image-preview').forEach(button => button.addEventListener('click', () => {
+      const src = requestImages[Number(button.dataset.imageIndex)];
+      if (!src) return;
+      const viewer = document.createElement('div');
+      Object.assign(viewer.style, { position: 'fixed', inset: '0', zIndex: '1000000', background: 'rgba(0,0,0,0.96)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', cursor: 'zoom-out' });
+      viewer.innerHTML = `<button type="button" aria-label="Close full-screen image" style="position:fixed;top:1rem;right:1rem;z-index:1;width:44px;height:44px;border:0;border-radius:50%;background:#fff;color:#111;font-size:1.6rem;cursor:pointer;">&times;</button><img src="${escapeAttribute(src)}" alt="Physical withdrawal form full-screen preview" style="max-width:100%;max-height:100%;object-fit:contain;cursor:default;">`;
+      const close = () => { viewer.remove(); document.removeEventListener('keydown', onKey); };
+      const onKey = event => { if (event.key === 'Escape') close(); };
+      viewer.querySelector('button').addEventListener('click', close);
+      viewer.addEventListener('click', event => { if (event.target === viewer) close(); });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(viewer);
+    }));
     modalDiv.querySelectorAll('.lr-x-btn').forEach(el => {
       el.addEventListener('click', () => modalDiv.remove());
     });

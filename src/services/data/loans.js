@@ -5,6 +5,7 @@ import {
 } from '../sqliteService.js'
 import { addRemittance } from './remittances.js'
 import { calculateMonthlyLoanAdvice } from './loanAdvice.js'
+import { appendRequestStatus } from '../../utils/withdrawalRequestUtils.js'
 
 export async function fetchGuarantorStats(memberId, cooperativeId) {
     const { getGuarantorStatsLocal } = await import('../sqliteService.js')
@@ -92,6 +93,9 @@ export async function approveLoanRequest(remittanceId, approvedBy, options = {})
     const remitUpdate = {
         ...remittance,
         status: 'Approved',
+        approved_by: approvedBy || 'system',
+        approved_at: now,
+        request_status_history: appendRequestStatus(remittance.request_status_history, 'Approved', approvedBy, now, remittance.reviewer_comment || ''),
         transaction_type: 'Member Loan',
         category: parentCategory || 'Loan Asset',
         modified_at: now,
@@ -310,7 +314,7 @@ export async function approveLoanRequest(remittanceId, approvedBy, options = {})
     }
 }
 
-export async function declineLoanRequest(remittanceId, declinedBy) {
+export async function declineLoanRequest(remittanceId, declinedBy, reason = '') {
     const now = new Date().toISOString()
     try {
         const target = await getDocById_Global('remittance', remittanceId)
@@ -320,6 +324,9 @@ export async function declineLoanRequest(remittanceId, declinedBy) {
             await saveDoc('remittance', {
                 ...target,
                 status: 'Declined',
+                rejection_reason: String(reason || '').trim(),
+                reviewer_comment: String(reason || '').trim(),
+                request_status_history: appendRequestStatus(target.request_status_history, 'Declined', declinedBy, now, String(reason || '').trim()),
                 modified_at: now,
                 modified_by: declinedBy,
                 is_synced: 0

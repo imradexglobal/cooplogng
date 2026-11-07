@@ -3,11 +3,11 @@
  */
 
 /**
- * Compresses an image file to ensure it's under 100KB
+ * Compresses an image to a configurable byte budget (500KB by default).
  * @param {File} file - The image file to compress
  * @returns {Promise<string>} - Compressed image as base64 data URL
  */
-export async function compressImage(file) {
+export async function compressImage(file, options = {}) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         
@@ -18,14 +18,14 @@ export async function compressImage(file) {
                 let { width, height } = img;
                 
                 // Maximum file size in bytes (500KB)
-                const MAX_SIZE = 500 * 1024;
+                const MAX_SIZE = Math.max(20 * 1024, Number(options.maxSizeBytes) || 500 * 1024);
                 
                 // Start with 0.9 quality and decrease
                 let quality = 0.9;
                 
                 // Scale down if image is too large
-                const MAX_WIDTH = 1200;
-                const MAX_HEIGHT = 1200;
+                const MAX_WIDTH = Math.max(320, Number(options.maxWidth) || 1200);
+                const MAX_HEIGHT = Math.max(320, Number(options.maxHeight) || 1200);
                 
                 if (width > MAX_WIDTH || height > MAX_HEIGHT) {
                     if (width > height) {

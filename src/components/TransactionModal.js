@@ -49,9 +49,8 @@ window.showTransactionModal = async (remittance) => {
     const targetEntId = detail.enterprise_id || detail.item;
     const targetEnt = targetEntId ? enterprisesArray.find(e => e.id === targetEntId) : null;
     
-    const isSavingsRequest = remittance.transaction_type === 'Savings Withdrawal' || 
-                             remittance.isWithdrawalRequest === true ||
-                             (targetEnt && (targetEnt.account_type || '').toLowerCase() === 'savings');
+    const isSavingsRequest = remittance.transaction_type === 'Savings Withdrawal' ||
+                             (!remittance.isLoanRequest && targetEnt && (targetEnt.account_type || '').toLowerCase() === 'savings');
 
     if (isSavingsRequest && remittance.member_id) {
       const { buildAccountBalance } = await import('../services/dataService.js');
@@ -118,6 +117,12 @@ window.showTransactionModal = async (remittance) => {
         value: escapeHtml([remittance.approved_by, remittance.approved_at ? fmt.formatDate(remittance.approved_at) : ''].filter(Boolean).join(' • '))
       })
     }
+    if (remittance.request_reference) infoRows.push({ label: 'Request Reference', value: escapeHtml(remittance.request_reference) })
+    if (remittance.requester_bank_details) {
+      const bank = remittance.requester_bank_details
+      const bankSummary = [bank.bank_name, bank.account_name, bank.account_number].filter(Boolean).map(escapeHtml).join(' • ')
+      if (bankSummary) infoRows.push({ label: 'Destination Account', value: bankSummary })
+    }
     if (infoRows.length > 0) {
       html += `
         <div style="margin-bottom: 1.5rem; padding: 1rem 1.1rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 0.75rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1rem;">
@@ -128,6 +133,22 @@ window.showTransactionModal = async (remittance) => {
             </div>`).join('')}
         </div>
       `
+    }
+
+    if (remittance.isWithdrawalRequest || remittance.isLoanRequest) {
+      const formImages = Array.isArray(remittance.withdrawal_form_images) && remittance.withdrawal_form_images.length
+        ? remittance.withdrawal_form_images
+        : (remittance.withdrawal_form_image ? [remittance.withdrawal_form_image] : [])
+      const history = Array.isArray(remittance.request_status_history) ? remittance.request_status_history : []
+      html += `
+        <section style="margin-bottom:1.25rem;padding:1rem;background:var(--bg-card);border:1px solid var(--border-light);border-radius:0.75rem;">
+          <h4 style="margin:0 0 0.75rem;">Request progress</h4>
+          <ol style="margin:0;padding-left:1.25rem;display:flex;flex-direction:column;gap:0.5rem;">
+            ${(history.length ? history : [{ status: remittance.status || 'Pending', by: remittance.created_by || '', at: remittance.created_at || '' }]).map(entry => `<li><strong>${escapeHtml(entry.status || 'Updated')}</strong>${entry.at ? ` — ${escapeHtml(fmt.formatDate(entry.at))}` : ''}${entry.by ? ` by ${escapeHtml(entry.by)}` : ''}${entry.comment ? `<div style="font-size:0.82rem;color:var(--text-muted);margin-top:0.15rem;">${escapeHtml(entry.comment)}</div>` : ''}</li>`).join('')}
+          </ol>
+          ${remittance.rejection_reason || remittance.reviewer_comment ? `<div style="margin-top:0.8rem;padding:0.75rem;border-left:3px solid var(--danger);background:var(--bg-main);"><strong>Reviewer comment</strong><div>${escapeHtml(remittance.rejection_reason || remittance.reviewer_comment)}</div></div>` : ''}
+          ${formImages.length ? `<div style="margin-top:1rem;"><strong>Attached physical form (${formImages.length})</strong><div style="display:flex;flex-wrap:wrap;gap:0.65rem;margin-top:0.5rem;">${formImages.map((src, index) => `<button type="button" class="request-form-image-fullscreen" data-image-index="${index}" aria-label="View attached form ${index + 1} full screen" style="padding:0;border:1px solid var(--border-light);background:transparent;cursor:zoom-in;"><img src="${escapeAttribute(src)}" alt="Attached physical form ${index + 1}" style="width:120px;height:90px;object-fit:cover;border-radius:0.5rem;display:block;"></button>`).join('')}</div></div>` : ''}
+        </section>`
     }
 
     if (isSavingsRequest) {
@@ -316,6 +337,21 @@ window.showTransactionModal = async (remittance) => {
     html += `</div>`
     body.innerHTML = html
     body.querySelectorAll('input[type="date"]').forEach(wrapDateInput);
+
+    body.querySelectorAll('.request-form-image-fullscreen').forEach(button => button.addEventListener('click', () => {
+      const images = Array.isArray(remittance.withdrawal_form_images) && remittance.withdrawal_form_images.length
+        ? remittance.withdrawal_form_images : (remittance.withdrawal_form_image ? [remittance.withdrawal_form_image] : [])
+      const src = images[Number(button.dataset.imageIndex)]
+      if (!src) return
+      const viewer = document.createElement('div')
+      viewer.className = 'modal-overlay open'
+      Object.assign(viewer.style, { position: 'fixed', inset: '0', zIndex: '1000000', background: 'rgba(0,0,0,0.94)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' })
+      viewer.innerHTML = `<button type="button" aria-label="Close image preview" style="position:fixed;top:1rem;right:1rem;z-index:1;width:44px;height:44px;border:0;border-radius:50%;font-size:1.6rem;cursor:pointer;">&times;</button><img src="${escapeAttribute(src)}" alt="Physical form full-screen preview" style="max-width:100%;max-height:100%;object-fit:contain;">`
+      const close = () => { viewer.remove(); document.body.style.overflow = 'hidden' }
+      viewer.querySelector('button').addEventListener('click', close)
+      viewer.addEventListener('click', event => { if (event.target === viewer) close() })
+      document.body.appendChild(viewer)
+    }))
 
     // Attach Approval Listeners
     if (isActualAdmin && remittance.status === 'Pending') {

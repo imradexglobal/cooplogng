@@ -10,7 +10,7 @@
     "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test tests/auto-share-allocation.test.mjs tests/auto-share-status.test.mjs tests/loan-advice.test.mjs && node scripts/test-pack.mjs && node scripts/test-general-asset.mjs && node scripts/build-workbook.mjs && node scripts/width-check.mjs",
+    "test": "node --test tests/auto-share-allocation.test.mjs tests/auto-share-status.test.mjs tests/loan-advice.test.mjs tests/withdrawal-request-utils.test.mjs && node scripts/test-pack.mjs && node scripts/test-general-asset.mjs && node scripts/build-workbook.mjs && node scripts/width-check.mjs",
     "test:auto-share": "node --test tests/auto-share-allocation.test.mjs tests/auto-share-status.test.mjs",
     "test:loan-advice": "node --test tests/loan-advice.test.mjs",
     "test:pack": "node scripts/test-pack.mjs",

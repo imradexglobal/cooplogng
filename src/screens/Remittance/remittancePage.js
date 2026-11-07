@@ -654,6 +654,15 @@ import { calculateMonthlyLoanAdvice } from '../../services/data/loanAdvice.js';
       member_id: remit.member_id || '',
       created_at: remit.created_at || '',
       isLoanRequest: remit.isLoanRequest || (remit.loans && remit.loans.length > 0),
+      isWithdrawalRequest: remit.isWithdrawalRequest || false,
+      withdrawal_form_images: Array.isArray(remit.withdrawal_form_images) ? remit.withdrawal_form_images : [],
+      withdrawal_form_image: remit.withdrawal_form_image || '',
+      request_reference: remit.request_reference || '',
+      requester_bank_details: remit.requester_bank_details || null,
+      request_status_history: Array.isArray(remit.request_status_history) ? remit.request_status_history : [],
+      reviewer_comment: remit.reviewer_comment || '',
+      rejection_reason: remit.rejection_reason || '',
+      submitted_by_role: remit.submitted_by_role || '',
       status: remit.status
     });
     

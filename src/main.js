@@ -3222,6 +3222,18 @@ window.showTransactionModal = async (remittance) => {
     enterprisesArray.forEach(e => { enterpriseNames[e.id] = e.account_name })
     
     const details = remittance.details || []
+    const parseRemittanceImages = (record) => {
+      let images = Array.isArray(record?.withdrawal_form_images) ? record.withdrawal_form_images : [];
+      if (!images.length) {
+        const legacy = record?.withdrawal_form_image;
+        if (Array.isArray(legacy)) images = legacy;
+        else if (typeof legacy === 'string' && legacy.startsWith('[')) {
+          try { const parsed = JSON.parse(legacy); if (Array.isArray(parsed)) images = parsed; } catch {}
+        } else if (typeof legacy === 'string' && legacy) images = [legacy];
+      }
+      return images.filter(src => typeof src === 'string' && src);
+    };
+    const remittanceImages = parseRemittanceImages(remittance);
 
     let balanceBefore = 0;
     let balanceAfter = 0;
@@ -3261,6 +3273,7 @@ window.showTransactionModal = async (remittance) => {
                     </div>
                     <span class="status-badge status-${escapeHtml(remittance.status)}">${escapeHtml(remittance.status)}</span>
                 </div>
+                ${remittanceImages.length ? `<button type="button" class="remittance-attachments-button" aria-label="View ${remittanceImages.length} attached image${remittanceImages.length === 1 ? '' : 's'}" style="display:inline-flex;align-items:center;gap:0.45rem;margin-top:0.85rem;padding:0.45rem 0.7rem;border:1px solid var(--border-medium);border-radius:0.5rem;background:var(--bg-card);color:var(--accent-primary);font-weight:700;font-size:0.82rem;cursor:pointer;"><svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.82-2.83l8.49-8.48"/></svg>Attachments (${remittanceImages.length})</button>` : ''}
             </div>
         `
 
@@ -3446,6 +3459,31 @@ window.showTransactionModal = async (remittance) => {
     html += `</div>`
     body.innerHTML = html
     body.querySelectorAll('input[type="date"]').forEach(wrapDateInput);
+
+    body.querySelector('.remittance-attachments-button')?.addEventListener('click', () => {
+      const gallery = document.createElement('div');
+      gallery.setAttribute('role', 'dialog');
+      gallery.setAttribute('aria-modal', 'true');
+      Object.assign(gallery.style, { position: 'fixed', inset: '0', zIndex: '1000000', background: 'rgba(0,0,0,0.94)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', overflowY: 'auto' });
+      gallery.innerHTML = `<section style="width:min(100%,760px);max-height:90vh;overflow:auto;padding:1rem;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-medium);border-radius:0.85rem;"><header style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem;"><strong>Remittance attachments (${remittanceImages.length})</strong><button type="button" class="remittance-attachments-close" aria-label="Close attachments" style="width:38px;height:38px;border:1px solid var(--border-medium);border-radius:50%;background:var(--bg-main);color:var(--text-primary);font-size:1.35rem;cursor:pointer;">&times;</button></header><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.75rem;">${remittanceImages.map((src,index)=>`<button type="button" class="remittance-attachment-preview" data-image-index="${index}" style="padding:0.45rem;border:1px solid var(--border-light);border-radius:0.6rem;background:var(--bg-main);color:var(--text-primary);cursor:zoom-in;"><img src="${escapeAttribute(src)}" alt="Attached image ${index+1}" style="width:100%;height:130px;object-fit:contain;display:block;"><span style="display:block;padding-top:0.35rem;font-size:0.78rem;">Image ${index+1} · View full screen</span></button>`).join('')}</div></section>`;
+      const close = () => { gallery.remove(); document.removeEventListener('keydown', onKey); };
+      const onKey = event => { if (event.key === 'Escape') close(); };
+      gallery.querySelector('.remittance-attachments-close').addEventListener('click', close);
+      gallery.addEventListener('click', event => { if (event.target === gallery) close(); });
+      gallery.querySelectorAll('.remittance-attachment-preview').forEach(button => button.addEventListener('click', () => {
+        const src = remittanceImages[Number(button.dataset.imageIndex)];
+        if (!src) return;
+        const viewer = document.createElement('div');
+        Object.assign(viewer.style, { position: 'fixed', inset: '0', zIndex: '1000001', background: 'rgba(0,0,0,0.97)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' });
+        viewer.innerHTML = `<button type="button" aria-label="Close full-screen attachment" style="position:fixed;top:1rem;right:1rem;width:44px;height:44px;border:0;border-radius:50%;background:#fff;color:#111;font-size:1.6rem;cursor:pointer;">&times;</button><img src="${escapeAttribute(src)}" alt="Remittance attachment full-screen preview" style="max-width:100%;max-height:100%;object-fit:contain;">`;
+        const closeViewer = () => viewer.remove();
+        viewer.querySelector('button').addEventListener('click', closeViewer);
+        viewer.addEventListener('click', event => { if (event.target === viewer) closeViewer(); });
+        gallery.appendChild(viewer);
+      }));
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(gallery);
+    });
 
     // Attach Approval Listeners
     if (isActualAdmin && remittance.status === 'Pending') {
@@ -5490,12 +5528,14 @@ async function showWithdrawalWizard() {
     fetchEnterprises,
     fetchAllMembers,
     addRemittance,
+    updateMemberBankInfo,
     buildAccountBalance
   } = await import('./services/dataService.js');
   const { showToast } = await import('./services/toastService.js');
-  const { generateId, formatCurrency, escapeHtml } = await import('./utils/formatters.js');
+  const { generateId, formatCurrency, escapeHtml, escapeAttribute } = await import('./utils/formatters.js');
   const { pickImageFile } = await import('./utils/photoPicker.js');
   const { compressImage } = await import('./utils/imageUtils.js');
+  const { createWithdrawalRequestReference, calculateGuarantorCoverage, appendRequestStatus } = await import('./utils/withdrawalRequestUtils.js');
   
   const existingModal = document.getElementById('withdrawal-wizard-modal');
   if (existingModal) existingModal.remove();
@@ -5512,7 +5552,15 @@ async function showWithdrawalWizard() {
   const allMembers = await fetchAllMembers(state.welcomeUser.cooperativeId, state.welcomeUser.username, true);
   
   // Determine initial member ID
-  let memberId = isAdmin ? null : (state.welcomeUser.memberId || allMembers[0]?.id);
+  const draftKey = `cooplog:withdrawal-draft:${state.welcomeUser.cooperativeId}:${state.welcomeUser.username}`;
+  let savedDraft = null;
+  try {
+    const raw = localStorage.getItem(draftKey);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && Date.now() - Number(parsed.savedAt || 0) < 7 * 24 * 60 * 60 * 1000) savedDraft = parsed;
+    else if (raw) localStorage.removeItem(draftKey);
+  } catch { savedDraft = null; }
+  let memberId = savedDraft?.selectedMemberId || (isAdmin ? null : (state.welcomeUser.memberId || allMembers[0]?.id));
   
   // Function to get member balances as a map (entId -> balance)
   const getMemberBalances = async (mId) => {
@@ -5528,14 +5576,27 @@ async function showWithdrawalWizard() {
   let memberBalances = memberId ? await getMemberBalances(memberId) : {};
 
   // Modal state
-    let wizardStep = isAdmin ? 1 : 1; // 1: select member (admin only) or select type (member), 2: select type (admin), 3: select enterprise, 4: enter amount, 5: review
+    let wizardStep = savedDraft?.wizardStep || 1;
     let selectedMemberId = memberId;
-    let selectedEnterprise = null;
-    let withdrawalAmount = 0;
-    let loanDuration = 1;
-    let guarantors = [];
-    let physicalFormImages = [];
+    let selectedEnterprise = savedDraft?.selectedEnterprise || null;
+    let withdrawalAmount = Number(savedDraft?.withdrawalAmount) || 0;
+    let loanDuration = Number(savedDraft?.loanDuration) || 1;
+    let guarantors = Array.isArray(savedDraft?.guarantors) ? savedDraft.guarantors : [];
+    let physicalFormImages = Array.isArray(savedDraft?.physicalFormImages) ? savedDraft.physicalFormImages.slice(0, 3) : [];
+    let requestReference = savedDraft?.requestReference || createWithdrawalRequestReference();
+    let requestId = savedDraft?.requestId || generateId(state.welcomeUser.cooperativeId);
+    let submissionInProgress = false;
+    let requesterBankDetails = savedDraft?.requesterBankDetails || (() => {
+      const member = allMembers.find(m => String(m.id) === String(memberId));
+      return { bank_name: member?.bank_name || '', account_name: member?.account_name || '', account_number: member?.account_number || '' };
+    })();
     let totalSteps = isAdmin ? 5 : 4;
+
+  const persistDraft = () => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ version: 1, savedAt: Date.now(), wizardStep, selectedMemberId, selectedEnterprise, withdrawalAmount, loanDuration, guarantors, physicalFormImages, requestReference, requestId, requesterBankDetails }));
+    } catch (error) { console.warn('[Withdrawal] Could not save local draft.', error); }
+  };
 
   const filterEnterprise = (e) => {
     // Filter out if isCompulsoryDue or isPenalty is true
@@ -5576,6 +5637,7 @@ async function showWithdrawalWizard() {
   const renderModal = () => {
     const wizardContainer = document.getElementById('withdrawal-wizard-content');
     if (!wizardContainer) return;
+    persistDraft();
     
     let stepContent = '';
     totalSteps = selectedEnterprise?.type === 'loan' 
@@ -5735,7 +5797,8 @@ async function showWithdrawalWizard() {
             <input type="number" id="wizard-guarantor-amt" min="0" placeholder="Amount" style="height:2.75rem;padding:0 0.75rem;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-medium);border-radius:var(--radius-sm);">
             <button type="button" id="wizard-add-guarantor-btn" class="primary-button" style="height:2.75rem;white-space:nowrap;">Add to table</button>
           </div>
-          <div style="overflow-x:auto;margin-top:1rem;"><table style="width:100%;border-collapse:collapse;text-align:left;"><thead><tr><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);">Guarantor</th><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);">Amount</th><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);"></th></tr></thead><tbody id="wizard-guarantors-list">${guarantors.map((g, gi) => `<tr><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);">${escapeHtml(g.name || 'Unknown')}</td><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);">${formatCurrency(g.amount || 0)}</td><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);"><button type="button" class="wizard-remove-guarantor" data-index="${gi}" style="color:var(--danger);border:0;background:transparent;cursor:pointer;">Remove</button></td></tr>`).join('')}</tbody><tfoot><tr><th style="padding:0.75rem;">Total</th><th id="wizard-guarantors-total" style="padding:0.75rem;">${formatCurrency(guarantors.reduce((sum, g) => sum + (Number(g.amount) || 0), 0))}</th><th></th></tr></tfoot></table></div>
+          ${(() => { const cover = calculateGuarantorCoverage(withdrawalAmount, guarantors); return `<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:0.5rem;margin-top:1rem;padding:0.85rem;background:var(--bg-secondary);border-radius:0.65rem;"><span>Requested: <strong>${formatCurrency(cover.requested)}</strong></span><span>Guaranteed: <strong>${formatCurrency(cover.covered)}</strong></span><span style="color:${cover.uncovered > 0 ? 'var(--danger)' : 'var(--success)'}">Uncovered: <strong>${formatCurrency(cover.uncovered)}</strong></span></div>${cover.uncovered > 0 && guarantors.length ? '<p style="font-size:0.78rem;color:var(--text-muted);margin:0.5rem 0 0;">Coverage is below the request amount. The request can still be submitted for administrator review.</p>' : ''}`; })()}
+          <div style="overflow-x:auto;margin-top:0.5rem;"><table style="width:100%;border-collapse:collapse;text-align:left;"><thead><tr><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);">Guarantor</th><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);">Amount</th><th style="padding:0.65rem;border-bottom:1px solid var(--border-medium);"></th></tr></thead><tbody id="wizard-guarantors-list">${guarantors.map((g, gi) => `<tr><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);">${escapeHtml(g.name || 'Unknown')}</td><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);">${formatCurrency(g.amount || 0)}</td><td style="padding:0.65rem;border-bottom:1px solid var(--border-light);"><button type="button" class="wizard-remove-guarantor" data-index="${gi}" style="color:var(--danger);border:0;background:transparent;cursor:pointer;">Remove</button></td></tr>`).join('')}</tbody><tfoot><tr><th style="padding:0.75rem;">Total</th><th id="wizard-guarantors-total" style="padding:0.75rem;">${formatCurrency(guarantors.reduce((sum, g) => sum + (Number(g.amount) || 0), 0))}</th><th></th></tr></tfoot></table></div>
         </div>
       `;
     } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 7) || (!isAdmin && wizardStep === 6))) {
@@ -5745,6 +5808,9 @@ async function showWithdrawalWizard() {
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Confirm Loan Request</h4>
+          <div style="padding:0.85rem;background:var(--bg-secondary);border-radius:0.65rem;font-size:0.85rem;"><div><strong>Reference:</strong> ${escapeHtml(requestReference)}</div><div><strong>Requested for:</strong> ${escapeHtml(selectedMember?.name || state.welcomeUser.fullName || state.welcomeUser.username || 'Member')}</div><div><strong>Submitted by:</strong> ${escapeHtml(state.welcomeUser.username)}${isAdmin ? ' (admin, on behalf of member)' : ' (member)'}</div><div style="margin-top:0.4rem;color:var(--text-muted);">Draft is saved on this device. Submission will queue locally when offline.</div></div>
+          ${(() => { const cover = calculateGuarantorCoverage(withdrawalAmount, guarantors); return `<div style="padding:0.85rem;border:1px solid var(--border-light);border-radius:0.65rem;"><strong>Guarantor coverage</strong><div style="display:flex;justify-content:space-between;gap:0.5rem;margin-top:0.4rem;"><span>Loan: ${formatCurrency(cover.requested)}</span><span>Covered: ${formatCurrency(cover.covered)}</span><span style="color:${cover.uncovered ? 'var(--danger)' : 'var(--success)'}">Gap: ${formatCurrency(cover.uncovered)}</span></div>${cover.uncovered > 0 ? '<p style="font-size:0.78rem;color:var(--text-muted);margin:0.4rem 0 0;">Coverage shortfall will be flagged for administrator review; cooperative coverage rules may still apply.</p>' : ''}</div>`; })()}
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.65rem;"><label class="field"><span>Destination bank</span><input id="request-bank-name" value="${escapeAttribute(requesterBankDetails.bank_name || '')}" placeholder="Bank name"></label><label class="field"><span>Account name</span><input id="request-account-name" value="${escapeAttribute(requesterBankDetails.account_name || '')}" placeholder="Account name"></label><label class="field"><span>Account number</span><input id="request-account-number" value="${escapeAttribute(requesterBankDetails.account_number || '')}" placeholder="Account number"></label></div>
           ${isAdmin ? `<div class="field"><label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Physical withdrawal form (1–3 images required)</label><button type="button" class="secondary-button" id="withdrawal-form-image-btn" ${physicalFormImages.length >= 3 ? 'disabled' : ''}>${physicalFormImages.length >= 3 ? 'Maximum of 3 images attached' : 'Add form image'}</button><div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:0.75rem;">${physicalFormImages.map((image, index) => `<div style="position:relative;"><button type="button" class="withdrawal-form-image-preview" data-index="${index}" aria-label="View form image ${index + 1} full screen" style="padding:0;border:1px solid var(--border-light);background:transparent;cursor:zoom-in;"><img src="${image}" alt="Physical form image ${index + 1}" style="width:110px;height:90px;object-fit:cover;display:block;border-radius:0.5rem;"></button><button type="button" class="withdrawal-form-image-remove" data-index="${index}" aria-label="Remove image ${index + 1}" style="position:absolute;right:-7px;top:-7px;border:0;border-radius:50%;background:var(--danger);color:#fff;width:24px;height:24px;cursor:pointer;">&times;</button></div>`).join('')}</div><p style="font-size:0.8rem;color:var(--text-muted);">Click a thumbnail to view full screen. Up to three photos are accepted.</p></div>` : ''}
           <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem; border: 1px solid var(--border-light);">
             ${isAdmin ? `
@@ -5786,6 +5852,8 @@ async function showWithdrawalWizard() {
       stepContent = `
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <h4 style="margin: 0; color: var(--text-primary);">Confirm Savings Withdrawal</h4>
+          <div style="padding:0.85rem;background:var(--bg-secondary);border-radius:0.65rem;font-size:0.85rem;"><div><strong>Reference:</strong> ${escapeHtml(requestReference)}</div><div><strong>Requested for:</strong> ${escapeHtml(selectedMember?.name || state.welcomeUser.fullName || state.welcomeUser.username || 'Member')}</div><div><strong>Submitted by:</strong> ${escapeHtml(state.welcomeUser.username)}${isAdmin ? ' (admin, on behalf of member)' : ' (member)'}</div><div><strong>Available before:</strong> ${formatCurrency(getEnterpriseBalance(selectedEnterprise.id))}</div><div><strong>Estimated after:</strong> ${formatCurrency(getEnterpriseBalance(selectedEnterprise.id) - Math.abs(withdrawalAmount))}</div><div style="margin-top:0.4rem;color:var(--text-muted);">Draft is saved on this device. Submission will queue locally when offline.</div></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.65rem;"><label class="field"><span>Destination bank</span><input id="request-bank-name" value="${escapeAttribute(requesterBankDetails.bank_name || '')}" placeholder="Bank name"></label><label class="field"><span>Account name</span><input id="request-account-name" value="${escapeAttribute(requesterBankDetails.account_name || '')}" placeholder="Account name"></label><label class="field"><span>Account number</span><input id="request-account-number" value="${escapeAttribute(requesterBankDetails.account_number || '')}" placeholder="Account number"></label></div>
           ${isAdmin ? `<div class="field"><label style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;">Physical withdrawal form (1–3 images required)</label><button type="button" class="secondary-button" id="withdrawal-form-image-btn" ${physicalFormImages.length >= 3 ? 'disabled' : ''}>${physicalFormImages.length >= 3 ? 'Maximum of 3 images attached' : 'Add form image'}</button><div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:0.75rem;">${physicalFormImages.map((image, index) => `<div style="position:relative;"><button type="button" class="withdrawal-form-image-preview" data-index="${index}" aria-label="View form image ${index + 1} full screen" style="padding:0;border:1px solid var(--border-light);background:transparent;cursor:zoom-in;"><img src="${image}" alt="Physical form image ${index + 1}" style="width:110px;height:90px;object-fit:cover;display:block;border-radius:0.5rem;"></button><button type="button" class="withdrawal-form-image-remove" data-index="${index}" aria-label="Remove image ${index + 1}" style="position:absolute;right:-7px;top:-7px;border:0;border-radius:50%;background:var(--danger);color:#fff;width:24px;height:24px;cursor:pointer;">&times;</button></div>`).join('')}</div><p style="font-size:0.8rem;color:var(--text-muted);">Click a thumbnail to view full screen. Up to three photos are accepted.</p></div>` : ''}
           <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 0.75rem; border: 1px solid var(--border-light);">
             ${isAdmin ? `
@@ -5910,6 +5978,8 @@ async function showWithdrawalWizard() {
                     e.preventDefault();
                     const { id, name } = item.dataset;
                     selectedMemberId = id;
+                    const selectedMember = allMembers.find(member => String(member.id) === String(id));
+                    requesterBankDetails = { bank_name: selectedMember?.bank_name || '', account_name: selectedMember?.account_name || '', account_number: selectedMember?.account_number || '' };
                     memberBalances = selectedMemberId 
                         ? await getMemberBalances(selectedMemberId) 
                         : {};
@@ -5957,6 +6027,7 @@ async function showWithdrawalWizard() {
       const amtInput = document.getElementById('wizard-withdrawal-amount');
       amtInput?.addEventListener('input', (e) => {
         withdrawalAmount = parseFloat(e.target.value || 0);
+        persistDraft();
         updateNextButton();
       });
     } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 5) || (!isAdmin && wizardStep === 4))) {
@@ -5964,6 +6035,7 @@ async function showWithdrawalWizard() {
       const durationInput = document.getElementById('wizard-loan-duration');
       durationInput?.addEventListener('input', (e) => {
         loanDuration = parseInt(e.target.value || 1);
+        persistDraft();
         updateNextButton();
       });
     } else if (selectedEnterprise.type === 'loan' && ((isAdmin && wizardStep === 6) || (!isAdmin && wizardStep === 5))) {
@@ -6001,8 +6073,9 @@ async function showWithdrawalWizard() {
       const file = await pickImageFile({ title: 'Attach physical withdrawal form' });
       if (!file) return;
       try {
-        physicalFormImages.push(await compressImage(file));
+        physicalFormImages.push(await compressImage(file, { maxSizeBytes: 160 * 1024, maxWidth: 1400, maxHeight: 1400 }));
         renderModal();
+        showToast('Form image compressed and saved with this draft.', 'success');
       } catch (error) {
         showToast('Could not read that image. Please choose another.', 'error');
       }
@@ -6024,6 +6097,67 @@ async function showWithdrawalWizard() {
       physicalFormImages.splice(Number(button.dataset.index), 1);
       renderModal();
     }));
+    const bankInputIds = ['request-bank-name', 'request-account-name', 'request-account-number'];
+    const bankGrid = document.getElementById('request-bank-name')?.parentElement;
+    if (bankGrid) {
+      bankGrid.classList.add('request-bank-details-grid');
+      bankGrid.style.cssText += ';width:100%;box-sizing:border-box;gap:0.9rem;grid-template-columns:repeat(3,minmax(0,1fr));padding:1rem;background:var(--bg-secondary);border:1px solid var(--border-light);border-radius:0.75rem;';
+      bankInputIds.forEach(id => {
+        const input = document.getElementById(id);
+        const label = input?.closest('label');
+        if (!input || !label) return;
+        label.style.cssText = 'display:flex;flex-direction:column;gap:0.45rem;min-width:0;margin:0;color:var(--text-primary);font-size:0.86rem;font-weight:600;';
+        const caption = label.querySelector('span');
+        if (caption) caption.style.cssText = 'font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;';
+        input.style.cssText += ';display:block;width:100%;min-width:0;box-sizing:border-box;height:2.75rem;padding:0 0.75rem;border:1px solid var(--border-medium);border-radius:0.5rem;background:var(--bg-input);color:var(--text-primary);';
+      });
+    }
+    const imageAddButton = document.getElementById('withdrawal-form-image-btn');
+    if (imageAddButton) {
+      const imageField = imageAddButton.closest('.field');
+      if (imageField) {
+        imageField.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:0.65rem;width:100%;box-sizing:border-box;padding:1rem;background:var(--bg-secondary);border:1px solid var(--border-light);border-radius:0.75rem;';
+        const imageLabel = imageField.querySelector('label');
+        if (imageLabel) imageLabel.style.cssText = 'display:block;margin:0;color:var(--text-primary);font-size:0.85rem;font-weight:700;';
+      }
+      imageAddButton.style.cssText += ';display:inline-flex!important;align-self:flex-start;width:auto!important;min-width:0;height:2.6rem;min-height:2.6rem;padding:0 1rem;align-items:center;justify-content:center;border-radius:0.55rem;';
+      const count = document.createElement('span');
+      count.className = 'withdrawal-image-count';
+      count.style.cssText = 'display:block;margin:0;font-size:0.8rem;color:var(--text-muted);';
+      count.textContent = `${physicalFormImages.length} of 3 images attached`;
+      imageAddButton.insertAdjacentElement('afterend', count);
+    }
+    document.querySelectorAll('.withdrawal-form-image-preview').forEach(preview => {
+      const controls = document.createElement('div');
+      controls.style.cssText = 'display:flex;justify-content:center;gap:0.4rem;margin-top:0.35rem;';
+      [-1, 1].forEach(direction => {
+        const move = document.createElement('button');
+        move.type = 'button';
+        move.className = 'withdrawal-form-image-move';
+        move.setAttribute('aria-label', `${direction < 0 ? 'Move earlier' : 'Move later'} image ${Number(preview.dataset.index) + 1}`);
+        move.title = direction < 0 ? 'Move earlier' : 'Move later';
+        move.textContent = direction < 0 ? '←' : '→';
+        move.disabled = direction < 0 ? Number(preview.dataset.index) === 0 : Number(preview.dataset.index) === physicalFormImages.length - 1;
+        move.style.cssText = 'border:1px solid var(--border-light);border-radius:0.35rem;background:var(--bg-card);color:var(--text-primary);padding:0.1rem 0.45rem;cursor:pointer;';
+        move.addEventListener('click', () => {
+          const index = Number(preview.dataset.index);
+          const nextIndex = index + direction;
+          if (nextIndex < 0 || nextIndex >= physicalFormImages.length) return;
+          [physicalFormImages[index], physicalFormImages[nextIndex]] = [physicalFormImages[nextIndex], physicalFormImages[index]];
+          renderModal();
+        });
+        controls.appendChild(move);
+      });
+      preview.parentElement?.appendChild(controls);
+    });
+    ['request-bank-name', 'request-account-name', 'request-account-number'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', event => {
+        if (id === 'request-bank-name') requesterBankDetails.bank_name = event.target.value;
+        if (id === 'request-account-name') requesterBankDetails.account_name = event.target.value;
+        if (id === 'request-account-number') requesterBankDetails.account_number = event.target.value;
+        persistDraft();
+      });
+    });
 
     // Next button
     document.getElementById('wizard-next-btn')?.addEventListener('click', async () => {
@@ -6058,12 +6192,25 @@ async function showWithdrawalWizard() {
       } else {
         // Submit directly to database
         try {
+          if (submissionInProgress) return;
           if (isAdmin && (physicalFormImages.length < 1 || physicalFormImages.length > 3)) {
             showToast('Attach between one and three images of the physical withdrawal form before submitting.', 'warning');
             return;
           }
+          if (selectedEnterprise?.type === 'loan') {
+            const coverage = calculateGuarantorCoverage(withdrawalAmount, guarantors);
+            if (coverage.uncovered > 0 && !window.confirm(`Guarantors currently cover ${formatCurrency(coverage.covered)} of ${formatCurrency(coverage.requested)}. The remaining ${formatCurrency(coverage.uncovered)} will need review. Submit anyway?`)) return;
+          }
           const ent = enterprises.find(e => e.id === selectedEnterprise.id);
           const selectedMember = allMembers.find(m => m.id === selectedMemberId);
+          if (selectedEnterprise.type === 'savings') {
+            const latestBalances = await getMemberBalances(selectedMemberId);
+            const latestAvailable = Math.max(0, Number(latestBalances[ent.id]) || 0);
+            if (withdrawalAmount > latestAvailable) {
+              showToast(`The balance has changed. Maximum currently available is ${formatCurrency(latestAvailable)}. Update the request amount and try again.`, 'error');
+              return;
+            }
+          }
           const transactionType = selectedEnterprise.type === 'loan' ? 'Member Loan' : 'Savings Withdrawal';
           const amount = -Math.abs(withdrawalAmount);
           const details = [
@@ -6093,7 +6240,7 @@ async function showWithdrawalWizard() {
           ];
 
           const remittanceData = {
-            id: null,
+            id: requestId,
             member_id: selectedMemberId,
             amount: amount,
             bank_name: '',
@@ -6102,6 +6249,10 @@ async function showWithdrawalWizard() {
             remittance_date: new Date().toISOString().split('T')[0],
             details: details,
             ...(isAdmin ? { withdrawal_form_images: physicalFormImages, withdrawal_form_image: physicalFormImages[0] } : {}),
+            requester_bank_details: requesterBankDetails,
+            request_reference: requestReference,
+            request_status_history: appendRequestStatus([], 'Pending', state.welcomeUser.username, new Date().toISOString()),
+            submitted_by_role: isAdmin ? 'admin' : 'member',
             isLoanRequest: selectedEnterprise.type === 'loan',
             isWithdrawalRequest: true,
             cooperative_id: state.welcomeUser.cooperativeId,
@@ -6116,11 +6267,21 @@ async function showWithdrawalWizard() {
             modified_by: state.welcomeUser.username
           };
 
+          submissionInProgress = true;
+          const submitButton = document.getElementById('wizard-next-btn');
+          if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Submitting…'; }
+          if (Object.values(requesterBankDetails).some(value => String(value || '').trim())) {
+            await updateMemberBankInfo(selectedMemberId, requesterBankDetails, state.welcomeUser.username, state.welcomeUser.cooperativeId);
+          }
           await addRemittance(remittanceData, state.welcomeUser.username);
+          try { localStorage.removeItem(draftKey); } catch {}
 
           leaveWithdrawalRequest();
-          showToast('Request submitted successfully!', 'success');
+          showToast(navigator.onLine ? `Request ${requestReference} submitted successfully.` : `Request ${requestReference} saved on this device and will sync when online.`, 'success');
         } catch (err) {
+          submissionInProgress = false;
+          const retryButton = document.getElementById('wizard-next-btn');
+          if (retryButton) { retryButton.disabled = false; retryButton.textContent = 'Submit'; }
           showToast('Error submitting request: ' + err.message, 'error');
         }
       }
@@ -6146,6 +6307,7 @@ async function showWithdrawalWizard() {
       .withdrawal-wizard-footer { display: flex; justify-content: space-between; gap: 0.75rem; padding: 1rem 1.35rem; border-top: 1px solid var(--border-light); }
       @media (max-width: 640px) {
         .withdrawal-request-page { padding: 0.85rem; }
+        .request-bank-details-grid { grid-template-columns: 1fr !important; }
         .withdrawal-page-heading { align-items: flex-start; flex-direction: column; margin-bottom: 0.85rem; }
         .withdrawal-wizard-card { min-height: 0; border-radius: 13px; }
         .withdrawal-wizard-header { padding: 0.9rem; align-items: flex-start; }
@@ -6156,7 +6318,7 @@ async function showWithdrawalWizard() {
     </style>
     <div class="withdrawal-page-shell">
       <header class="withdrawal-page-heading">
-        <div><h1>Withdrawal Request</h1><p>Complete the steps below to submit a savings withdrawal or loan request.</p></div>
+        <div><h1>Withdrawal Request</h1><p>Complete the steps below to submit a savings withdrawal or loan request. Drafts are saved on this device; requests submitted offline will sync when a connection returns.</p>${savedDraft ? '<p style="color:var(--accent-primary);font-weight:700;">An unfinished draft was restored.</p>' : ''}</div>
       </header>
       <div class="withdrawal-wizard-content" id="withdrawal-wizard-content"></div>
     </div>
@@ -6165,6 +6327,7 @@ async function showWithdrawalWizard() {
   if (!pageHost) return;
   pageHost.replaceChildren(page);
   renderModal();
+  if (savedDraft) showToast('Your unfinished withdrawal request draft was restored.', 'info');
 }
 
 

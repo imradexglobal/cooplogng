@@ -277,19 +277,19 @@ export async function pickImageFile({ title = 'Add photo' } = {}) {
         const overlay = document.createElement('div')
         overlay.className = 'modal-overlay open'
         overlay.innerHTML = `
-          <div class="modal-content" style="max-width: 340px; padding: 1.25rem; text-align: center;">
+          <div class="modal-content" style="width:calc(100% - 2rem); max-width:340px; padding:1rem; text-align:center; box-sizing:border-box;">
             <h3 style="margin: 0 0 0.25rem 0;">${title}</h3>
             <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 1rem 0;">Camera or gallery — works offline.</p>
-            <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-                <button class="primary-button" id="pp-camera" style="min-height: 3rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;">
+                <button class="primary-button" id="pp-camera" style="width:min(100%,220px);min-height:2.5rem;height:2.5rem;padding:0.5rem 0.85rem;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:0.5rem;flex:none;font-size:0.9rem;">
                   <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                   Take photo
                 </button>
-                <button class="secondary-button" id="pp-gallery" style="min-height: 3rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <button class="secondary-button" id="pp-gallery" style="width:min(100%,220px);min-height:2.5rem;height:2.5rem;padding:0.5rem 0.85rem;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:0.5rem;flex:none;font-size:0.9rem;">
                   <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 15l-5-5L5 21"/></svg>
                   Choose from gallery
                 </button>
-                <button class="ghost-button" id="pp-cancel" style="color: var(--text-muted);">Cancel</button>
+                <button class="ghost-button" id="pp-cancel" style="min-height:2rem;padding:0.35rem 0.75rem;color:var(--text-muted);">Cancel</button>
             </div>
           </div>`
         const close = () => overlay.remove()

@@ -293,6 +293,30 @@ export async function updateMember(id, data, modifiedBy) {
     await saveDoc('members', doc)
 }
 
+export async function updateMemberBankInfo(memberId, bankDetails = {}, modifiedBy = 'system', cooperativeId = null) {
+    const existing = await getDocById_Global('members', memberId)
+    if (!existing || isDeletedRecord(existing)) throw new Error('Member not found or unavailable')
+    if (cooperativeId && String(existing.cooperative_id) !== String(cooperativeId)) {
+        throw new Error('Member belongs to a different cooperative')
+    }
+    const fields = { bank_name: 'bank_name', account_name: 'account_name', account_number: 'account_number' }
+    const changes = {}
+    for (const [inputKey, memberKey] of Object.entries(fields)) {
+        const value = bankDetails[inputKey] ?? bankDetails[{ bank_name: 'bankName', account_name: 'accountName', account_number: 'accountNumber' }[inputKey]]
+        if (value !== undefined && String(value).trim()) changes[memberKey] = String(value).trim()
+    }
+    if (!Object.keys(changes).length) return { updated: false }
+    const now = new Date().toISOString()
+    await saveDoc('members', {
+        ...existing,
+        ...changes,
+        modified_at: now,
+        modified_by: modifiedBy || 'system',
+        is_synced: 0,
+    })
+    return { updated: true, memberId: String(existing.id), fields: Object.keys(changes) }
+}
+
 export async function archiveMember(id, modifiedBy) {
     const existing = await getDocById_Global('members', id)
     if (!existing) throw new Error('Member not found')

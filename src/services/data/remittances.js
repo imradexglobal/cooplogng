@@ -5,6 +5,7 @@ import {
     queryRows, queryOne, enqueueWrite, upsertRow
 } from '../sqliteService.js'
 import { classifyMemberInternalTransfer } from './memberTransactionClassification.js'
+import { appendRequestStatus } from '../../utils/withdrawalRequestUtils.js'
 
 async function _ensureRemittanceNotSealed(remittanceId, operationLabel) {
     const rem = await getDocById_Global('remittance', remittanceId)
@@ -156,6 +157,14 @@ export async function addRemittance(data, createdBy) {
         parent_remittance_id: data.parent_remittance_id || data.loan_id || null,
         isLoanRequest: data.isLoanRequest || false,
         isWithdrawalRequest: data.isWithdrawalRequest || false,
+        withdrawal_form_image: data.withdrawal_form_image || '',
+        withdrawal_form_images: Array.isArray(data.withdrawal_form_images) ? data.withdrawal_form_images : [],
+        request_reference: data.request_reference || '',
+        request_status_history: Array.isArray(data.request_status_history) ? data.request_status_history : [],
+        requester_bank_details: data.requester_bank_details || null,
+        reviewer_comment: data.reviewer_comment || '',
+        rejection_reason: data.rejection_reason || '',
+        submitted_by_role: data.submitted_by_role || '',
         created_at: now,
         created_by: createdBy || 'system',
         modified_at: now,
@@ -549,6 +558,9 @@ export async function approveRemittance(remittanceId, approvedBy, bankName, remi
     const updateData = {
         ...remittance,
         status: 'Approved',
+        approved_by: approvedBy || 'system',
+        approved_at: now,
+        request_status_history: appendRequestStatus(remittance.request_status_history, 'Approved', approvedBy, now, remittance.reviewer_comment || ''),
         modified_at: now,
         modified_by: approvedBy,
         is_synced: 0
@@ -616,7 +628,7 @@ export async function approveRemittance(remittanceId, approvedBy, bankName, remi
     }
 }
 
-export async function declineRemittance(remittanceId, declinedBy) {
+export async function declineRemittance(remittanceId, declinedBy, reason = '') {
     const now = new Date().toISOString()
     try {
         const sid = remittanceId.startsWith('AUTOGEN_') ? remittanceId.replace('AUTOGEN_', '') : remittanceId
@@ -638,6 +650,9 @@ export async function declineRemittance(remittanceId, declinedBy) {
             await saveDoc('remittance', {
                 ...target,
                 status: 'Declined',
+                rejection_reason: String(reason || '').trim(),
+                reviewer_comment: String(reason || '').trim(),
+                request_status_history: appendRequestStatus(target.request_status_history, 'Declined', declinedBy, now, String(reason || '').trim()),
                 modified_at: now,
                 modified_by: declinedBy,
                 is_synced: 0
