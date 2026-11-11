@@ -84,7 +84,7 @@ app?.addEventListener('beforeinput', (event) => {
  * Dashboard > Account Summary > Remittance > Members > Reports > Reconciliation > Settings.
  * Mirrors sidebar visibility so the landing tab always has a nav item.
  */
-const LANDING_ORDER = ['dashboard', 'monthly-summary', 'advice', 'payments', 'bulk-remittance', 'members', 'reports', 'reconciliation', 'settings'];
+const LANDING_ORDER = ['dashboard', 'monthly-summary', 'advice', 'payments', 'bulk-remittance', 'bank-statement-import', 'members', 'reports', 'reconciliation', 'settings'];
 
 function canSeeRemittance(user) {
   // Staff/admin (any non-member role) can always see Remittance.
@@ -101,6 +101,7 @@ function canAccessTab(user, tab) {
     case 'advice': return isMember;
     case 'payments': return canSeeRemittance(user);
     case 'bulk-remittance': return canSeeRemittance(user);
+    case 'bank-statement-import': return canSeeRemittance(user);
     case 'members': return !isMember && hasPermission(user.permissions, 'read_member');
     case 'reports': return !isMember && hasPermission(user.permissions, 'read_member');
     case 'reconciliation': return hasPermission(user.permissions, 'read_reconcile');
@@ -2283,6 +2284,7 @@ function renderDashboard() {
     members: 'Members',
     payments: 'Remittance',
     'bulk-remittance': 'Bulk Remittance',
+    'bank-statement-import': 'Bank Statement Import',
     'monthly-summary': 'Account Summary',
     advice: 'Payment Advice',
     'withdrawal-request': 'Withdrawal Request',
@@ -2365,6 +2367,10 @@ function renderDashboard() {
             <button class="nav-item ${state.activeTab === 'bulk-remittance' ? 'active' : ''}" data-action="nav-tab" data-tab="bulk-remittance">
               <span class="nav-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
               <span>Bulk Remittance</span>
+            </button>
+            <button class="nav-item ${state.activeTab === 'bank-statement-import' ? 'active' : ''}" data-action="nav-tab" data-tab="bank-statement-import">
+              <span class="nav-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+              <span>Bank Statement Import</span>
             </button>
           ` : ''}
           ${(state.welcomeUser.role === 'member' || hasPermission(state.welcomeUser.permissions, 'read_ledger')) ? `
@@ -2969,7 +2975,7 @@ async function _renderDashboardContentInner() {
     window.location.hash = 'dashboard'
     return
   }
-  if (isMemberRole && state.activeTab === 'bulk-remittance') {
+  if (isMemberRole && (state.activeTab === 'bulk-remittance' || state.activeTab === 'bank-statement-import')) {
     state.activeTab = 'dashboard'
     window.location.hash = 'dashboard'
     return
@@ -3018,6 +3024,9 @@ async function _renderDashboardContentInner() {
     await renderUnifiedPayment(container, displayUser, state.editingRemittance)
   } else if (state.activeTab === 'bulk-remittance') {
     await renderBulkRemittance(container, displayUser)
+  } else if (state.activeTab === 'bank-statement-import') {
+    const { renderBankStatementImport } = await import('./screens/BankStatementImport/index.js')
+    await renderBankStatementImport(container, displayUser)
   } else if (state.activeTab === 'monthly-summary') {
     await renderMemberLedger(container, displayUser)
   } else if (state.activeTab === 'advice') {
@@ -3139,6 +3148,8 @@ async function _renderDashboardContentInner() {
     } else {
       const activeTabTitles = {
         payments: 'Remittance',
+        'bulk-remittance': 'Bulk Remittance',
+        'bank-statement-import': 'Bank Statement Import',
         advice: 'Payment Advice',
         reports: 'Reports',
         reconciliation: 'Reconciliation',

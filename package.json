@@ -33,7 +33,9 @@
     "exceljs": "^4.4.0",
     "firebase": "^12.2.1",
     "firebase-admin": "^14.4.0",
-    "sql.js": "^1.14.1"
+    "pdfjs-dist": "^6.5.438",
+    "sql.js": "^1.14.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "electron": "^34.0.0",

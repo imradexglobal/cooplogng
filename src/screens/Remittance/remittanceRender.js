@@ -893,6 +893,12 @@ export function render(container, deps) {
               })()}
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
+              ${!isMember ? `
+              <button type="button" onclick="window.location.hash='bank-statement-import'" class="btn btn-secondary" style="padding: 0.5rem 0.85rem; display: inline-flex; align-items: center; gap: 0.35rem;" title="Import transactions from bank statement (PDF, Excel, CSV)">
+                <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>Import Statement</span>
+              </button>
+              ` : ''}
               <button type="button" id="export-excel-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
                 Export to Excel
               </button>
