@@ -2,7 +2,7 @@ import { addRemittance } from '../data/remittances.js';
 import { allocateAutoShare } from '../autoShare/index.js';
 import { fetchMemberPaymentAdvise } from '../data/members.js';
 import { buildAccountBalance } from '../data/balance.js';
-import { saveDoc, putItem } from '../sqliteService.js';
+import { saveDoc } from '../sqliteService.js';
 import { generateId } from '../../utils/formatters.js';
 
 /**

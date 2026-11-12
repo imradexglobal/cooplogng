@@ -16,6 +16,11 @@ set /p DONE=Press Enter to close...
 )
 
 echo [1/4] Checking Node.js...
+:: Refresh PATH for standard per-machine Node.js installs. This also fixes
+:: batch files launched from an older terminal opened before Node was installed.
+if not defined NODE_EXE if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles%\nodejs\node.exe"
+if not defined NODE_EXE if exist "%LocalAppData%\Programs\node\node.exe" set "NODE_EXE=%LocalAppData%\Programs\node\node.exe"
+if defined NODE_EXE set "PATH=%~dp0;%ProgramFiles%\nodejs;%LocalAppData%\Programs\node;%PATH%"
 where node >nul 2>nul
 if errorlevel 1 (
     echo [ERROR] Node.js not found. Install from https://nodejs.org/
@@ -25,16 +30,27 @@ set /p DONE=Press Enter to close...
 )
 
 echo [2/4] Checking dependencies...
-if not exist "node_modules\.bin\vite.cmd" (
+if not exist "node_modules\.bin\vite.cmd" goto install_dependencies
+if not exist "node_modules\vite\bin\vite.js" goto install_dependencies
+goto dependencies_ready
+
+:install_dependencies
     echo [INFO] Installing dependencies...
-    call npm install
+    call npm ci
     if errorlevel 1 (
-        echo [ERROR] npm install failed.
+        echo [ERROR] npm ci failed. Check the npm error above and retry.
         echo Window stays open so you can copy. Press Enter when done...
 set /p DONE=Press Enter to close...
         exit /b 1
     )
-)
+    if not exist "node_modules\vite\bin\vite.js" (
+        echo [ERROR] Vite installation is incomplete after npm ci.
+        echo Window stays open so you can copy. Press Enter when done...
+set /p DONE=Press Enter to close...
+        exit /b 1
+    )
+
+:dependencies_ready
 
 echo [3/4] Cleaning stale output (full rebuild, no leftovers)...
 if exist "dist" rmdir /s /q "dist"

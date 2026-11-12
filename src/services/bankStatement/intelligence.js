@@ -28,10 +28,124 @@ function escapeRegExp(str) {
     return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function editDistance(left, right) {
+    const a = String(left || '');
+    const b = String(right || '');
+    let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+
+    for (let i = 1; i <= a.length; i++) {
+        const current = [i];
+        for (let j = 1; j <= b.length; j++) {
+            current[j] = Math.min(
+                current[j - 1] + 1,
+                previous[j] + 1,
+                previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+            );
+        }
+        previous = current;
+    }
+    return previous[b.length];
+}
+
+function findNameFieldHits(value, descriptionTokens) {
+    const tokens = normalizeText(value).split(/\s+/).filter(token => token.length >= 2 && !STOP_WORDS.has(token));
+    if (!tokens.length) return [];
+
+    const variants = new Set(tokens);
+    const compactName = tokens.join('');
+    if (compactName.length >= 4) variants.add(compactName);
+
+    const bestBySpan = new Map();
+    for (const variant of variants) {
+        for (let start = 0; start < descriptionTokens.length; start++) {
+            let phrase = '';
+            for (let width = 1; width <= 3 && start + width <= descriptionTokens.length; width++) {
+                const token = descriptionTokens[start + width - 1];
+                if (!/^[a-z]+$/.test(token)) break;
+                phrase += token;
+                // Names must match exactly after normalization; punctuation and
+                // letter casing may differ, but spelling differences may not.
+                if (variant !== phrase) continue;
+
+                const indexes = Array.from({ length: width }, (_, offset) => start + offset);
+                const key = indexes.join(',');
+                const hit = { indexes, exact: true, distance: 0 };
+                const previous = bestBySpan.get(key);
+                if (!previous || Number(hit.exact) > Number(previous.exact) ||
+                    (hit.exact === previous.exact && hit.distance < previous.distance)) {
+                    bestBySpan.set(key, hit);
+                }
+            }
+        }
+    }
+
+    return Array.from(bestBySpan.values())
+        .sort((a, b) => Number(b.exact) - Number(a.exact) || a.distance - b.distance || a.indexes.length - b.indexes.length)
+        .slice(0, 15);
+}
+
+function matchMemberName(member, descriptionTokens) {
+    const fields = [member.first_name, member.middle_name, member.last_name];
+    const hitsByField = fields.map(value => findNameFieldHits(value, descriptionTokens));
+    let best = { count: 0, exact: 0, distance: Infinity };
+
+    function chooseField(fieldIndex, usedIndexes, count, exact, distance) {
+        if (fieldIndex === hitsByField.length) {
+            if (count > best.count ||
+                (count === best.count && exact > best.exact) ||
+                (count === best.count && exact === best.exact && distance < best.distance)) {
+                best = { count, exact, distance };
+            }
+            return;
+        }
+
+        chooseField(fieldIndex + 1, usedIndexes, count, exact, distance);
+        for (const hit of hitsByField[fieldIndex]) {
+            if (hit.indexes.some(index => usedIndexes.has(index))) continue;
+            const nextIndexes = new Set(usedIndexes);
+            hit.indexes.forEach(index => nextIndexes.add(index));
+            chooseField(fieldIndex + 1, nextIndexes, count + 1, exact + Number(hit.exact), distance + hit.distance);
+        }
+    }
+
+    chooseField(0, new Set(), 0, 0, 0);
+    return best.count >= 2 ? best : null;
+}
+
+function extractPhoneCandidates(text) {
+    const candidates = new Set();
+    const numericGroups = String(text || '').match(/\d+(?:[\s().-]+\d+)*/g) || [];
+
+    for (const group of numericGroups) {
+        const digits = group.replace(/\D/g, '');
+        if (digits.length < 9) continue;
+        const maxLength = Math.min(12, digits.length);
+        for (let length = 9; length <= maxLength; length++) {
+            for (let start = 0; start + length <= digits.length; start++) {
+                candidates.add(digits.slice(start, start + length));
+            }
+        }
+    }
+    return Array.from(candidates);
+}
+
+function phoneMatches(statementCandidates, memberPhone) {
+    const phone = normalizePhone(memberPhone);
+    if (phone.length < 9) return false;
+
+    return statementCandidates.some(candidate => {
+        const digits = normalizePhone(candidate);
+        if (digits.length < 9) return false;
+        const distance = editDistance(phone, digits);
+        const allowed = Math.floor(Math.max(phone.length, digits.length) * 0.1);
+        return distance <= allowed && Math.max(phone.length, digits.length) - distance >= 9;
+    });
+}
+
 /**
- * Identifies a cooperative member from transaction description, reference, or payer
+ * Identifies a cooperative member by name, with optional phone and ID fallbacks.
  */
-export function matchMember(text, members = []) {
+export function matchMember(text, members = [], { nameOnly = false } = {}) {
     if (!text || !members || members.length === 0) {
         return { member: null, confidence: 'None', candidates: [], reason: 'No text or members' };
     }
@@ -40,132 +154,95 @@ export function matchMember(text, members = []) {
     const lowerText = rawText.toLowerCase();
     const normHaystack = normalizeText(rawText);
     const compactText = lowerText.replace(/[^a-z0-9]/g, '');
-    const haystackTokens = new Set(normHaystack.split(/\s+/).filter(t => t.length >= 2));
+    const descriptionTokens = normHaystack.split(/\s+/).filter(Boolean);
     const activeMembers = members.filter(m => m && m.id !== '0000000000' && !m.is_deleted && String(m.status || '').toLowerCase() !== 'archived');
 
-    // 1. Exact Unique Special ID check
-    for (const m of activeMembers) {
-        const specialRaw = String(m.special_id || '').trim();
-        if (specialRaw.length >= 3) {
-            const specialLower = specialRaw.toLowerCase();
-            const specialPattern = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(specialLower)}(?:$|[^a-z0-9])`, 'i');
-            const specialNorm = normalizeText(specialRaw);
-            const specialCompact = specialLower.replace(/[^a-z0-9]/g, '');
-
-            if (specialPattern.test(lowerText) ||
-                (specialNorm && normHaystack.includes(specialNorm)) ||
-                (specialCompact.length >= 4 && compactText.includes(specialCompact))) {
-                return {
-                    member: m,
-                    confidence: 'High',
-                    matchType: 'special_id',
-                    reason: `Matched Special ID: ${m.special_id}`
-                };
-            }
-        }
-    }
-
-    // 2. Exact Unique Registration Number check
-    for (const m of activeMembers) {
-        const regRaw = String(m.registration_no || '').trim();
-        if (regRaw.length >= 2) {
-            const regLower = regRaw.toLowerCase();
-            const regPattern = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(regLower)}(?:$|[^a-z0-9])`, 'i');
-            const regNorm = normalizeText(regRaw);
-            const regCompact = regLower.replace(/[^a-z0-9]/g, '');
-
-            if (regPattern.test(lowerText) ||
-                (regNorm && normHaystack.includes(regNorm)) ||
-                (regCompact.length >= 4 && compactText.includes(regCompact))) {
-                return {
-                    member: m,
-                    confidence: 'High',
-                    matchType: 'registration_no',
-                    reason: `Matched Registration No: ${m.registration_no}`
-                };
-            }
-        }
-    }
-
-    // 3. Exact Phone Number check
-    const digitsOnly = text.replace(/\D/g, '');
-    if (digitsOnly.length >= 8) {
-        for (const m of activeMembers) {
-            const phone = normalizePhone(m.mobile || '');
-            if (phone && phone.length >= 8 && digitsOnly.includes(phone)) {
-                return {
-                    member: m,
-                    confidence: 'High',
-                    matchType: 'phone',
-                    reason: `Matched Phone Number: ${m.mobile}`
-                };
-            }
-        }
-    }
-
-    // 4. Token-based First Name + Last Name matching
     const nameMatches = [];
     for (const m of activeMembers) {
-        const first = normalizeText(m.first_name || '').split(/\s+/).filter(t => t.length >= 3 && !STOP_WORDS.has(t));
-        const last = normalizeText(m.last_name || '').split(/\s+/).filter(t => t.length >= 3 && !STOP_WORDS.has(t));
-        const middle = normalizeText(m.middle_name || '').split(/\s+/).filter(t => t.length >= 3 && !STOP_WORDS.has(t));
-
-        if (first.length === 0 || last.length === 0) continue;
-
-        const hasFirst = first.some(t => haystackTokens.has(t));
-        const hasLast = last.some(t => haystackTokens.has(t));
-        const hasMiddle = middle.some(t => haystackTokens.has(t));
-
-        if (hasFirst && hasLast) {
-            nameMatches.push({
-                member: m,
-                score: (hasMiddle ? 3 : 2) + (first.length + last.length),
-                hasMiddle
-            });
-        }
+        const nameMatch = matchMemberName(m, descriptionTokens);
+        if (nameMatch) nameMatches.push({ member: m, ...nameMatch });
     }
 
-    // If exactly one unique member matched both first and last name tokens
     if (nameMatches.length === 1) {
-        const matched = nameMatches[0].member;
-        const name = [matched.first_name, matched.last_name].filter(Boolean).join(' ');
+        const matched = nameMatches[0];
+        const name = [matched.member.first_name, matched.member.middle_name, matched.member.last_name].filter(Boolean).join(' ');
         return {
-            member: matched,
+            member: matched.member,
             confidence: 'High',
-            matchType: 'name_exact',
-            reason: `Confidently matched member: ${name} (Reg: ${matched.registration_no || 'N/A'})`
+            matchType: 'name',
+            reason: `Matched at least two name fields for ${name}.`
         };
     }
 
-    // Ambiguous matches (multiple members with the same name tokens)
-    if (nameMatches.length > 1) {
-        // Check if middle name breaks the tie
-        const middleWinners = nameMatches.filter(n => n.hasMiddle);
-        if (middleWinners.length === 1) {
-            const matched = middleWinners[0].member;
+    // Initial bank-statement mapping uses only exact normalized name fields.
+    // Do not auto-assign on mobile or IDs when names are absent or ambiguous.
+    if (nameOnly) {
+        if (nameMatches.length > 1) {
             return {
-                member: matched,
-                confidence: 'High',
-                matchType: 'name_exact_middle_tiebreak',
-                reason: `Disambiguated by middle name: ${matched.first_name} ${matched.middle_name} ${matched.last_name}`
+                member: null,
+                confidence: 'Low',
+                candidates: nameMatches.map(n => n.member),
+                reason: `Ambiguous name match with multiple active members (${nameMatches.map(n => `${n.member.first_name || ''} ${n.member.last_name || ''}`.trim()).join(', ')}). Sent to Unknown Payment for manual verification.`
             };
         }
+        return { member: null, confidence: 'None', candidates: [], reason: 'No exact two-field name match found in the statement description.' };
+    }
 
-        const candidateNames = nameMatches.map(n => `${n.member.first_name} ${n.member.last_name}`).join(', ');
+    const phoneCandidates = extractPhoneCandidates(rawText);
+    const phoneMatchesList = activeMembers.filter(m => phoneMatches(phoneCandidates, m.mobile || ''));
+    if (phoneMatchesList.length === 1) {
+        const member = phoneMatchesList[0];
+        return {
+            member,
+            confidence: 'High',
+            matchType: 'phone',
+            reason: `Matched at least 90% of the phone number: ${member.mobile}`
+        };
+    }
+    if (phoneMatchesList.length > 1) {
+        return {
+            member: null,
+            confidence: 'Low',
+            candidates: phoneMatchesList,
+            reason: 'Ambiguous phone match; multiple active members meet the nine-digit threshold.'
+        };
+    }
+
+    for (const m of activeMembers) {
+        const specialRaw = String(m.special_id || '').trim();
+        if (specialRaw.length >= 3) {
+            const specialPattern = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(specialRaw)}(?:$|[^a-z0-9])`, 'i');
+            const specialNorm = normalizeText(specialRaw);
+            const specialCompact = specialRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (specialPattern.test(lowerText) || (specialNorm && normHaystack.includes(specialNorm)) ||
+                (specialCompact.length >= 4 && compactText.includes(specialCompact))) {
+                return { member: m, confidence: 'High', matchType: 'special_id', reason: `Matched Special ID: ${m.special_id}` };
+            }
+        }
+    }
+    for (const m of activeMembers) {
+        const regRaw = String(m.registration_no || '').trim();
+        if (regRaw.length >= 2) {
+            const regPattern = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(regRaw)}(?:$|[^a-z0-9])`, 'i');
+            const regNorm = normalizeText(regRaw);
+            const regCompact = regRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (regPattern.test(lowerText) || (regNorm && normHaystack.includes(regNorm)) ||
+                (regCompact.length >= 4 && compactText.includes(regCompact))) {
+                return { member: m, confidence: 'High', matchType: 'registration_no', reason: `Matched Registration No: ${m.registration_no}` };
+            }
+        }
+    }
+
+    if (nameMatches.length > 1) {
         return {
             member: null,
             confidence: 'Low',
             candidates: nameMatches.map(n => n.member),
-            reason: `Ambiguous match with multiple members (${candidateNames}). Sent to Unknown Payment for manual verification.`
+            reason: `Ambiguous name match with multiple active members (${nameMatches.map(n => `${n.member.first_name || ''} ${n.member.last_name || ''}`.trim()).join(', ')}). Sent to Unknown Payment for manual verification.`
         };
     }
 
-    return {
-        member: null,
-        confidence: 'None',
-        candidates: [],
-        reason: 'No confident member match found in description.'
-    };
+    return { member: null, confidence: 'None', candidates: [], reason: 'No confident member match found in description.' };
 }
 
 /**
@@ -215,6 +292,20 @@ export function classifyTransaction(txn, { members = [], loanEnterprises = [], d
         }
     }
 
+    // Small debits are bank expenses even when the narration identifies a member.
+    if (amount < 0 && Math.abs(amount) < 100) {
+        return {
+            classification: 'Expense',
+            transactionType: 'Financial & Banking Expenses',
+            category: 'Finance Expense',
+            memberId: '0000000000',
+            member: null,
+            confidence: 'High',
+            enterpriseId: '',
+            notes: 'Debit below 100 categorized as a bank expense regardless of member match.'
+        };
+    }
+
     // 2. Check for Confirmed Bank Income (credit transactions)
     if (amount > 0) {
         const isIncome = BANK_INCOME_KEYWORDS.some(kw => normCombined.includes(kw));
@@ -233,7 +324,7 @@ export function classifyTransaction(txn, { members = [], loanEnterprises = [], d
     }
 
     // 3. Attempt confident member match
-    const match = matchMember(combinedText, members);
+    const match = matchMember(rawDesc, members, { nameOnly: true });
 
     if (match.member && match.confidence === 'High') {
         if (amount > 0) {

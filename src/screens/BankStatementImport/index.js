@@ -1,8 +1,9 @@
 import { escapeHtml, escapeAttribute, formatCurrency, formatDate } from '../../utils/formatters.js';
 import { fetchBanks, fetchAllMembers, fetchEnterprises, fetchTransactionTypes } from '../../services/dataService.js';
 import { extractTransactionsFromFile } from '../../services/bankStatement/extractor.js';
-import { classifyTransaction } from '../../services/bankStatement/intelligence.js';
+import { classifyTransaction, matchMember, normalizeText } from '../../services/bankStatement/intelligence.js';
 import { detectDuplicates } from '../../services/bankStatement/duplicateDetector.js';
+import { filterStatementTransactions } from '../../services/bankStatement/reviewFilters.js';
 import { commitStatementImport } from '../../services/bankStatement/importer.js';
 import { loadStatementDraft, saveStatementDraft, clearStatementDraft } from '../../services/bankStatement/statementDraftService.js';
 import { showToast } from '../../services/toastService.js';
@@ -22,6 +23,7 @@ export async function renderBankStatementImport(container, user) {
         transactionTypes: [],
         selectedBank: '',
         selectedFile: null,
+        pdfPassword: '',
         fileName: '',
         fileSize: 0,
         transactions: [],
@@ -30,10 +32,53 @@ export async function renderBankStatementImport(container, user) {
         activeEditRow: null,
         isCommitting: false,
         importSummary: null,
+        extractionInfo: null,
         hasSavedDraft: false,
+        savedDraftData: null,
         draftUpdatedAt: null,
-        lastSaved: null
+        lastSaved: null,
+        sortKey: null,
+        sortDirection: 'asc',
+        tableScrollTop: 0,
+        tableScrollLeft: 0
     };
+
+    const reviewSessionKey = `bank_statement_review_active:${String(coopId || '')}:${String(userId || 'unknown')}`;
+    let draftSaveTimer = null;
+
+    function setReviewSessionActive(active) {
+        try {
+            if (active) sessionStorage.setItem(reviewSessionKey, '1');
+            else sessionStorage.removeItem(reviewSessionKey);
+        } catch (_) {}
+    }
+
+    function isReviewSessionActive() {
+        try {
+            return sessionStorage.getItem(reviewSessionKey) === '1';
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function restoreReviewDraft(draft) {
+        state.selectedBank = draft.selectedBank || (state.banks[0]?.bank_name || '');
+        state.fileName = draft.fileName || 'bank_statement';
+        state.fileSize = Number(draft.fileSize) || 0;
+        state.transactions = Array.isArray(draft.transactions) ? draft.transactions : [];
+        state.extractionInfo = draft.extractionInfo || null;
+        state.filter = ['all', 'confident', 'uncertain', 'unknown', 'expense', 'income', 'loan', 'duplicates'].includes(draft.filter)
+            ? draft.filter
+            : 'all';
+        state.searchTerm = String(draft.searchTerm || '');
+        state.sortKey = draft.sortKey || null;
+        state.sortDirection = draft.sortDirection === 'desc' ? 'desc' : 'asc';
+        state.tableScrollTop = Math.max(0, Number(draft.tableScrollTop) || 0);
+        state.tableScrollLeft = Math.max(0, Number(draft.tableScrollLeft) || 0);
+        state.lastSaved = draft.updated_at ? new Date(draft.updated_at) : null;
+        state.step = 'review';
+        state.hasSavedDraft = false;
+    }
 
     container.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:60vh;color:var(--text-muted);font-size:1rem;">
@@ -48,7 +93,7 @@ export async function renderBankStatementImport(container, user) {
         const [banks, members, enterprises, transactionTypes] = await Promise.all([
             fetchBanks(coopId).catch(() => []),
             fetchAllMembers(coopId).catch(() => []),
-            fetchEnterprises(coopId).catch(() => []),
+            fetchEnterprises(coopId, true).catch(() => []),
             fetchTransactionTypes(coopId).catch(() => [])
         ]);
 
@@ -64,6 +109,7 @@ export async function renderBankStatementImport(container, user) {
             state.hasSavedDraft = true;
             state.draftUpdatedAt = draft.updated_at;
             state.savedDraftData = draft;
+            if (isReviewSessionActive()) restoreReviewDraft(draft);
         }
 
         renderMain();
@@ -84,13 +130,36 @@ export async function renderBankStatementImport(container, user) {
                 selectedBank: state.selectedBank,
                 fileName: state.fileName,
                 fileSize: state.fileSize,
-                transactions: state.transactions
+                transactions: state.transactions,
+                extractionInfo: state.extractionInfo,
+                filter: state.filter,
+                searchTerm: state.searchTerm,
+                sortKey: state.sortKey,
+                sortDirection: state.sortDirection,
+                tableScrollTop: state.tableScrollTop,
+                tableScrollLeft: state.tableScrollLeft
             }).then(() => {
                 state.lastSaved = new Date();
                 updateSaveIndicator();
             }).catch(e => console.warn('Draft save error:', e));
         }
     }
+
+    function scheduleAutoSave() {
+        if (draftSaveTimer) clearTimeout(draftSaveTimer);
+        draftSaveTimer = setTimeout(() => {
+            draftSaveTimer = null;
+            autoSave();
+        }, 250);
+    }
+
+    window.addEventListener('hashchange', () => {
+        if (draftSaveTimer) {
+            clearTimeout(draftSaveTimer);
+            draftSaveTimer = null;
+        }
+        autoSave();
+    }, { once: true, capture: true });
 
     function updateSaveIndicator() {
         const ind = document.getElementById('bsi-save-indicator');
@@ -100,7 +169,37 @@ export async function renderBankStatementImport(container, user) {
         }
     }
 
+    function captureTableScroll() {
+        const tableWrap = container.querySelector('.bsi-table-wrap');
+        if (!tableWrap) return;
+        state.tableScrollTop = tableWrap.scrollTop;
+        state.tableScrollLeft = tableWrap.scrollLeft;
+    }
+
+    function restoreTableScroll() {
+        if (state.step !== 'review') return;
+        requestAnimationFrame(() => {
+            const tableWrap = container.querySelector('.bsi-table-wrap');
+            if (!tableWrap) return;
+            tableWrap.scrollTop = state.tableScrollTop;
+            tableWrap.scrollLeft = state.tableScrollLeft;
+        });
+    }
+
+    function setSort(key) {
+        captureTableScroll();
+        if (state.sortKey === key) {
+            state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            state.sortKey = key;
+            state.sortDirection = 'asc';
+        }
+        renderMain();
+        autoSave();
+    }
+
     function renderMain() {
+        captureTableScroll();
         container.innerHTML = `
             <style>
                 .bsi-shell {
@@ -223,6 +322,21 @@ export async function renderBankStatementImport(container, user) {
                     white-space: nowrap;
                     z-index: 2;
                 }
+                .bsi-sort-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.3rem;
+                    padding: 0;
+                    border: 0;
+                    background: transparent;
+                    color: inherit;
+                    font: inherit;
+                    text-transform: inherit;
+                    letter-spacing: inherit;
+                    cursor: pointer;
+                }
+                .bsi-sort-btn:hover { color: var(--accent-primary); }
+                .bsi-sort-indicator { font-size: 0.72rem; opacity: 0.7; }
                 .bsi-table td {
                     padding: 0.7rem 0.85rem;
                     border-bottom: 1px solid var(--border-light);
@@ -313,6 +427,7 @@ export async function renderBankStatementImport(container, user) {
         `;
 
         bindEvents();
+        restoreTableScroll();
     }
 
     function renderUploadView() {
@@ -379,11 +494,21 @@ export async function renderBankStatementImport(container, user) {
                         </div>
                     </div>
 
+                    ${state.selectedFile?.name?.toLowerCase().endsWith('.pdf') ? `
+                        <div>
+                            <label for="bsi-pdf-password" style="display:block;font-size:0.82rem;font-weight:700;color:var(--text-primary);margin-bottom:0.4rem;">
+                                PDF password <span style="font-weight:400;color:var(--text-muted);">(if required)</span>
+                            </label>
+                            <input type="password" id="bsi-pdf-password" autocomplete="off" value="${escapeAttribute(state.pdfPassword || '')}" placeholder="Enter the password for this PDF" style="width:100%;min-height:44px;padding:0.6rem 0.85rem;border:1.5px solid var(--border-medium);border-radius:var(--radius-md);background:var(--bg-card);color:var(--text-primary);font-size:0.9rem;">
+                            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.35rem;">Used only to open this PDF; it is not saved with your import draft.</div>
+                        </div>
+                    ` : ''}
+
                     <div style="background: var(--bg-secondary); border-radius: var(--radius-md); padding: 1rem; border: 1px solid var(--border-light); font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
                         <strong style="color:var(--text-primary);">Controls and Processing Rules:</strong>
                         <ul style="margin: 0.4rem 0 0 1.25rem; padding: 0;">
                             <li>Intelligently identifies column headers for Date, Description, Reference, Debits, Credits and Balances.</li>
-                            <li>Multi-factor member identification (Name, Registration number, Special ID, Phone).</li>
+                            <li>Initial member mapping requires exact spelling in at least two of the first, middle and last names; uncertain matches go to Unknown for manual review.</li>
                             <li>Positive member payments prepared for <strong>Auto Distribution</strong>.</li>
                             <li>Negative member outflows prepared for <strong>Loan Enterprise assignment</strong> (no loan records created until approved).</li>
                             <li>All imported transactions remain <strong>Pending</strong> until approved manually by an administrator.</li>
@@ -426,28 +551,58 @@ export async function renderBankStatementImport(container, user) {
         const duplicateCount = txns.filter(t => t.duplicateStatus === 'Possible Duplicate' || t.duplicateStatus === 'Confirmed Duplicate').length;
         const readyToImportCount = txns.filter(t => !t.skipImport).length;
 
-        // Apply filters
-        const filtered = txns.filter(t => {
-            if (state.filter === 'confident' && (t.confidence !== 'High' || t.classification === 'Unknown')) return false;
-            if (state.filter === 'uncertain' && t.confidence === 'High' && t.classification !== 'Unknown') return false;
-            if (state.filter === 'unknown' && t.classification !== 'Unknown') return false;
-            if (state.filter === 'expense' && t.classification !== 'Expense') return false;
-            if (state.filter === 'income' && t.classification !== 'Income') return false;
-            if (state.filter === 'loan' && (t.classification !== 'Loan' || t.amount >= 0)) return false;
-            if (state.filter === 'duplicates' && t.duplicateStatus === 'New') return false;
+        // Use the same shared predicate for displayed rows and the filter's count.
+        const filtered = filterStatementTransactions(txns, state.filter, state.searchTerm);
+        const countsForSearch = {
+            all: filterStatementTransactions(txns, 'all', state.searchTerm).length,
+            confident: filterStatementTransactions(txns, 'confident', state.searchTerm).length,
+            uncertain: filterStatementTransactions(txns, 'uncertain', state.searchTerm).length,
+            unknown: filterStatementTransactions(txns, 'unknown', state.searchTerm).length,
+            expense: filterStatementTransactions(txns, 'expense', state.searchTerm).length,
+            income: filterStatementTransactions(txns, 'income', state.searchTerm).length,
+            loan: filterStatementTransactions(txns, 'loan', state.searchTerm).length,
+            duplicates: filterStatementTransactions(txns, 'duplicates', state.searchTerm).length
+        };
 
-            if (state.searchTerm) {
-                const term = state.searchTerm.toLowerCase();
-                const desc = String(t.description || '').toLowerCase();
-                const ref = String(t.reference || '').toLowerCase();
-                const memberName = t.member ? `${t.member.first_name} ${t.member.last_name}`.toLowerCase() : '';
-                const regNo = String(t.member?.registration_no || '').toLowerCase();
-                if (!desc.includes(term) && !ref.includes(term) && !memberName.includes(term) && !regNo.includes(term)) {
-                    return false;
-                }
+        const enterpriseNameFor = (txn) => txn.enterpriseId
+            ? (state.enterprises.find(e => String(e.id) === String(txn.enterpriseId))?.account_name || 'Selected')
+            : (txn.classification === 'Remittance' ? 'Auto Share Distributed' : '—');
+        const sortValueFor = (txn, key) => {
+            switch (key) {
+                case 'date': return String(txn.date || '');
+                case 'description': return String(txn.description || '');
+                case 'reference': return String(txn.reference || '');
+                case 'debit': return Number(txn.debit) || 0;
+                case 'credit': return Number(txn.credit) || 0;
+                case 'member': return txn.member ? `${txn.member.first_name || ''} ${txn.member.last_name || ''}` : 'Unknown / Cooperative';
+                case 'classification': return String(txn.classification || '');
+                case 'enterprise': return enterpriseNameFor(txn);
+                case 'confidence': return String(txn.confidence || '');
+                case 'duplicateStatus': return String(txn.duplicateStatus || '');
+                case 'notes': return `${txn.duplicateNote || ''} ${txn.notes || ''}`;
+                case 'status': return 'Pending';
+                default: return '';
             }
-            return true;
-        });
+        };
+        const sortedFiltered = state.sortKey
+            ? [...filtered].sort((a, b) => {
+                const aValue = sortValueFor(a, state.sortKey);
+                const bValue = sortValueFor(b, state.sortKey);
+                let result;
+                if (typeof aValue === 'number' && typeof bValue === 'number') {
+                    result = aValue - bValue;
+                } else {
+                    result = String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: 'base' });
+                }
+                return state.sortDirection === 'desc' ? -result : result;
+            })
+            : filtered;
+        const visibleSelectedCount = filtered.filter(t => !t.skipImport).length;
+        const sortableHeader = (label, key, style = '') => {
+            const isActive = state.sortKey === key;
+            const indicator = isActive ? (state.sortDirection === 'asc' ? '▲' : '▼') : '↕';
+            return `<th style="${style}"><button type="button" class="bsi-sort-btn" data-sort-key="${key}" title="Sort ${escapeAttribute(label)} ${isActive && state.sortDirection === 'asc' ? 'descending' : 'ascending'}">${label}<span class="bsi-sort-indicator" aria-hidden="true">${indicator}</span></button></th>`;
+        };
 
         return `
             <div>
@@ -518,14 +673,14 @@ export async function renderBankStatementImport(container, user) {
                 <div class="bsi-card" style="margin-bottom: 1.25rem; padding: 1rem 1.25rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
                         <div class="bsi-filter-bar" style="margin-bottom: 0;">
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'all' ? 'active' : ''}" data-filter="all">All (${totalCount})</button>
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'confident' ? 'active' : ''}" data-filter="confident">Confident (${confidentCount})</button>
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'uncertain' ? 'active' : ''}" data-filter="uncertain">Needs Review (${totalCount - confidentCount})</button>
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'unknown' ? 'active' : ''}" data-filter="unknown">Unknown (${unknownCount})</button>
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'expense' ? 'active' : ''}" data-filter="expense">Expenses (${expenseCount})</button>
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'income' ? 'active' : ''}" data-filter="income">Income (${incomeCount})</button>
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'loan' ? 'active' : ''}" data-filter="loan">Debits/Loans (${totalDebitCount})</button>
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'duplicates' ? 'active' : ''}" data-filter="duplicates">Duplicates (${duplicateCount})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'all' ? 'active' : ''}" data-filter="all">All (${countsForSearch.all})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'confident' ? 'active' : ''}" data-filter="confident">Confident (${countsForSearch.confident})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'uncertain' ? 'active' : ''}" data-filter="uncertain">Needs Review (${countsForSearch.uncertain})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'unknown' ? 'active' : ''}" data-filter="unknown">Unknown (${countsForSearch.unknown})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'expense' ? 'active' : ''}" data-filter="expense">Expenses (${countsForSearch.expense})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'income' ? 'active' : ''}" data-filter="income">Income (${countsForSearch.income})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'loan' ? 'active' : ''}" data-filter="loan">Debits/Loans (${countsForSearch.loan})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'duplicates' ? 'active' : ''}" data-filter="duplicates">Duplicates (${countsForSearch.duplicates})</button>
                         </div>
 
                         <div style="position: relative; min-width: 260px;">
@@ -542,18 +697,18 @@ export async function renderBankStatementImport(container, user) {
                                 <th style="width: 38px; text-align: center;">
                                     <input type="checkbox" id="bsi-select-all-cb" title="Toggle include all" checked />
                                 </th>
-                                <th>Date</th>
-                                <th style="min-width: 180px;">Description</th>
-                                <th>Reference</th>
-                                <th style="text-align: right;">Debit (Out)</th>
-                                <th style="text-align: right;">Credit (In)</th>
-                                <th style="min-width: 160px;">Member</th>
-                                <th>Classification</th>
-                                <th>Enterprise</th>
-                                <th>Confidence</th>
-                                <th>Duplicate Status</th>
-                                <th style="min-width: 200px;">Notes / Warnings</th>
-                                <th>Status</th>
+                                ${sortableHeader('Date', 'date')}
+                                ${sortableHeader('Description', 'description', 'min-width: 180px;')}
+                                ${sortableHeader('Reference', 'reference')}
+                                ${sortableHeader('Debit (Out)', 'debit', 'text-align: right;')}
+                                ${sortableHeader('Credit (In)', 'credit', 'text-align: right;')}
+                                ${sortableHeader('Member', 'member', 'min-width: 160px;')}
+                                ${sortableHeader('Classification', 'classification')}
+                                ${sortableHeader('Enterprise', 'enterprise')}
+                                ${sortableHeader('Confidence', 'confidence')}
+                                ${sortableHeader('Duplicate Status', 'duplicateStatus')}
+                                ${sortableHeader('Notes / Warnings', 'notes', 'min-width: 200px;')}
+                                ${sortableHeader('Status', 'status')}
                                 <th style="text-align: center;">Action</th>
                             </tr>
                         </thead>
@@ -564,7 +719,7 @@ export async function renderBankStatementImport(container, user) {
                                         No transactions match the selected filter.
                                     </td>
                                 </tr>
-                            ` : filtered.map((txn, idx) => {
+                            ` : sortedFiltered.map((txn, idx) => {
                                 const realIdx = state.transactions.indexOf(txn);
                                 const isExcluded = !!txn.skipImport;
                                 const isDebit = txn.amount < 0;
@@ -579,9 +734,7 @@ export async function renderBankStatementImport(container, user) {
 
                                 const confBadgeClass = txn.confidence === 'High' ? 'bsi-badge-high' : (txn.confidence === 'Low' ? 'bsi-badge-low' : 'bsi-badge-none');
 
-                                const enterpriseName = txn.enterpriseId
-                                    ? (state.enterprises.find(e => String(e.id) === String(txn.enterpriseId))?.account_name || 'Selected')
-                                    : (txn.classification === 'Remittance' ? 'Auto Share Distributed' : '—');
+                                const enterpriseName = enterpriseNameFor(txn);
 
                                 return `
                                     <tr class="${isExcluded ? 'row-excluded' : ''}" data-idx="${realIdx}">
@@ -626,9 +779,14 @@ export async function renderBankStatementImport(container, user) {
                                             <span class="bsi-badge bsi-badge-pending">Pending</span>
                                         </td>
                                         <td style="text-align: center; white-space: nowrap;">
-                                            <button type="button" class="btn btn-secondary bsi-edit-row-btn" data-idx="${realIdx}" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
-                                                Edit / Map
-                                            </button>
+                                            <div style="display:flex; flex-direction:column; gap:0.35rem; align-items:center;">
+                                                <button type="button" class="btn btn-secondary bsi-edit-row-btn" data-idx="${realIdx}" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                                                    Edit / Map
+                                                </button>
+                                                <button type="button" class="btn btn-ghost bsi-remap-row-btn" data-idx="${realIdx}" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
+                                                    Re-map
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 `;
@@ -639,7 +797,7 @@ export async function renderBankStatementImport(container, user) {
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; gap: 1rem;">
                     <div style="font-size: 0.82rem; color: var(--text-muted);">
-                        Showing ${filtered.length} of ${totalCount} transactions &middot; ${readyToImportCount} selected for import
+                        Showing ${filtered.length} of ${totalCount} transactions &middot; ${visibleSelectedCount} visible selected &middot; ${readyToImportCount} selected overall
                     </div>
 
                     <div style="display: flex; gap: 0.75rem;">
@@ -688,6 +846,168 @@ export async function renderBankStatementImport(container, user) {
         `;
     }
 
+    function renderRemapModal(idx) {
+        const txn = state.transactions[idx];
+        if (!txn) return;
+
+        const modalWrap = document.getElementById('bsi-edit-modal-wrap');
+        if (!modalWrap) return;
+
+        const previousMember = txn.member;
+        const previousMemberLabel = previousMember
+            ? [previousMember.first_name, previousMember.middle_name, previousMember.last_name].filter(Boolean).join(' ')
+            : 'Unknown / Cooperative';
+
+        modalWrap.innerHTML = `
+            <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 1rem;">
+                <div style="background: var(--bg-card); border-radius: var(--radius-lg); width: min(94vw, 560px); max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-xl); border: 1px solid var(--border-light); padding: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">Re-map Selected Transaction</h3>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Row #${txn.rowNumber || idx + 1} &middot; ${formatDate(txn.date)} &middot; ${escapeHtml(txn.description || '')}</div>
+                        </div>
+                        <button type="button" id="bsi-remap-close-btn" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted);">&times;</button>
+                    </div>
+
+                    <div style="padding: 0.75rem; background: var(--bg-secondary); border-radius: var(--radius-sm); font-size: 0.82rem; margin-bottom: 1rem;">
+                        <strong>Current mapping:</strong> ${escapeHtml(previousMemberLabel)}
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 0.85rem; font-size: 0.85rem;">
+                        <div>
+                            <label for="bsi-remap-method" style="font-weight: 700; display: block; margin-bottom: 0.25rem;">Find member using</label>
+                            <select id="bsi-remap-method" style="width: 100%; min-height: 40px; padding: 0.5rem; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-primary);">
+                                <option value="fullname">Full Name</option>
+                                <option value="special_id">Special ID</option>
+                                <option value="mobile">Mobile</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="bsi-remap-query" style="font-weight: 700; display: block; margin-bottom: 0.25rem;">Search value</label>
+                            <input type="text" id="bsi-remap-query" autocomplete="off" placeholder="Type a member name, special ID, or mobile" style="width: 100%; box-sizing: border-box; min-height: 40px; padding: 0.5rem; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-primary);" />
+                            <div id="bsi-remap-suggestions" role="listbox" style="display:none; position:relative; max-height:220px; overflow-y:auto; margin-top:0.25rem; border:1px solid var(--border-medium); border-radius:var(--radius-sm); background:var(--bg-card); box-shadow:var(--shadow-md);"></div>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="bsi-remap-find-btn" style="align-self: flex-start;">Find Member</button>
+                        <div id="bsi-remap-result" style="min-height: 2.5rem; padding: 0.75rem; border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-muted);">
+                            Enter a value and select Find Member.
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
+                            <button type="button" class="btn btn-secondary" id="bsi-remap-reject-btn">Reject / Cancel</button>
+                            <button type="button" class="btn btn-primary" id="bsi-remap-accept-btn" disabled>Accept Mapping</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        let proposedMember = null;
+        const methodSelect = document.getElementById('bsi-remap-method');
+        const queryInput = document.getElementById('bsi-remap-query');
+        const suggestionsBox = document.getElementById('bsi-remap-suggestions');
+        const resultBox = document.getElementById('bsi-remap-result');
+        const acceptBtn = document.getElementById('bsi-remap-accept-btn');
+        const closeModal = () => { modalWrap.innerHTML = ''; state.activeEditRow = null; };
+
+        document.getElementById('bsi-remap-close-btn')?.addEventListener('click', closeModal);
+        document.getElementById('bsi-remap-reject-btn')?.addEventListener('click', closeModal);
+        const activeMembers = state.members.filter(m => m && m.id !== '0000000000' && !m.is_deleted && String(m.status || '').toLowerCase() !== 'archived');
+        const showRemapSuggestions = () => {
+            if (!suggestionsBox || methodSelect?.value !== 'fullname') return;
+            const query = normalizeText(queryInput?.value || '');
+            if (!query) {
+                suggestionsBox.style.display = 'none';
+                suggestionsBox.innerHTML = '';
+                return;
+            }
+            const queryParts = query.split(/\s+/).filter(Boolean);
+            const matches = activeMembers.filter(member => {
+                const name = normalizeText([member.first_name, member.middle_name, member.last_name].filter(Boolean).join(' '));
+                return queryParts.every(part => name.includes(part));
+            }).slice(0, 10);
+            suggestionsBox.innerHTML = matches.map(member => {
+                const name = [member.first_name, member.middle_name, member.last_name].filter(Boolean).join(' ');
+                const detail = [member.registration_no ? `Reg: ${member.registration_no}` : '', member.mobile || ''].filter(Boolean).join(' · ');
+                return `<button type="button" role="option" data-member-id="${escapeAttribute(member.id)}" style="display:block;width:100%;text-align:left;padding:0.55rem 0.7rem;border:0;border-bottom:1px solid var(--border-light);background:var(--bg-card);color:var(--text-primary);cursor:pointer;"><strong>${escapeHtml(name)}</strong><div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(detail)}</div></button>`;
+            }).join('');
+            suggestionsBox.style.display = matches.length ? 'block' : 'none';
+            suggestionsBox.querySelectorAll('[data-member-id]').forEach(option => {
+                option.onclick = () => {
+                    proposedMember = activeMembers.find(member => String(member.id) === option.dataset.memberId) || null;
+                    const selectedName = proposedMember ? [proposedMember.first_name, proposedMember.middle_name, proposedMember.last_name].filter(Boolean).join(' ') : '';
+                    if (queryInput) queryInput.value = selectedName;
+                    suggestionsBox.style.display = 'none';
+                    if (proposedMember && resultBox) {
+                        resultBox.innerHTML = `<strong>Proposed mapping:</strong> ${escapeHtml(selectedName)}<br><span style="font-size:0.75rem;color:var(--text-muted);">Special ID: ${escapeHtml(proposedMember.special_id || '—')} &middot; Mobile: ${escapeHtml(proposedMember.mobile || '—')}</span><br><span style="font-size:0.75rem;color:var(--warning);">Review this match, then accept or reject it.</span>`;
+                    }
+                    if (acceptBtn) acceptBtn.disabled = !proposedMember;
+                };
+            });
+        };
+        queryInput?.addEventListener('input', () => {
+            proposedMember = null;
+            if (acceptBtn) acceptBtn.disabled = true;
+            showRemapSuggestions();
+        });
+        methodSelect?.addEventListener('change', () => {
+            if (suggestionsBox) suggestionsBox.style.display = 'none';
+            proposedMember = null;
+            if (acceptBtn) acceptBtn.disabled = true;
+        });
+        document.getElementById('bsi-remap-find-btn')?.addEventListener('click', () => {
+            const method = methodSelect?.value || 'fullname';
+            const query = String(queryInput?.value || '').trim();
+            proposedMember = null;
+            if (!query) {
+                if (resultBox) resultBox.innerHTML = '<span style="color:var(--danger);">Enter a search value first.</span>';
+                if (acceptBtn) acceptBtn.disabled = true;
+                return;
+            }
+
+            const normalizedQuery = normalizeText(query);
+            let candidate = null;
+
+            if (method === 'fullname') {
+                candidate = activeMembers.find(m => normalizeText([m.first_name, m.middle_name, m.last_name].filter(Boolean).join(' ')) === normalizedQuery);
+            } else if (method === 'special_id') {
+                candidate = activeMembers.find(m => normalizeText(m.special_id) === normalizedQuery);
+            } else if (method === 'mobile') {
+                const digits = query.replace(/\D/g, '');
+                candidate = activeMembers.find(m => String(m.mobile || '').replace(/\D/g, '') === digits && digits.length > 0);
+            }
+
+            // Use the shared matcher as a fallback for formatting variations,
+            // but only accept a confident and unambiguous result.
+            if (!candidate) {
+                const matched = matchMember(query, activeMembers);
+                if (matched.member && matched.confidence === 'High') candidate = matched.member;
+            }
+
+            if (!candidate) {
+                if (resultBox) resultBox.innerHTML = '<span style="color:var(--danger);">No unique active member was found. Check the value and try again.</span>';
+                if (acceptBtn) acceptBtn.disabled = true;
+                return;
+            }
+
+            proposedMember = candidate;
+            if (resultBox) {
+                const candidateName = [candidate.first_name, candidate.middle_name, candidate.last_name].filter(Boolean).join(' ');
+                resultBox.innerHTML = `<strong>Proposed mapping:</strong> ${escapeHtml(candidateName)}<br><span style="font-size:0.75rem;color:var(--text-muted);">Special ID: ${escapeHtml(candidate.special_id || '—')} &middot; Mobile: ${escapeHtml(candidate.mobile || '—')}</span><br><span style="font-size:0.75rem;color:var(--warning);">Review this match, then accept or reject it.</span>`;
+            }
+            if (acceptBtn) acceptBtn.disabled = false;
+        });
+
+        acceptBtn?.addEventListener('click', () => {
+            if (!proposedMember) return;
+            txn.memberId = proposedMember.id;
+            txn.member = proposedMember;
+            txn.confidence = 'High';
+            closeModal();
+            autoSave();
+            renderMain();
+            showToast('Mapping accepted for the selected transaction.', 'success');
+        });
+    }
+
     function renderEditModal(idx) {
         const txn = state.transactions[idx];
         if (!txn) return;
@@ -729,14 +1049,11 @@ export async function renderBankStatementImport(container, user) {
 
                         <div id="bsi-modal-member-section" style="${txn.classification === 'Expense' || txn.classification === 'Income' || txn.classification === 'Unknown' ? 'display:none;' : ''}">
                             <label style="font-weight: 700; display: block; margin-bottom: 0.25rem;">Assigned Member</label>
-                            <select id="bsi-modal-member-select" style="width: 100%; min-height: 40px; padding: 0.5rem; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-primary);">
-                                <option value="">— Select Member —</option>
-                                ${state.members.filter(m => m && m.id !== '0000000000' && !m.is_deleted).map(m => `
-                                    <option value="${escapeAttribute(m.id)}" ${txn.memberId === m.id ? 'selected' : ''}>
-                                        ${escapeHtml(m.first_name)} ${escapeHtml(m.last_name)} ${m.registration_no ? `(Reg: ${m.registration_no})` : ''} ${m.mobile ? `(${m.mobile})` : ''}
-                                    </option>
-                                `).join('')}
-                            </select>
+                            <div style="position:relative;">
+                                <input type="text" id="bsi-modal-member-search" autocomplete="off" value="${escapeAttribute(txn.member ? [txn.member.first_name, txn.member.middle_name, txn.member.last_name].filter(Boolean).join(' ') : '')}" placeholder="Type a member name, registration number, or mobile" style="width: 100%; box-sizing: border-box; min-height: 40px; padding: 0.5rem; border: 1px solid var(--border-medium); border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-primary);" />
+                                <div id="bsi-modal-member-suggestions" role="listbox" style="display:none; position:absolute; z-index:10001; top:calc(100% + 2px); left:0; right:0; max-height:220px; overflow-y:auto; border:1px solid var(--border-medium); border-radius:var(--radius-sm); background:var(--bg-card); box-shadow:var(--shadow-md);"></div>
+                            </div>
+                            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:0.25rem;">Type to search, then select a member from the suggestions.</div>
                         </div>
 
                         <div id="bsi-modal-loan-enterprise-section" style="${txn.classification !== 'Loan' ? 'display:none;' : ''}">
@@ -783,6 +1100,9 @@ export async function renderBankStatementImport(container, user) {
         const cancelBtn = document.getElementById('bsi-modal-cancel-btn');
         const saveBtn = document.getElementById('bsi-modal-save-btn');
         const classSelect = document.getElementById('bsi-modal-class-select');
+        const memberSearch = document.getElementById('bsi-modal-member-search');
+        const memberSuggestions = document.getElementById('bsi-modal-member-suggestions');
+        let selectedMemberId = state.members.some(member => String(member.id) === String(txn.memberId)) ? String(txn.memberId) : '';
         const memberSec = document.getElementById('bsi-modal-member-section');
         const loanEntSec = document.getElementById('bsi-modal-loan-enterprise-section');
         const expenseSec = document.getElementById('bsi-modal-expense-type-section');
@@ -800,10 +1120,52 @@ export async function renderBankStatementImport(container, user) {
             };
         }
 
+        const searchableMembers = state.members.filter(member => member && member.id !== '0000000000' && !member.is_deleted && String(member.status || '').toLowerCase() !== 'archived');
+        const renderMemberSuggestions = (clearSelection = false) => {
+            if (!memberSearch || !memberSuggestions) return;
+            const query = normalizeText(memberSearch.value);
+            if (clearSelection) selectedMemberId = '';
+            if (!query) {
+                memberSuggestions.innerHTML = '';
+                memberSuggestions.style.display = 'none';
+                return;
+            }
+            const parts = query.split(/\s+/).filter(Boolean);
+            const matches = searchableMembers.filter(member => {
+                const searchable = normalizeText([
+                    member.first_name, member.middle_name, member.last_name,
+                    member.registration_no, member.mobile, member.special_id
+                ].filter(Boolean).join(' '));
+                return parts.every(part => searchable.includes(part));
+            }).slice(0, 12);
+            memberSuggestions.innerHTML = matches.map(member => {
+                const name = [member.first_name, member.middle_name, member.last_name].filter(Boolean).join(' ');
+                const details = [member.registration_no ? `Reg: ${member.registration_no}` : '', member.mobile || ''].filter(Boolean).join(' · ');
+                return `<button type="button" role="option" data-member-id="${escapeAttribute(member.id)}" style="display:block;width:100%;text-align:left;padding:0.6rem 0.75rem;border:0;border-bottom:1px solid var(--border-light);background:var(--bg-card);color:var(--text-primary);cursor:pointer;"><strong>${escapeHtml(name)}</strong><div style="font-size:0.72rem;color:var(--text-muted);">${escapeHtml(details)}</div></button>`;
+            }).join('');
+            memberSuggestions.style.display = matches.length ? 'block' : 'none';
+            memberSuggestions.querySelectorAll('[data-member-id]').forEach(option => {
+                option.onclick = () => {
+                    const selectedMember = searchableMembers.find(member => String(member.id) === option.dataset.memberId);
+                    if (!selectedMember) return;
+                    selectedMemberId = String(selectedMember.id);
+                    memberSearch.value = [selectedMember.first_name, selectedMember.middle_name, selectedMember.last_name].filter(Boolean).join(' ');
+                    memberSuggestions.style.display = 'none';
+                };
+            });
+        };
+        memberSearch?.addEventListener('input', () => renderMemberSuggestions(true));
+        memberSearch?.addEventListener('focus', () => renderMemberSuggestions(false));
+        memberSearch?.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && memberSuggestions) memberSuggestions.style.display = 'none';
+        });
+        memberSearch?.addEventListener('blur', () => {
+            setTimeout(() => { if (memberSuggestions) memberSuggestions.style.display = 'none'; }, 150);
+        });
+
         if (saveBtn) {
             saveBtn.onclick = () => {
                 const newClass = classSelect?.value || txn.classification;
-                const memberSel = document.getElementById('bsi-modal-member-select');
                 const loanEntSel = document.getElementById('bsi-modal-loan-ent-select');
                 const expSel = document.getElementById('bsi-modal-expense-select');
                 const notesInput = document.getElementById('bsi-modal-notes-input');
@@ -812,7 +1174,7 @@ export async function renderBankStatementImport(container, user) {
                 txn.notes = notesInput?.value || txn.notes;
 
                 if (newClass === 'Remittance' || newClass === 'Loan') {
-                    const mId = memberSel?.value || '';
+                    const mId = selectedMemberId;
                     if (mId) {
                         const m = state.members.find(x => x.id === mId);
                         txn.memberId = mId;
@@ -875,6 +1237,9 @@ export async function renderBankStatementImport(container, user) {
             };
         }
 
+        const pdfPasswordInput = document.getElementById('bsi-pdf-password');
+        if (pdfPasswordInput) pdfPasswordInput.oninput = (e) => { state.pdfPassword = e.target.value; };
+
         const dropzone = document.getElementById('bsi-dropzone');
         const fileInput = document.getElementById('bsi-file-input');
         if (dropzone && fileInput) {
@@ -898,11 +1263,8 @@ export async function renderBankStatementImport(container, user) {
         if (resumeBtn) {
             resumeBtn.onclick = () => {
                 const d = state.savedDraftData;
-                state.selectedBank = d.selectedBank || (state.banks[0]?.bank_name || '');
-                state.fileName = d.fileName || 'bank_statement';
-                state.fileSize = d.fileSize || 0;
-                state.transactions = d.transactions || [];
-                state.step = 'review';
+                restoreReviewDraft(d || {});
+                setReviewSessionActive(true);
                 renderMain();
                 showToast('Resumed in-progress statement import.', 'info');
             };
@@ -912,6 +1274,7 @@ export async function renderBankStatementImport(container, user) {
         if (discardDraftBtn) {
             discardDraftBtn.onclick = async () => {
                 await clearStatementDraft(coopId, userId);
+                setReviewSessionActive(false);
                 state.hasSavedDraft = false;
                 state.savedDraftData = null;
                 renderMain();
@@ -925,9 +1288,22 @@ export async function renderBankStatementImport(container, user) {
         }
 
         // Review Step Events
+        const reviewTableWrap = container.querySelector('.bsi-table-wrap');
+        if (reviewTableWrap) {
+            reviewTableWrap.addEventListener('scroll', () => {
+                captureTableScroll();
+                scheduleAutoSave();
+            }, { passive: true });
+        }
+
+        container.querySelectorAll('.bsi-sort-btn').forEach(btn => {
+            btn.onclick = () => setSort(btn.dataset.sortKey);
+        });
+
         container.querySelectorAll('.bsi-filter-btn').forEach(btn => {
             btn.onclick = () => {
                 state.filter = btn.dataset.filter;
+                autoSave();
                 renderMain();
             };
         });
@@ -936,6 +1312,7 @@ export async function renderBankStatementImport(container, user) {
         if (searchInput) {
             searchInput.oninput = (e) => {
                 state.searchTerm = e.target.value;
+                scheduleAutoSave();
                 renderMain();
                 const newInput = document.getElementById('bsi-search-input');
                 if (newInput) {
@@ -973,6 +1350,13 @@ export async function renderBankStatementImport(container, user) {
             };
         });
 
+        container.querySelectorAll('.bsi-remap-row-btn').forEach(btn => {
+            btn.onclick = () => {
+                const idx = parseInt(btn.dataset.idx, 10);
+                renderRemapModal(idx);
+            };
+        });
+
         const manualSaveBtn = document.getElementById('bsi-manual-save-btn');
         const manualSaveBottomBtn = document.getElementById('bsi-manual-save-bottom-btn');
         const doManualSave = () => {
@@ -987,9 +1371,12 @@ export async function renderBankStatementImport(container, user) {
             restartBtn.onclick = async () => {
                 if (confirm('Are you sure you want to discard this preview and re-upload?')) {
                     await clearStatementDraft(coopId, userId);
+                    setReviewSessionActive(false);
                     state.step = 'upload';
                     state.transactions = [];
+                    state.extractionInfo = null;
                     state.selectedFile = null;
+                    state.pdfPassword = '';
                     renderMain();
                 }
             };
@@ -1014,7 +1401,9 @@ export async function renderBankStatementImport(container, user) {
             importAnotherBtn.onclick = () => {
                 state.step = 'upload';
                 state.selectedFile = null;
+                state.pdfPassword = '';
                 state.transactions = [];
+                state.extractionInfo = null;
                 state.importSummary = null;
                 renderMain();
             };
@@ -1023,6 +1412,7 @@ export async function renderBankStatementImport(container, user) {
 
     function handleSelectedFile(file) {
         state.selectedFile = file;
+        state.pdfPassword = '';
         state.fileName = file.name;
         state.fileSize = file.size;
         renderMain();
@@ -1035,11 +1425,14 @@ export async function renderBankStatementImport(container, user) {
         }
 
         state.step = 'analyzing';
+        state.extractionInfo = null;
         renderMain();
 
         try {
             // 1. Extract raw transactions from file
-            const rawExtracted = await extractTransactionsFromFile(state.selectedFile);
+            const rawExtracted = await extractTransactionsFromFile(state.selectedFile, { password: state.pdfPassword });
+            state.pdfPassword = '';
+            state.extractionInfo = rawExtracted?.extractionInfo || null;
 
             if (!rawExtracted || rawExtracted.length === 0) {
                 throw new Error('No transaction rows could be extracted from this statement file. Please verify the file format.');
@@ -1057,7 +1450,7 @@ export async function renderBankStatementImport(container, user) {
                 };
             });
 
-            // 3. Duplicate detection against database and within batch
+            // 3. Duplicate detection against remittances already saved in the database
             const withDuplicates = await detectDuplicates(classified, {
                 cooperativeId: coopId,
                 bankName: state.selectedBank
@@ -1065,6 +1458,7 @@ export async function renderBankStatementImport(container, user) {
 
             state.transactions = withDuplicates;
             state.step = 'review';
+            setReviewSessionActive(true);
             autoSave();
             renderMain();
             showToast(`Extracted ${state.transactions.length} transactions successfully.`, 'success');
@@ -1072,6 +1466,13 @@ export async function renderBankStatementImport(container, user) {
             console.error('[BankStatementImport] Extraction error:', err);
             state.step = 'upload';
             renderMain();
+            if (err.code === 'PDF_PASSWORD_REQUIRED' || err.code === 'PDF_PASSWORD_INCORRECT') {
+                requestAnimationFrame(() => {
+                    const passwordInput = document.getElementById('bsi-pdf-password');
+                    passwordInput?.focus();
+                    if (err.code === 'PDF_PASSWORD_INCORRECT') passwordInput?.select();
+                });
+            }
             showToast(err.message || 'Failed to extract transactions.', 'error');
         }
     }
@@ -1111,6 +1512,7 @@ export async function renderBankStatementImport(container, user) {
             });
 
             await clearStatementDraft(coopId, userId);
+            setReviewSessionActive(false);
             state.isCommitting = false;
             state.importSummary = result;
             state.step = 'success';
