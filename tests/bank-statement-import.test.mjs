@@ -310,6 +310,7 @@ test('matchMember matches member by Special ID, Registration No, Phone, and Name
     const r4 = matchMember('TRANSFER FROM ADEBOWALE WASIU VIA GTWORLD', members);
     assert.equal(r4.member?.id, 'm1');
     assert.equal(r4.confidence, 'High');
+    assert.deepEqual(r4.matchedDescriptionRanges.map(range => 'TRANSFER FROM ADEBOWALE WASIU VIA GTWORLD'.slice(range.start, range.end)), ['ADEBOWALE WASIU']);
 
     // Ambiguous first name only -> returns Low/Unknown
     const r5 = matchMember('TRANSFER FROM WASIU MONTHLY', members);

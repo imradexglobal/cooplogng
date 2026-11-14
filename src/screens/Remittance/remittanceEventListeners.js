@@ -13,6 +13,36 @@ import { showAutoSharePreview } from './auto-share-preview.js';
 export function attachEventListeners(container, deps) {
     const { formData, enterpriseData, members, selectorMembers, openingBalances, paymentAdvise, showAllZeros, previewMode, editMode, historyState, panelSizes, user, isAdmin, isActualAdmin, cooperativeId, PANEL_SIZE_KEY, isMember, render, syncFormData, checkDirty, saveSavedForm, clearSavedForm, clearForm, loadHistoryData, handleMemberChange, handleSubmit, updateHistoryTable, updateDeleteSelectedButton, loadRemittanceToForm, attachImagePreview, trackFocus, isFormValid, restoreFocus } = deps;
     const mobile = isMobile();
+    const openLoanRequestReview = () => {
+      const details = Array.isArray(formData.details) ? formData.details : [];
+      const loanDetail = details.find(detail => detail.loan_info) || details.find(detail => Number(detail.amount || 0) < 0);
+      const mappedId = loanDetail?.enterprise_id || loanDetail?.item;
+      const availableEnterprises = Array.isArray(enterpriseData) ? enterpriseData : [];
+      const mappedEnterprise = mappedId ? availableEnterprises.find(enterprise => String(enterprise.id) === String(mappedId)) : null;
+      const isLoanEnterprise = enterprise => String(enterprise?.account_type || enterprise?.type || '').toLowerCase() === 'loan';
+      const loanEnterprise = isLoanEnterprise(mappedEnterprise) ? mappedEnterprise : availableEnterprises.find(isLoanEnterprise);
+      const enterpriseId = loanEnterprise?.id || (!mappedEnterprise ? mappedId : '');
+      if (!loanDetail || !enterpriseId) { showToast('This pending loan request has no mapped Loan enterprise. Map the row to a Loan enterprise before reviewing it.', 'error'); return; }
+      loanDetail.enterprise_id = String(enterpriseId);
+      const currentLoanData = loanDetail.loan_info?.loanData || {};
+      const principal = Math.abs(Number(currentLoanData.principalAmount ?? currentLoanData.principal_amount ?? loanDetail.amount ?? 0));
+      const duration = Number(currentLoanData.durationMonths ?? currentLoanData.duration_months ?? 0);
+      const showReview = () => showLoanReviewModal(formData, enterpriseData, historyState, clearSavedForm, clearForm, loadHistoryData, render, deps);
+      if (loanDetail.loan_info && principal > 0 && duration > 0) { showReview(); return; }
+      const continueToReview = () => {
+        const configuredDetail = details.find(detail => String(detail.enterprise_id || detail.item || '') === String(enterpriseId)) || loanDetail;
+        const loanData = configuredDetail.loan_info?.loanData || {};
+        const configuredPrincipal = Math.abs(Number(loanData.principalAmount ?? loanData.principal_amount ?? configuredDetail.amount ?? 0));
+        const configuredDuration = Number(loanData.durationMonths ?? loanData.duration_months ?? 0);
+        if (!(configuredPrincipal > 0) || !(configuredDuration > 0)) {
+          showToast('Enter a valid principal and a loan duration greater than zero months to continue.', 'warning');
+          showLoanConfigModal(String(enterpriseId), false, deps, continueToReview);
+          return;
+        }
+        showReview();
+      };
+      showLoanConfigModal(String(enterpriseId), false, deps, continueToReview);
+    };
 
     // --- Mobile Tab Switching (always bind; CSS hides tabs on desktop) ---
     const tabBtns = container.querySelectorAll('.mobile-tab-btn');
@@ -400,7 +430,9 @@ export function attachEventListeners(container, deps) {
       (() => { let t=null; let longPressed=false; const btn=container.querySelector('#update-log-btn'); if(!btn) return; btn.addEventListener('mousedown', () => { longPressed=false; t=setTimeout(()=>{ longPressed=true; window.__remitDevBypass=true; handleSubmit(); }, 600); }); btn.addEventListener('mouseup', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('mouseleave', () => { if(t){clearTimeout(t); t=null;} }); btn.addEventListener('click', (e) => { if(longPressed){ longPressed=false; window.__remitDevBypass=false; e.preventDefault(); e.stopPropagation(); return; } window.__remitDevBypass=false; handleSubmit(); }); })();
       container.querySelector('#review-log-btn')?.addEventListener('click', async () => {
         const firstLoanDetail = formData.details.find(d => d.loan_info);
-        if (firstLoanDetail) {
+        if (formData.isLoanRequest && formData.status === 'Pending') {
+          openLoanRequestReview();
+        } else if (firstLoanDetail) {
           showLoanReviewModal(formData, enterpriseData, historyState, clearSavedForm, clearForm, loadHistoryData, render, deps);
         } else {
           showSimpleReviewModal(formData, enterpriseData, historyState, clearSavedForm, clearForm, loadHistoryData, render, deps);
@@ -428,7 +460,7 @@ export function attachEventListeners(container, deps) {
         await loadRemittanceToForm(remit);
         // Auto-open review modal for pending loan requests
         if (formData.isLoanRequest && formData.status === 'Pending' && deps.canApprove) {
-          showLoanReviewModal(formData, enterpriseData, historyState, clearSavedForm, clearForm, loadHistoryData, render, deps);
+          openLoanRequestReview();
           return;
         }
         row.scrollIntoView({ block: 'nearest' });

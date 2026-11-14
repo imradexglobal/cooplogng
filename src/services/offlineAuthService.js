@@ -8,10 +8,10 @@
  * Security:
  * - Passwords are NEVER stored locally.
  * - Only a session token (SHA-256 of uid+coopId+timestamp+random) is stored.
- * - Session life depends ONLY on "Remember me" (same rule for members,
+ * - Session persistence depends ONLY on "Remember me" (same rule for members,
  *   staff and admins):
  *     Remember me ON  -> persistent session (no inactivity logout)
- *     Remember me OFF -> logout after 10 minutes of inactivity (sliding)
+ *     Remember me OFF -> tab-only session (10-minute inactivity logout)
  * - Permissions snapshot is compared on revalidation; mismatches force logout.
  */
 
@@ -68,7 +68,8 @@ function expiryForSession(now, { remembered = false } = {}) {
  * Synchronous load for app initialization (main.js state).
  * Uses sessionStorage for immediate tab-session state.
  * Without "Remember me" a session returns null when idle past the timeout
- * (all user types, members included).
+ * (all user types, members included). Unchecked sessions are not restored from
+ * IndexedDB after the tab/application is closed.
  * A remembered session never expires here: an idle one is returned with a
  * `__idleReturn` flag (and a refreshed clock) so bootstrap can count the
  * return visit (+1 login_count) without forcing a fresh login.
@@ -491,7 +492,9 @@ async function generateSessionToken(userId, cooperativeId) {
 
 /**
  * Save a verified online session to persistent local storage.
- * Called after a successful Firestore login.
+ * Called after a successful Firestore login. Only Remember-me sessions are
+ * written to persistent storage; an unchecked login removes any stale saved
+ * session for the same user so it cannot be restored later.
  */
 export async function saveOfflineSession(sessionData) {
     const {
@@ -526,6 +529,11 @@ export async function saveOfflineSession(sessionData) {
         }
     }
 
+    if (!remembered) {
+        await deleteLocalSession(sessionKey).catch(() => {})
+        return sessionKey
+    }
+
     await saveLocalSession(sessionKey, {
         user_id: userId,
         user_collection: userCollection || 'users',
@@ -552,8 +560,9 @@ export async function saveOfflineSession(sessionData) {
 
 /**
  * Load the most recent valid local session.
- * A session is valid while unexpired: 30 days with "Remember me", otherwise
- * 10 minutes of inactivity (sliding, extended by recordActivity/touchSession).
+ * Only remembered sessions are eligible for cross-launch restoration. A
+ * session is valid while unexpired for 30 days; unchecked sessions are
+ * deliberately excluded even if an older build left one in IndexedDB.
  * Returns null if no valid session exists.
  */
 export async function loadBestOfflineSession() {
@@ -564,7 +573,7 @@ export async function loadBestOfflineSession() {
         const now = Date.now()
         // Filter to non-expired sessions, pick most recently verified
         const valid = all
-            .filter(s => s.session_expires_ts > now)
+            .filter(s => s.remember === true && s.session_expires_ts > now)
             .sort((a, b) => b.last_verified_ts - a.last_verified_ts)
 
         return valid.length > 0 ? valid[0] : null

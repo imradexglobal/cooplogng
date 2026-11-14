@@ -87,14 +87,14 @@ function findNameFieldHits(value, descriptionTokens) {
 function matchMemberName(member, descriptionTokens) {
     const fields = [member.first_name, member.middle_name, member.last_name];
     const hitsByField = fields.map(value => findNameFieldHits(value, descriptionTokens));
-    let best = { count: 0, exact: 0, distance: Infinity };
+    let best = { count: 0, exact: 0, distance: Infinity, indexes: [] };
 
     function chooseField(fieldIndex, usedIndexes, count, exact, distance) {
         if (fieldIndex === hitsByField.length) {
             if (count > best.count ||
                 (count === best.count && exact > best.exact) ||
                 (count === best.count && exact === best.exact && distance < best.distance)) {
-                best = { count, exact, distance };
+                best = { count, exact, distance, indexes: Array.from(usedIndexes).sort((a, b) => a - b) };
             }
             return;
         }
@@ -110,6 +110,31 @@ function matchMemberName(member, descriptionTokens) {
 
     chooseField(0, new Set(), 0, 0, 0);
     return best.count >= 2 ? best : null;
+}
+
+function tokenizeDescriptionWithOffsets(text) {
+    const source = String(text || '');
+    const tokens = [];
+    const tokenPattern = /[A-Za-z0-9À-ÿ]+/g;
+    let match;
+    while ((match = tokenPattern.exec(source))) {
+        tokens.push({ normalized: normalizeText(match[0]), start: match.index, end: match.index + match[0].length });
+    }
+    return tokens;
+}
+
+function getDescriptionRanges(text, indexes = []) {
+    const tokens = tokenizeDescriptionWithOffsets(text);
+    const selected = indexes.map(index => tokens[index]).filter(Boolean);
+    if (!selected.length) return [];
+    const ranges = [];
+    selected.forEach(token => {
+        const previous = ranges[ranges.length - 1];
+        const between = previous ? String(text || '').slice(previous.end, token.start) : '';
+        if (previous && /^[\s-]*$/.test(between)) previous.end = token.end;
+        else ranges.push({ start: token.start, end: token.end });
+    });
+    return ranges;
 }
 
 function extractPhoneCandidates(text) {
@@ -170,6 +195,7 @@ export function matchMember(text, members = [], { nameOnly = false } = {}) {
             member: matched.member,
             confidence: 'High',
             matchType: 'name',
+            matchedDescriptionRanges: getDescriptionRanges(rawText, matched.indexes),
             reason: `Matched at least two name fields for ${name}.`
         };
     }
@@ -337,6 +363,7 @@ export function classifyTransaction(txn, { members = [], loanEnterprises = [], d
                 member: match.member,
                 confidence: 'High',
                 enterpriseId: '',
+                matchedDescriptionRanges: match.matchedDescriptionRanges || [],
                 notes: match.reason
             };
         } else if (amount < 0) {
@@ -350,6 +377,7 @@ export function classifyTransaction(txn, { members = [], loanEnterprises = [], d
                 member: match.member,
                 confidence: 'High',
                 enterpriseId: chosenLoanEntId,
+                matchedDescriptionRanges: match.matchedDescriptionRanges || [],
                 notes: `${match.reason}. Member debit prepared for Loan Enterprise assignment (no loan child created until approval).`
             };
         }

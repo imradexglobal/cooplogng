@@ -508,6 +508,11 @@ export function showLoanReviewModal(
 
       if (!dateVal) { showToast('Approval Date is required.', 'error'); return; }
       if (!bankVal) { showToast('Bank is required.', 'error'); return; }
+      const principalAmount = Math.abs(parseFloat(loanData?.principalAmount ?? loanData?.principal_amount ?? 0) || 0);
+      const durationMonths = parseInt(loanData?.durationMonths ?? loanData?.duration_months ?? 0, 10) || 0;
+      if (!(principalAmount > 0)) { showToast('A valid loan principal is required before approval.', 'error'); return; }
+      if (!(durationMonths > 0)) { showToast('Set a loan duration greater than zero months before approval.', 'error'); return; }
+      if (!(loanDetail.enterprise_id || loanDetail.item)) { showToast('Select a Loan enterprise before approval.', 'error'); return; }
 
       if (!confirm('Are you sure you want to approve this loan request?')) return;
       try {

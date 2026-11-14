@@ -7,8 +7,8 @@ export function filterStatementTransactions(transactions, filter = 'all', search
         if (filter === 'unknown' && transaction.classification !== 'Unknown') return false;
         if (filter === 'expense' && transaction.classification !== 'Expense') return false;
         if (filter === 'income' && transaction.classification !== 'Income') return false;
-        // The Debits/Loans tab intentionally includes every debit, including expenses.
-        if (filter === 'loan' && Number(transaction.amount) >= 0) return false;
+        if (filter === 'deposits' && transaction.classification !== 'Remittance') return false;
+        if (filter === 'loan' && transaction.classification !== 'Loan') return false;
         if (filter === 'duplicates' && transaction.duplicateStatus === 'New') return false;
 
         if (term) {

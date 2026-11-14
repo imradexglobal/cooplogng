@@ -78,6 +78,33 @@ export async function approveLoanRequest(remittanceId, approvedBy, options = {})
 
     const cooperativeId = remittance.cooperative_id
     const { remittance_date, bank_name, charges: userCharges, details: userDetails } = options
+    let loans = await queryRows(
+        'SELECT * FROM loans WHERE (id = ? OR remittance_id = ?) AND cooperative_id = ? AND is_deleted = 0',
+        [remittanceId, remittanceId, cooperativeId]
+    )
+    if (!Array.isArray(loans)) loans = []
+    const approvalDetails = Array.isArray(userDetails) ? userDetails : (Array.isArray(remittance.details) ? remittance.details : [])
+    const loanInfoDetails = approvalDetails.filter(detail => detail?.loan_info)
+    if (!loans.length && !loanInfoDetails.length) {
+        throw new Error('Loan details are missing. Configure the principal and duration, and select a Loan enterprise before approving this request.')
+    }
+    const termsToValidate = loans.length ? loans : loanInfoDetails.map(detail => {
+        const loanData = detail.loan_info?.loanData || {}
+        return {
+            enterprise_id: detail.enterprise_id || detail.item || '',
+            principal_amount: loanData.principalAmount ?? loanData.principal_amount ?? 0,
+            duration_months: loanData.durationMonths ?? loanData.duration_months ?? 0
+        }
+    })
+    for (const terms of termsToValidate) {
+        if (!(terms.enterprise_id || terms.item)) throw new Error('Select a Loan enterprise before approving this request.')
+        if (!(Math.abs(parseFloat(terms.principal_amount ?? terms.principalAmount ?? 0)) > 0)) {
+            throw new Error('Loan principal must be greater than zero before approval.')
+        }
+        if (!(parseInt(terms.duration_months ?? terms.durationMonths ?? 0, 10) > 0)) {
+            throw new Error('Loan duration must be greater than zero months before approval.')
+        }
+    }
 
     let parentCategory = remittance.category
     try {
@@ -106,11 +133,6 @@ export async function approveLoanRequest(remittanceId, approvedBy, options = {})
     if (bank_name) remitUpdate.bank_name = bank_name
     if (userDetails) remitUpdate.details = userDetails
     await saveDoc('remittance', remitUpdate)
-
-    let loans = await queryRows(
-        'SELECT * FROM loans WHERE (id = ? OR remittance_id = ?) AND cooperative_id = ? AND is_deleted = 0',
-        [remittanceId, remittanceId, cooperativeId]
-    )
 
     // If no loan records exist yet (new request flow), create them from details[].loan_info
     if (!loans || loans.length === 0) {

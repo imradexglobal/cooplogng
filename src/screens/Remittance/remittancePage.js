@@ -653,6 +653,7 @@ import { calculateMonthlyLoanAdvice } from '../../services/data/loanAdvice.js';
       transaction_type: remit.transaction_type || '',
       member_id: remit.member_id || '',
       created_at: remit.created_at || '',
+      linkedChildren: Array.isArray(remit.children) ? remit.children : [],
       isLoanRequest: remit.isLoanRequest || (remit.loans && remit.loans.length > 0),
       isWithdrawalRequest: remit.isWithdrawalRequest || false,
       withdrawal_form_images: Array.isArray(remit.withdrawal_form_images) ? remit.withdrawal_form_images : [],
@@ -928,6 +929,7 @@ import { calculateMonthlyLoanAdvice } from '../../services/data/loanAdvice.js';
             </div>
             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">${c.isDue ? `Default ₦${Number(c.defaultAmount || 0).toFixed(2)}` : 'Enter penalty amount'}</div>
           </div>
+          <button type="button" class="dues-charge-toggle" data-idx="${idx}" aria-pressed="false" style="padding:0.35rem 0.55rem;border:1px solid var(--border-medium);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);cursor:pointer;white-space:nowrap;">Disable</button>
           <input type="number" step="0.01" min="0" class="dues-charge-input" data-idx="${idx}" value="${Number(c.defaultAmount || 0).toFixed(2)}" style="width: 130px; padding: 0.5rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-medium); background: var(--bg-input); color: var(--text-primary); font-size: 0.9rem; text-align: right;">
         </div>
       `).join('');
@@ -945,6 +947,15 @@ import { calculateMonthlyLoanAdvice } from '../../services/data/loanAdvice.js';
         </div>
       `;
 
+      modalContent.querySelectorAll('.dues-charge-toggle').forEach(button => {
+        button.addEventListener('click', () => {
+          const input = modalContent.querySelector(`.dues-charge-input[data-idx="${button.dataset.idx}"]`);
+          const disabled = button.getAttribute('aria-pressed') !== 'true';
+          button.setAttribute('aria-pressed', String(disabled));
+          button.textContent = disabled ? 'Enable' : 'Disable';
+          if (input) { if (disabled) { input.dataset.previousValue = input.value; input.value = '0'; } else input.value = input.dataset.previousValue || '0'; input.disabled = disabled; }
+        });
+      });
       const done = (result) => { overlay.remove(); resolve(result); };
       modalContent.querySelector('.close-dues-btn').addEventListener('click', () => done(null));
       modalContent.querySelector('.dues-dont-charge').addEventListener('click', () => done({ charge: false, items: [] }));
@@ -1366,7 +1377,7 @@ const handleSubmit = async () => {
         const seenChargeable = new Set();
         enterpriseData.forEach(ent => {
           if (seenChargeable.has(ent.id)) return;
-          const isDue = !!ent.compulsory_due && parseFloat(ent.compulsory_amount || 0) > 0;
+          const isDue = !!ent.compulsory_due;
           const isPen = !!ent.is_penalty;
           if (!isDue && !isPen) return;
           seenChargeable.add(ent.id);
@@ -1376,7 +1387,7 @@ const handleSubmit = async () => {
             isDue,
             isPen,
             // Dues default to the enterprise setting; penalties are entered fresh each time
-            defaultAmount: isDue ? parseFloat(ent.compulsory_amount || 0) : 0
+            defaultAmount: isDue ? Math.max(0, parseFloat(ent.compulsory_amount || 0) || 0) : 0
           });
         });
         if (chargeable.length > 0) {
@@ -1394,7 +1405,7 @@ const handleSubmit = async () => {
       if (duesDecision && duesDecision.charge && Array.isArray(duesDecision.items) && duesDecision.items.length > 0) {
         const _duePenIds = new Set();
         (enterpriseData || []).forEach(ent => {
-          const _isD = !!ent.compulsory_due && parseFloat(ent.compulsory_amount || 0) > 0;
+          const _isD = !!ent.compulsory_due;
           if (_isD || !!ent.is_penalty) _duePenIds.add(String(ent.id));
         });
         const _savTotal = (formData.details || [])
@@ -1690,7 +1701,7 @@ const handleSubmit = async () => {
               // payment's own savings lines (due/penalty lines excluded).
               const _duePenIdsC = new Set();
               (enterpriseData || []).forEach(ent => {
-                  const _isD = !!ent.compulsory_due && parseFloat(ent.compulsory_amount || 0) > 0;
+                  const _isD = !!ent.compulsory_due;
                   if (_isD || !!ent.is_penalty) _duePenIdsC.add(String(ent.id));
               });
               const _savLines = (formData.details || [])

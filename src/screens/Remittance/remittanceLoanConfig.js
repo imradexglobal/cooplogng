@@ -3,7 +3,7 @@ import { fetchGuarantorStats } from '../../services/dataService.js';
 import { showToast } from '../../services/toastService.js';
 
 // --- Show Loan Config Modal ---
-export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
+export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps, onComplete = null) {
     const { formData, enterpriseData, members, selectorMembers, isMember, user, historyState, loadHistoryData, clearForm, clearSavedForm, render } = deps;
 
     const existingModal = document.getElementById('loan-config-modal');
@@ -539,6 +539,7 @@ export function showLoanConfigModal(enterpriseId, isReadOnly = false, deps) {
       document.getElementById('modal-ok-btn')?.addEventListener('click', () => {
         saveCharges();
         document.getElementById('loan-config-modal').remove();
+        if (typeof onComplete === 'function') onComplete();
       });
     };
 

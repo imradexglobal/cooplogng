@@ -1,4 +1,4 @@
-import { escapeHtml, escapeAttribute, formatCurrency, formatDate } from '../../utils/formatters.js';
+import { escapeHtml, escapeAttribute, formatCurrency, formatDate, generateRemittanceId } from '../../utils/formatters.js';
 import { fetchBanks, fetchAllMembers, fetchEnterprises, fetchTransactionTypes } from '../../services/dataService.js';
 import { extractTransactionsFromFile } from '../../services/bankStatement/extractor.js';
 import { classifyTransaction, matchMember, normalizeText } from '../../services/bankStatement/intelligence.js';
@@ -7,11 +7,14 @@ import { filterStatementTransactions } from '../../services/bankStatement/review
 import { commitStatementImport } from '../../services/bankStatement/importer.js';
 import { loadStatementDraft, saveStatementDraft, clearStatementDraft } from '../../services/bankStatement/statementDraftService.js';
 import { showToast } from '../../services/toastService.js';
+import { hasPermission } from '../../services/permissionService.js';
+import { showBatchDuesChargePopup } from './batchDuesPopup.js';
 
 export async function renderBankStatementImport(container, user) {
     if (!container) return;
     const coopId = user?.cooperativeId;
     const userId = user?.userId || user?.username || 'admin';
+    const canApproveImports = user?.can_approve === true || hasPermission(user?.permissions, 'approve_remittance');
 
     // State for the dedicated import page
     const state = {
@@ -67,7 +70,7 @@ export async function renderBankStatementImport(container, user) {
         state.fileSize = Number(draft.fileSize) || 0;
         state.transactions = Array.isArray(draft.transactions) ? draft.transactions : [];
         state.extractionInfo = draft.extractionInfo || null;
-        state.filter = ['all', 'confident', 'uncertain', 'unknown', 'expense', 'income', 'loan', 'duplicates'].includes(draft.filter)
+        state.filter = ['all', 'confident', 'uncertain', 'unknown', 'expense', 'income', 'deposits', 'loan', 'duplicates'].includes(draft.filter)
             ? draft.filter
             : 'all';
         state.searchTerm = String(draft.searchTerm || '');
@@ -253,6 +256,14 @@ export async function renderBankStatementImport(container, user) {
                 .bsi-badge-dup-new { background: var(--success-bg); color: var(--success); }
                 .bsi-badge-dup-possible { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
                 .bsi-badge-dup-confirmed { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+                .bsi-match-highlight {
+                    background: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+                    color: var(--text-primary);
+                    border-radius: 0.2rem;
+                    box-shadow: inset 0 -2px 0 var(--accent-primary);
+                    padding: 0 0.08rem;
+                    font-weight: 750;
+                }
                 
                 .bsi-stats-grid {
                     display: grid;
@@ -511,7 +522,7 @@ export async function renderBankStatementImport(container, user) {
                             <li>Initial member mapping requires exact spelling in at least two of the first, middle and last names; uncertain matches go to Unknown for manual review.</li>
                             <li>Positive member payments prepared for <strong>Auto Distribution</strong>.</li>
                             <li>Negative member outflows prepared for <strong>Loan Enterprise assignment</strong> (no loan records created until approved).</li>
-                            <li>All imported transactions remain <strong>Pending</strong> until approved manually by an administrator.</li>
+                            <li>Transactions are approved immediately for users with approval permission; otherwise they remain <strong>Pending</strong>.</li>
                         </ul>
                     </div>
 
@@ -560,6 +571,7 @@ export async function renderBankStatementImport(container, user) {
             unknown: filterStatementTransactions(txns, 'unknown', state.searchTerm).length,
             expense: filterStatementTransactions(txns, 'expense', state.searchTerm).length,
             income: filterStatementTransactions(txns, 'income', state.searchTerm).length,
+            deposits: filterStatementTransactions(txns, 'deposits', state.searchTerm).length,
             loan: filterStatementTransactions(txns, 'loan', state.searchTerm).length,
             duplicates: filterStatementTransactions(txns, 'duplicates', state.searchTerm).length
         };
@@ -567,6 +579,25 @@ export async function renderBankStatementImport(container, user) {
         const enterpriseNameFor = (txn) => txn.enterpriseId
             ? (state.enterprises.find(e => String(e.id) === String(txn.enterpriseId))?.account_name || 'Selected')
             : (txn.classification === 'Remittance' ? 'Auto Share Distributed' : '—');
+        const renderDescription = (txn) => {
+            const description = String(txn.description || '');
+            let ranges = Array.isArray(txn.matchedDescriptionRanges) ? txn.matchedDescriptionRanges : [];
+            if (!ranges.length && txn.member && (txn.classification === 'Remittance' || txn.classification === 'Loan')) {
+                ranges = matchMember(description, [txn.member], { nameOnly: true }).matchedDescriptionRanges || [];
+            }
+            const validRanges = ranges
+                .map(range => ({ start: Math.max(0, Number(range.start)), end: Math.min(description.length, Number(range.end)) }))
+                .filter(range => Number.isFinite(range.start) && Number.isFinite(range.end) && range.end > range.start)
+                .sort((a, b) => a.start - b.start);
+            if (!validRanges.length) return escapeHtml(description);
+            let cursor = 0;
+            return validRanges.map(range => {
+                const before = escapeHtml(description.slice(cursor, range.start));
+                const matched = escapeHtml(description.slice(range.start, range.end));
+                cursor = range.end;
+                return `${before}<mark class="bsi-match-highlight" title="Matched member name">${matched}</mark>`;
+            }).join('') + escapeHtml(description.slice(cursor));
+        };
         const sortValueFor = (txn, key) => {
             switch (key) {
                 case 'date': return String(txn.date || '');
@@ -625,7 +656,7 @@ export async function renderBankStatementImport(container, user) {
                         <button type="button" class="btn btn-secondary" id="bsi-manual-save-btn" title="Manually save progress">Save Progress</button>
                         <button type="button" class="btn btn-ghost" id="bsi-restart-btn" title="Start over">Discard & Re-upload</button>
                         <button type="button" class="btn btn-primary" id="bsi-commit-btn" ${readyToImportCount === 0 || state.isCommitting ? 'disabled' : ''} style="min-width: 210px;">
-                            ${state.isCommitting ? 'Committing...' : `Commit to Pending Remittances (${readyToImportCount})`}
+                            ${state.isCommitting ? 'Committing...' : `Commit Included (${readyToImportCount})`}
                         </button>
                     </div>
                 </div>
@@ -679,7 +710,8 @@ export async function renderBankStatementImport(container, user) {
                             <button type="button" class="bsi-filter-btn ${state.filter === 'unknown' ? 'active' : ''}" data-filter="unknown">Unknown (${countsForSearch.unknown})</button>
                             <button type="button" class="bsi-filter-btn ${state.filter === 'expense' ? 'active' : ''}" data-filter="expense">Expenses (${countsForSearch.expense})</button>
                             <button type="button" class="bsi-filter-btn ${state.filter === 'income' ? 'active' : ''}" data-filter="income">Income (${countsForSearch.income})</button>
-                            <button type="button" class="bsi-filter-btn ${state.filter === 'loan' ? 'active' : ''}" data-filter="loan">Debits/Loans (${countsForSearch.loan})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'deposits' ? 'active' : ''}" data-filter="deposits">Member Deposits (${countsForSearch.deposits})</button>
+                            <button type="button" class="bsi-filter-btn ${state.filter === 'loan' ? 'active' : ''}" data-filter="loan">Member Loan (${countsForSearch.loan})</button>
                             <button type="button" class="bsi-filter-btn ${state.filter === 'duplicates' ? 'active' : ''}" data-filter="duplicates">Duplicates (${countsForSearch.duplicates})</button>
                         </div>
 
@@ -745,7 +777,7 @@ export async function renderBankStatementImport(container, user) {
                                             ${formatDate(txn.date)}
                                         </td>
                                         <td style="word-break: break-word; font-size: 0.8rem;" title="${escapeAttribute(txn.description)}">
-                                            ${escapeHtml(txn.description)}
+                                            ${renderDescription(txn)}
                                         </td>
                                         <td style="font-family: monospace; font-size: 0.75rem;">
                                             ${escapeHtml(txn.reference || '—')}
@@ -783,6 +815,7 @@ export async function renderBankStatementImport(container, user) {
                                                 <button type="button" class="btn btn-secondary bsi-edit-row-btn" data-idx="${realIdx}" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
                                                     Edit / Map
                                                 </button>
+                                                <button type="button" class="btn btn-primary bsi-commit-row-btn" data-idx="${realIdx}" ${isExcluded || state.isCommitting ? 'disabled' : ''} style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">Commit Row</button>
                                                 <button type="button" class="btn btn-ghost bsi-remap-row-btn" data-idx="${realIdx}" style="padding: 0.25rem 0.55rem; font-size: 0.75rem;">
                                                     Re-map
                                                 </button>
@@ -801,9 +834,10 @@ export async function renderBankStatementImport(container, user) {
                     </div>
 
                     <div style="display: flex; gap: 0.75rem;">
+                        <button type="button" class="btn btn-secondary" id="bsi-commit-visible-btn" ${visibleSelectedCount === 0 || state.isCommitting ? 'disabled' : ''}>Commit Visible (${visibleSelectedCount})</button>
                         <button type="button" class="btn btn-secondary" id="bsi-manual-save-bottom-btn">Save Progress</button>
                         <button type="button" class="btn btn-primary" id="bsi-commit-bottom-btn" ${readyToImportCount === 0 || state.isCommitting ? 'disabled' : ''} style="min-width: 210px;">
-                            ${state.isCommitting ? 'Committing...' : `Commit to Pending Remittances (${readyToImportCount})`}
+                            ${state.isCommitting ? 'Committing...' : `Commit Included (${readyToImportCount})`}
                         </button>
                     </div>
                 </div>
@@ -830,7 +864,7 @@ export async function renderBankStatementImport(container, user) {
                     <div><strong>File:</strong> ${escapeHtml(state.fileName)}</div>
                     <div><strong>Pending Remittances Created:</strong> ${s.totalImported || 0}</div>
                     <div style="color:var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem;">
-                        * Every imported transaction remains <strong>Pending</strong>. You can now review, inspect, edit distribution, or approve each transaction individually in the Remittance approval workspace.
+                        * Every imported transaction remains <strong>Pending</strong>. Import status follows your approval permission; imported entries remain available in Remittance.
                     </div>
                 </div>
 
@@ -1227,6 +1261,12 @@ export async function renderBankStatementImport(container, user) {
     }
 
     function bindEvents() {
+        const safeCommit = (transactions = null) => handleCommit(transactions).catch(err => {
+            console.error('[BankStatementImport] Could not start commit:', err);
+            state.isCommitting = false;
+            renderMain();
+            showToast(`Could not start import: ${err.message || err}`, 'error');
+        });
         // Upload Step Events
         const bankSelect = document.getElementById('bsi-bank-select');
         if (bankSelect) {
@@ -1350,6 +1390,11 @@ export async function renderBankStatementImport(container, user) {
             };
         });
 
+        container.querySelectorAll('.bsi-commit-row-btn').forEach(btn => {
+            btn.onclick = () => safeCommit([state.transactions[parseInt(btn.dataset.idx, 10)]].filter(Boolean));
+        });
+
+
         container.querySelectorAll('.bsi-remap-row-btn').forEach(btn => {
             btn.onclick = () => {
                 const idx = parseInt(btn.dataset.idx, 10);
@@ -1384,9 +1429,11 @@ export async function renderBankStatementImport(container, user) {
 
         const commitBtn = document.getElementById('bsi-commit-btn');
         const commitBottomBtn = document.getElementById('bsi-commit-bottom-btn');
-        const doCommit = () => handleCommit();
+        const doCommit = () => safeCommit();
+        const visibleCommitBtn = document.getElementById('bsi-commit-visible-btn');
         if (commitBtn) commitBtn.onclick = doCommit;
         if (commitBottomBtn) commitBottomBtn.onclick = doCommit;
+        if (visibleCommitBtn) visibleCommitBtn.onclick = () => safeCommit(filterStatementTransactions(state.transactions, state.filter, state.searchTerm).filter(t => !t.skipImport));
 
         // Success View Buttons
         const goRemittanceBtn = document.getElementById('bsi-go-remittance-btn');
@@ -1477,52 +1524,135 @@ export async function renderBankStatementImport(container, user) {
         }
     }
 
-    async function handleCommit() {
-        const eligible = state.transactions.filter(t => !t.skipImport);
-        if (eligible.length === 0) {
-            showToast('No transactions are selected for import.', 'warning');
-            return;
-        }
-
+    async function handleCommit(requestedTransactions = null) {
+        const eligible = (requestedTransactions || state.transactions.filter(t => !t.skipImport)).filter(t => t && !t.skipImport);
+        if (!eligible.length) { showToast('No transactions are selected for import.', 'warning'); return; }
         const duplicateCount = eligible.filter(t => t.duplicateStatus === 'Possible Duplicate' || t.duplicateStatus === 'Confirmed Duplicate').length;
-        let confirmMsg = `Ready to import ${eligible.length} transactions from "${state.selectedBank}" as PENDING remittances?\n\n` +
-            `• All ${eligible.length} transactions will enter the approval queue as Pending.\n` +
+        const targetStatus = canApproveImports ? 'APPROVED' : 'PENDING';
+        const memberLoanCount = eligible.filter(t => t.classification === 'Loan' && t.memberId && t.memberId !== '0000000000').length;
+        const positiveMemberRows = eligible.filter(t => t.classification === 'Remittance' && t.memberId && t.memberId !== '0000000000' && Number(t.amount) > 0);
+        const hasUndecidedPositiveRows = positiveMemberRows.some(txn => !Object.prototype.hasOwnProperty.call(txn, 'importDuesDecision'));
+        const hasChargeableDues = (state.enterprises || []).some(ent => ent.compulsory_due || ent.is_penalty);
+        const committingRowIndex = eligible.length === 1 ? state.transactions.indexOf(eligible[0]) : -1;
+        let confirmMsg = `Ready to import ${eligible.length} transactions from "${state.selectedBank}"?\n\n` +
+            `• ${eligible.length - memberLoanCount} non-loan transactions will be saved as ${targetStatus}.\n` +
+            `• ${memberLoanCount} member loan(s) will remain Pending for individual review.\n` +
             `• Positive member remittances will be Auto-Distributed.\n` +
             `• Negative member outflows will be prepared for Loan assignment.\n`;
-
-        if (duplicateCount > 0) {
-            confirmMsg += `\n⚠️ WARNING: ${duplicateCount} potential duplicate transactions are included in this batch.`;
-        }
-
+        if (duplicateCount > 0) confirmMsg += `\n⚠️ WARNING: ${duplicateCount} potential duplicate transactions are included in this batch.`;
+        if (hasUndecidedPositiveRows && hasChargeableDues) confirmMsg += `\n\nAfter confirming, a dues prompt will appear. Choose “Charge for Batch” or “Don’t Charge” to continue; Cancel stops the import.`;
         confirmMsg += `\n\nDo you want to proceed?`;
-
+        if (state.isCommitting) return;
         if (!confirm(confirmMsg)) return;
-
         state.isCommitting = true;
         renderMain();
-
+        const updateSingleRowProgress = (message) => {
+            if (committingRowIndex < 0) return;
+            const rowButton = container.querySelector(`.bsi-commit-row-btn[data-idx="${committingRowIndex}"]`);
+            if (rowButton) { rowButton.textContent = message; rowButton.title = message; }
+        };
+        updateSingleRowProgress('Preparing import…');
+        const chargeableDues = [];
+        const seenDues = new Set();
+        (state.enterprises || []).forEach(ent => {
+            const isDue = !!ent.compulsory_due, isPen = !!ent.is_penalty;
+            if ((!isDue && !isPen) || seenDues.has(String(ent.id))) return;
+            seenDues.add(String(ent.id));
+            chargeableDues.push({ enterprise_id: String(ent.id), name: ent.account_name || String(ent.id), isDue, isPen, defaultAmount: isDue ? Math.max(0, Number(ent.compulsory_amount) || 0) : 0 });
+        });
+        const undecidedPositiveRows = positiveMemberRows.filter(txn => !Object.prototype.hasOwnProperty.call(txn, 'importDuesDecision'));
+        if (undecidedPositiveRows.length && chargeableDues.length) {
+            updateSingleRowProgress('Choose dues option…');
+            ['bsi-commit-btn', 'bsi-commit-bottom-btn', 'bsi-commit-visible-btn'].forEach(id => {
+                const button = document.getElementById(id);
+                if (button) { button.textContent = 'Choose dues option…'; button.title = 'Choose Charge for Batch or Don’t Charge to continue'; }
+            });
+            let decision;
+            try {
+                decision = await showBatchDuesChargePopup(chargeableDues, undecidedPositiveRows.length);
+            } catch (err) {
+                console.error('[BankStatementImport] Could not open batch dues options:', err);
+                state.isCommitting = false;
+                renderMain();
+                showToast(`Could not open the dues options: ${err.message}`, 'error');
+                return;
+            }
+            if (!decision) {
+                state.isCommitting = false;
+                renderMain();
+                showToast('Import cancelled at the dues step. No transactions were committed.', 'info');
+                return;
+            }
+            undecidedPositiveRows.forEach(txn => { txn.importDuesDecision = JSON.parse(JSON.stringify(decision)); });
+        } else if (undecidedPositiveRows.length) {
+            undecidedPositiveRows.forEach(txn => { txn.importDuesDecision = { charge: false, items: [] }; });
+        }
+        const idTimeBase = Date.now();
+        eligible.forEach(txn => {
+            if (!txn.importRemittanceId) txn.importRemittanceId = generateRemittanceId(String(coopId), false, new Date(idTimeBase));
+        });
         try {
+            void saveStatementDraft(coopId, userId, { step: 'review', selectedBank: state.selectedBank, fileName: state.fileName, fileSize: state.fileSize, transactions: state.transactions, extractionInfo: state.extractionInfo, filter: state.filter, searchTerm: state.searchTerm, sortKey: state.sortKey, sortDirection: state.sortDirection, tableScrollTop: state.tableScrollTop, tableScrollLeft: state.tableScrollLeft });
             const result = await commitStatementImport({
                 transactions: eligible,
                 cooperativeId: coopId,
                 bankName: state.selectedBank,
                 fileName: state.fileName,
                 uploadedBy: userId,
-                enterprises: state.enterprises
+                enterprises: state.enterprises,
+                status: targetStatus === 'APPROVED' ? 'Approved' : 'Pending',
+                onProgress: ({ stage, current, total }) => {
+                    const message = `${stage}${total ? ` ${current}/${total}` : ''}`;
+                    updateSingleRowProgress(message);
+                    ['bsi-commit-btn', 'bsi-commit-bottom-btn', 'bsi-commit-visible-btn'].forEach(id => {
+                        const button = document.getElementById(id);
+                        if (button) { button.textContent = message; button.title = message; }
+                    });
+                }
             });
-
-            await clearStatementDraft(coopId, userId);
-            setReviewSessionActive(false);
-            state.isCommitting = false;
-            state.importSummary = result;
-            state.step = 'success';
+            if (result.aborted) {
+                positiveMemberRows.forEach(txn => { delete txn.importDuesDecision; });
+                state.isCommitting = false;
+                await saveStatementDraft(coopId, userId, { step: 'review', selectedBank: state.selectedBank, fileName: state.fileName, fileSize: state.fileSize, transactions: state.transactions, extractionInfo: state.extractionInfo, filter: state.filter, searchTerm: state.searchTerm, sortKey: state.sortKey, sortDirection: state.sortDirection, tableScrollTop: state.tableScrollTop, tableScrollLeft: state.tableScrollLeft });
+                renderMain();
+                const firstDuesError = result.errors?.[0];
+                const issue = firstDuesError ? ` First issue${firstDuesError.row ? ` (row ${Number(firstDuesError.row) || firstDuesError.row})` : ''}: ${escapeHtml(firstDuesError.error || 'Validation failed')}` : '';
+                showToast(`Nothing was committed.${issue} Reduce charges or choose Don’t Charge, then retry.`, 'warning');
+                return;
+            }
+            const importedRows = Array.isArray(result.importedRows) ? new Set(result.importedRows.map(Number)) : null;
+            const failedRows = new Set((result.errors || []).map(e => Number(e.row) - 1));
+            const confirmedIndexes = importedRows || new Set(eligible.map((_, index) => index).filter(index => !failedRows.has(index)));
+            const confirmedTransactions = new Set([...confirmedIndexes].map(index => eligible[index]).filter(Boolean));
+            state.transactions = state.transactions.filter(t => !confirmedTransactions.has(t));
+            const accountingMismatch = confirmedIndexes.size + (result.errors || []).length !== eligible.length;
+            state.isCommitting = false; state.importSummary = result;
+            if (state.transactions.length === 0) {
+                await clearStatementDraft(coopId, userId);
+                setReviewSessionActive(false);
+                state.step = 'success';
+            } else {
+                await saveStatementDraft(coopId, userId, {
+                    step: 'review', selectedBank: state.selectedBank, fileName: state.fileName,
+                    fileSize: state.fileSize, transactions: state.transactions, extractionInfo: state.extractionInfo,
+                    filter: state.filter, searchTerm: state.searchTerm, sortKey: state.sortKey,
+                    sortDirection: state.sortDirection, tableScrollTop: state.tableScrollTop,
+                    tableScrollLeft: state.tableScrollLeft
+                });
+            }
             renderMain();
-            showToast(`Successfully created ${result.totalImported} Pending remittances.`, 'success');
+            if (accountingMismatch) {
+                showToast(`Saved ${confirmedTransactions.size} of ${eligible.length} selected rows; some outcomes need review. Remaining rows were kept for retry.`, 'warning');
+            } else if (result.errors?.length) {
+                const firstFailure = result.errors[0];
+                const issue = firstFailure ? ` First failed row${firstFailure.row ? ` (${Number(firstFailure.row) || firstFailure.row})` : ''}: ${escapeHtml(firstFailure.error || 'Save failed')}` : '';
+                showToast(`Saved ${confirmedTransactions.size} of ${eligible.length} selected rows. ${result.errors.length} failed rows remain in the table for retry.${issue}`, 'warning');
+            } else {
+                const loanNote = memberLoanCount ? `${memberLoanCount} member loan(s) remain Pending for individual review. ` : '';
+                showToast(`Successfully saved all ${confirmedTransactions.size} selected rows. ${loanNote}Other rows were saved as ${targetStatus}.`, 'success');
+            }
         } catch (err) {
-            console.error('[BankStatementImport] Commit error:', err);
-            state.isCommitting = false;
-            renderMain();
-            showToast(`Import failed: ${err.message}`, 'error');
+            console.error('[BankStatementImport] Commit error:', err); state.isCommitting = false; renderMain(); showToast(`Import failed: ${err.message}`, 'error');
         }
     }
 }

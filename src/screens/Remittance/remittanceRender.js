@@ -815,6 +815,8 @@ export function render(container, deps) {
                               <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                                 <span style="display: flex; align-items: center; gap: 0.35rem;">
                                   ${e.compulsory_due ? `<span style="background: var(--accent-primary); color: white; font-size: 0.6rem; font-weight: 800; padding: 0.1rem 0.35rem; border-radius: 999px; line-height: 1; text-decoration: none; display: inline-block;">C</span>` : ''}
+                                  ${e.revenue ? `<span style="background: var(--success); color: white; font-size: 0.6rem; font-weight: 800; padding: 0.1rem 0.35rem; border-radius: 999px; line-height: 1; text-decoration: none; display: inline-block;">R</span>` : ''}
+                                  
                                   ${e.is_penalty ? `<span style="background: var(--danger); color: white; font-size: 0.6rem; font-weight: 800; padding: 0.1rem 0.35rem; border-radius: 999px; line-height: 1; text-decoration: none; display: inline-block;">P</span>` : ''}
                                   ${escapeHtml(e.account_name || e.id)}
                                 </span>
@@ -863,6 +865,20 @@ export function render(container, deps) {
             </div>
           </div>
         </div>
+
+        ${(formData.linkedChildren || []).length ? `
+          <div class="linked-remittance-children" style="margin:0.75rem 1rem;padding:0.75rem 1rem;border:1px solid var(--border-light);border-radius:var(--radius-sm);background:var(--bg-secondary);">
+            <div style="font-weight:700;margin-bottom:0.5rem;">Linked entries (${formData.linkedChildren.length})</div>
+            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+              ${formData.linkedChildren.map(child => `
+                <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;font-size:0.82rem;">
+                  <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(child.description || child.transaction_type || child.id)}</span>
+                  <span style="white-space:nowrap;font-weight:700;color:${Number(child.amount) < 0 ? 'var(--danger)' : 'var(--success)'};">${formatCurrency(child.amount)} · ${escapeHtml(child.status || 'Pending')}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
 
         <!-- Horizontal Resizer -->
         <div class="resizer-h" id="resizer-h"></div>

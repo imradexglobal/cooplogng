@@ -147,12 +147,20 @@ export function generateId(cooperativeId) {
     return prefix ? `${prefix}-${uuid}` : uuid;
 }
 
-export function generateRemittanceId(cooperativeId, isAutogen = false) {
+let lastRemittanceIdSecond = '';
+let remittanceIdSequence = 0;
+
+export function generateRemittanceId(cooperativeId, isAutogen = false, createdAt = new Date()) {
     const prefix = cooperativeId;
-    const now = new Date();
+    const now = createdAt instanceof Date ? createdAt : new Date(createdAt);
     const pad = (n) => String(n).padStart(2, '0');
     const datetime = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-    return isAutogen ? `${prefix}-AUTOGEN-${datetime}` : `${prefix}-${datetime}`;
+    if (datetime === lastRemittanceIdSecond) remittanceIdSequence += 1;
+    else { lastRemittanceIdSecond = datetime; remittanceIdSequence = 1; }
+    const sequence = String(remittanceIdSequence).padStart(4, '0');
+    const uniqueToken = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();
+    const type = isAutogen ? '-AUTOGEN' : '';
+    return `${prefix}${type}-${datetime}-${sequence}-${uniqueToken}`;
 }
 
 // Compact human reference for a document id (remittance ids are long
