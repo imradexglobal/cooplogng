@@ -636,7 +636,7 @@ export function render(container, deps) {
           <div class="form-panel">
             <div class="panel-header">
               <h3 class="panel-title">${editMode ? 'Edit Remittance' : previewMode ? 'Remittance Preview' : 'Log Remittance'}</h3>
-              ${previewMode ? '' : isAdmin && !formData.isLoanRequest ? `
+              ${previewMode ? '' : isAdmin ? `
                 <div class="admin-mode-row" style="padding: 0; background: transparent;">
                   <input type="checkbox" id="admin-mode-check" ${formData.member_id === '0000000000' ? 'checked' : ''}>
                   <label for="admin-mode-check">Admin Mode</label>
@@ -662,10 +662,12 @@ export function render(container, deps) {
                       <option value="">-- Select Bank --</option>
                       ${(() => {
                         let bankOptions = [...banks];
+                        const eligibleBanks = bankOptions.filter(b => !/^(internal\s*transfer|cash)$/i.test(String(b.bank_name || '').trim()));
+                        const selectedBank = formData.bank_name || (eligibleBanks.length === 1 ? eligibleBanks[0].bank_name : '');
                         if (formData.bank_name && !bankOptions.find(b => b.bank_name === formData.bank_name)) {
                           bankOptions.push({ bank_name: formData.bank_name });
                         }
-                        return bankOptions.map(b => `<option value="${escapeHtml(b.bank_name)}" ${b.bank_name === formData.bank_name ? 'selected' : ''}>${escapeHtml(b.bank_name)}</option>`).join('');
+                        return bankOptions.map(b => `<option value="${escapeHtml(b.bank_name)}" ${b.bank_name === selectedBank ? 'selected' : ''}>${escapeHtml(b.bank_name)}</option>`).join('');
                       })()}
                     </select>
                   </div>

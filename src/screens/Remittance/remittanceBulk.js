@@ -1,5 +1,5 @@
 import { generateId, generateRemittanceId, escapeHtml, formatDateForInput, formatCurrency, formatNumber } from '../../utils/formatters.js';
-import { addRemittance, buildAccountBalance, fetchMemberDoc, updateMemberPaymentAdvice } from '../../services/dataService.js';
+import { addRemittance, buildAccountBalance, fetchMemberDoc, updateMemberPaymentAdvice, updateRemittance } from '../../services/dataService.js';
 import { calculateMonthlyLoanAdvice } from '../../services/data/loanAdvice.js';
 import { createDuesTransfer, createDuesIncomePickup, resolveDueFunding, createDueFundingTransfer } from '../../services/data/duesTransfer.js';
 import { getRemittances } from '../../services/sqliteService.js';
@@ -9,6 +9,7 @@ import { getBulkRemittanceDraftId, loadBulkRemittanceDraft, saveBulkRemittanceDr
 import { hasPermission } from '../../services/permissionService.js';
 import { showToast } from '../../services/toastService.js';
 import { fetchEnterprises, fetchAllMembers, fetchBanks, fetchTransactionTypes } from '../../services/dataService.js';
+import { getUnclaimedRemittances, suggestUnclaimedMember, buildFixedRemapDetails, buildRemapLearningPattern, learnedPatternSimilarity, HOUSE_MEMBER_ID, memberLabel } from '../../services/remapUnclaimed.js';
 
 let _excelJS = null;
 async function loadExcelJS() {
@@ -180,6 +181,7 @@ export function showBulkRemittanceModal(deps) {
     const penaltyEnts = (enterpriseData || []).filter(e => !!e.is_penalty);
     const transferEnts = (enterpriseData || []).filter(e => !e.compulsory_due && !e.is_penalty);
     const pickable = Array.isArray(selectorMembers) ? selectorMembers.filter(m => m && m.id !== '0000000000') : [];
+    const remapMembers = Array.isArray(selectorMembers) ? selectorMembers : [];
 
     let direction = 'loan';
     let selectedEntId = loanEnts[0]?.id || '';
@@ -197,9 +199,156 @@ export function showBulkRemittanceModal(deps) {
     const showToSingle = () => direction === 'transfer' || direction === 'one_to_one';
     let checkedIds = new Set(pickable.map(m => String(m.id)));
     let searchTerm = '';
+    let remapRows = [];
+    let remapAction = { mode: 'enterprise', enterpriseId: savingsEnts[0]?.id || transferEnts[0]?.id || '' };
+    let remapSort = 'confidence_desc';
+    const learnedRemapMappings = [];
+    let similarReview = null;
     const draftKey = getBulkRemittanceDraftId({ cooperativeId: user.cooperativeId, userId: user.id || user.username });
     let draftSaveTimer = null;
     let draftRestored = false;
+
+    const remapEnterpriseOptions = (selected = '') => (enterpriseData || [])
+        .filter(e => !e.is_deleted && !e.compulsory_due && !e.is_penalty && String(e.account_type || '').toLowerCase() !== 'loan')
+        .map(e => `<option value="${escapeHtml(String(e.id))}" ${String(e.id) === String(selected) ? 'selected' : ''}>${escapeHtml(e.account_name || e.id)}</option>`).join('');
+    const loadRemapRows = async () => {
+        const all = await getRemittances(String(user.cooperativeId)).catch(() => []);
+        remapRows = getUnclaimedRemittances(all).map(remittance => ({
+            remittance,
+            suggestion: suggestUnclaimedMember(remittance, remapMembers),
+            memberId: '',
+            decision: 'pending',
+            action: null
+        }));
+        remapRows.forEach(row => { if (row.suggestion.member) row.memberId = String(row.suggestion.member.id); });
+        learnedRemapMappings.forEach(learned => {
+            remapRows.forEach(row => {
+                if (learnedPatternSimilarity(learned.pattern, buildRemapLearningPattern(row.remittance)).matches) {
+                    const member = remapMembers.find(item => String(item.id) === String(learned.memberId));
+                    if (!member) return;
+                    row.memberId = String(member.id);
+                    row.learned = true;
+                    row.suggestion = { ...row.suggestion, member, confidence: 100, candidates: [member], reason: `Learned from a previous manual mapping: ${memberLabel(member)}.` };
+                }
+            });
+        });
+    };
+    const remapActionFor = (row) => row.action || remapAction;
+    const applyRemapActionToAll = () => {
+        remapRows.forEach(row => { if (row.suggestion.member || row.memberId) row.action = { ...remapAction }; });
+        renderRemapRows();
+    };
+    const sortRemapRows = () => {
+        remapRows.sort((left, right) => {
+            if (remapSort === 'confidence_desc') {
+                const confidenceDiff = Number(right.suggestion?.confidence || 0) - Number(left.suggestion?.confidence || 0);
+                if (confidenceDiff !== 0) return confidenceDiff;
+            }
+            return String(right.remittance.remittance_date || right.remittance.created_at || '')
+                .localeCompare(String(left.remittance.remittance_date || left.remittance.created_at || ''))
+                || String(right.remittance.id || '').localeCompare(String(left.remittance.id || ''));
+        });
+    };
+    const renderRemapRows = () => {
+        const list = overlay?.querySelector('#bulk-remap-list');
+        if (!list) return;
+        sortRemapRows();
+        const stats = overlay.querySelector('#bulk-remap-stats');
+        if (stats) {
+            const pending = remapRows.filter(row => row.decision !== 'applied');
+            const suggested = pending.filter(row => row.memberId).length;
+            const total = pending.reduce((sum, row) => sum + Math.abs(Number(row.remittance.amount || 0)), 0);
+            stats.innerHTML = `<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">Remap summary</div><div style="display:grid;gap:.55rem;margin-top:.75rem;"><div><div style="font-size:1.25rem;font-weight:850;color:var(--text-primary);">${pending.length}</div><div style="font-size:.72rem;color:var(--text-muted);">Rows remaining</div></div><div><div style="font-size:1.05rem;font-weight:800;color:var(--success);">${suggested}</div><div style="font-size:.72rem;color:var(--text-muted);">Rows with a member suggestion</div></div><div><div style="font-size:1.05rem;font-weight:800;color:var(--text-primary);">${escapeHtml(formatCurrency(total))}</div><div style="font-size:.72rem;color:var(--text-muted);">Positive amount remaining</div></div></div>`;
+        }
+        const similarPanel = overlay.querySelector('#bulk-remap-similar-panel');
+        if (similarPanel) {
+            if (!similarReview) similarPanel.innerHTML = '<div style="padding:.75rem;border:1px dashed var(--border-medium);border-radius:.65rem;font-size:.75rem;color:var(--text-muted);">Map a row to check for similar statement patterns.</div>';
+            else similarPanel.innerHTML = `<div style="padding:.8rem;border:1px solid color-mix(in srgb,var(--accent-primary) 35%,var(--border-light));border-radius:.7rem;background:color-mix(in srgb,var(--accent-primary) 7%,transparent);"><div style="font-weight:800;font-size:.82rem;color:var(--text-primary);">Similar unclaimed rows</div><div style="font-size:.74rem;color:var(--text-muted);margin:.35rem 0 .65rem;">${similarReview.rows.length} row${similarReview.rows.length === 1 ? '' : 's'} match this learned pattern. Review them, then choose Continue.</div><div style="display:grid;gap:.4rem;max-height:210px;overflow:auto;">${similarReview.rows.map(candidate => `<div style="font-size:.72rem;padding:.45rem;border-radius:.45rem;background:var(--bg-card);color:var(--text-primary);">${escapeHtml(candidate.remittance.description || candidate.remittance.id)}<br><span style="color:var(--text-muted);">${escapeHtml(formatCurrency(candidate.remittance.amount))}</span></div>`).join('')}</div><div style="display:grid;gap:.45rem;margin-top:.75rem;"><button type="button" class="btn btn-primary" id="bulk-remap-continue-all">Continue &amp; record similar</button><button type="button" class="btn btn-secondary" id="bulk-remap-continue-one">Continue with current row only</button></div></div>`;
+            similarPanel.querySelector('#bulk-remap-continue-all')?.addEventListener('click', () => continueSimilarReview(true));
+            similarPanel.querySelector('#bulk-remap-continue-one')?.addEventListener('click', () => continueSimilarReview(false));
+        }
+        list.innerHTML = remapRows.length ? remapRows.map((row, index) => {
+            const action = remapActionFor(row);
+            const selectedMember = remapMembers.find(member => String(member.id) === String(row.memberId));
+            const confidence = row.suggestion.confidence || 0;
+            const candidateOptions = (row.suggestion.candidates || []).map(candidate => `<option value="${escapeHtml(String(candidate.id))}" ${String(candidate.id) === String(row.memberId) ? 'selected' : ''}>${escapeHtml(memberLabel(candidate))}</option>`).join('');
+            const enterpriseOptions = remapEnterpriseOptions(action.enterpriseId);
+            return `<div class="bulk-remap-row" data-remap-index="${index}" style="display:grid;grid-template-columns:minmax(190px,1.4fr) minmax(150px,1fr) 70px minmax(130px,1fr) minmax(150px,1fr) 100px;gap:.65rem;align-items:center;padding:.75rem;border-bottom:1px solid var(--border-light);">
+                <div><div style="font-weight:750;font-size:.8rem;">${escapeHtml(row.remittance.description || 'Unclaimed remittance')}</div><div style="font-size:.72rem;color:var(--text-muted);">${escapeHtml(formatCurrency(row.remittance.amount))}${row.learned ? ' · learned pattern' : ''}</div></div>
+                <select class="bulk-remap-member" data-remap-index="${index}"><option value="">Review member</option>${candidateOptions}${selectedMember && !(row.suggestion.candidates || []).some(candidate => String(candidate.id) === String(selectedMember.id)) ? `<option value="${escapeHtml(String(selectedMember.id))}" selected>${escapeHtml(memberLabel(selectedMember))}</option>` : ''}</select>
+                <span style="font-size:.75rem;font-weight:800;color:${confidence > 60 ? 'var(--success)' : 'var(--warning)'};">${confidence}%</span>
+                <select class="bulk-remap-mode" data-remap-index="${index}"><option value="enterprise" ${action.mode !== 'auto' ? 'selected' : ''}>Enterprise</option><option value="auto" ${action.mode === 'auto' ? 'selected' : ''}>Auto Share</option></select>
+                <select class="bulk-remap-enterprise" data-remap-index="${index}" ${action.mode === 'auto' ? 'disabled' : ''}><option value="">Select enterprise</option>${enterpriseOptions}</select>
+                <button type="button" class="btn btn-primary bulk-remap-apply" data-remap-index="${index}" ${!row.memberId || row.decision === 'applied' ? 'disabled' : ''}>${row.decision === 'applied' ? 'Recorded' : 'Remap now'}</button>
+            </div>`;
+        }).join('') : '<div style="padding:2rem;text-align:center;color:var(--text-muted);">No unclaimed remittances were found.</div>';
+        list.querySelectorAll('.bulk-remap-member').forEach(select => select.addEventListener('change', event => { remapRows[Number(event.target.dataset.remapIndex)].memberId = event.target.value; }));
+        list.querySelectorAll('.bulk-remap-mode').forEach(select => select.addEventListener('change', event => { const row = remapRows[Number(event.target.dataset.remapIndex)]; row.action = { ...(row.action || remapAction), mode: event.target.value }; renderRemapRows(); }));
+        list.querySelectorAll('.bulk-remap-enterprise').forEach(select => select.addEventListener('change', event => { const row = remapRows[Number(event.target.dataset.remapIndex)]; row.action = { ...(row.action || remapAction), enterpriseId: event.target.value }; }));
+        list.querySelectorAll('.bulk-remap-apply').forEach(button => button.addEventListener('click', () => applyRemapRow(Number(button.dataset.remapIndex))));
+    };
+
+    const persistRemapRow = async (row, memberId, action) => {
+        if (action.mode !== 'auto' && !action.enterpriseId) throw new Error('Select an enterprise first.');
+        let details = [];
+        if (action.mode === 'auto') {
+            const adviceRows = await fetchMemberPaymentAdvise(String(memberId)).catch(() => []);
+            const adviceByEnterprise = {};
+            (adviceRows || []).forEach(advice => { if (!advice.is_deleted && advice.enterprise_id && Number(advice.amount) > 0) adviceByEnterprise[String(advice.enterprise_id)] = Number(advice.amount); });
+            let balanceByEnterprise = {};
+            try {
+                const balance = await buildAccountBalance(String(user.cooperativeId), { ...user, memberId: String(memberId) }, null);
+                (balance.accountBalance || []).forEach(item => { balanceByEnterprise[String(item.id)] = Number(item.sum_of_amount || 0); });
+            } catch (_) {}
+            const allocation = allocateAutoShare({ remittanceAmount: Math.abs(Number(row.remittance.amount || 0)), enterprises: enterpriseData, adviceByEnterprise, balanceByEnterprise });
+            details = (allocation.allocations || []).filter(item => Number(item.allocatedAmount || item.allocated_amount) > 0).map(item => ({ enterprise_id: String(item.enterpriseId || item.enterprise_id), amount: Number(item.allocatedAmount || item.allocated_amount), notes: 'Remap Unclaimed: Auto Share approved by user' }));
+        } else details = buildFixedRemapDetails(row.remittance, action.enterpriseId);
+        if (!details.length) throw new Error('The selected action produced no credit allocation.');
+        await updateRemittance(row.remittance.id, { member_id: String(memberId), transaction_type: 'Member Deposit', category: 'Member Liability', details }, user.username || 'system');
+        row.memberId = String(memberId);
+        row.action = { ...action };
+        row.decision = 'applied';
+    };
+
+    const applyRemapRow = async (index) => {
+        const row = remapRows[index];
+        if (!row || !row.memberId || row.decision === 'applied') return;
+        const action = remapActionFor(row);
+        try {
+            await persistRemapRow(row, row.memberId, action);
+            const pattern = buildRemapLearningPattern(row.remittance);
+            if (pattern.length >= 2) learnedRemapMappings.push({ pattern, memberId: row.memberId, action: { ...action } });
+            const similar = remapRows.filter(candidate => candidate !== row && candidate.decision !== 'applied' && learnedPatternSimilarity(pattern, buildRemapLearningPattern(candidate.remittance)).matches);
+            similar.forEach(candidate => {
+                candidate.memberId = row.memberId;
+                candidate.learned = true;
+                candidate.suggestion = { ...candidate.suggestion, member: remapMembers.find(member => String(member.id) === String(row.memberId)), confidence: 100, candidates: [remapMembers.find(member => String(member.id) === String(row.memberId))].filter(Boolean), reason: 'Similar statement pattern learned from your mapping.' };
+                candidate.action = { ...action };
+            });
+            similarReview = similar.length ? { row, rows: similar, memberId: row.memberId, action: { ...action } } : null;
+            showToast(`Recorded remittance${similar.length ? `; ${similar.length} similar row${similar.length === 1 ? '' : 's'} are ready for review on the left` : ''}.`, 'success');
+            renderRemapRows();
+        } catch (error) {
+            showToast(error.message || 'Unable to remap this row.', 'error');
+        }
+    };
+
+    const continueSimilarReview = async (recordAll) => {
+        const review = similarReview;
+        if (!review) return;
+        if (recordAll) {
+            try {
+                for (const candidate of review.rows) await persistRemapRow(candidate, review.memberId, review.action);
+                showToast(`Recorded ${review.rows.length} similar remittance${review.rows.length === 1 ? '' : 's'}.`, 'success');
+            } catch (error) {
+                showToast(error.message || 'Unable to record all similar rows.', 'error');
+                return;
+            }
+        }
+        similarReview = null;
+        await loadRemapRows();
+        renderRemapRows();
+    };
 
     const draftSnapshot = () => ({
         direction,
@@ -502,6 +651,7 @@ export function showBulkRemittanceModal(deps) {
                 <option value="one_to_one">Transfer (1-to-1)</option>
                 <option value="to_admin">Collection → Admin (members → house)</option>
                 <option value="deposit_varied">Deposit (varied amounts)</option>
+                <option value="remap_unclaimed">Remap Unclaimed</option>
               </select>
             </div>
             <div class="field" id="bulk-enterprise-wrap"><label id="bulk-ent-label">Enterprise</label>
@@ -545,6 +695,19 @@ export function showBulkRemittanceModal(deps) {
           </div>
           <div id="bulk-from-single-wrap" style="display: none; margin-bottom: 0.75rem;">${singlePickerHTML('bulk-from', 'From (single sender)')}</div>
           <div id="bulk-to-wrap" style="display: none; margin-bottom: 0.75rem;">${singlePickerHTML('bulk-to', 'To (single recipient)')}</div>
+          <aside id="bulk-remap-summary" style="display:none;margin-top:1rem;padding:1rem;border:1px solid var(--border-light);border-radius:.75rem;background:color-mix(in srgb,var(--bg-secondary) 45%,transparent);">
+            <div id="bulk-remap-stats"></div>
+            <div id="bulk-remap-similar-panel" style="margin-top:1rem;"></div>
+          </aside>
+          </section>
+          <section id="bulk-remap-wrap" class="bulk-section bulk-members-card" style="display:none;">
+            <div class="bulk-section-heading" style="padding:1rem 1.1rem 0;margin-bottom:0;"><div><h4>Unclaimed remittances</h4><p>Only positive Unknown Payments are shown. Record rows one at a time; similar rows appear in the review panel before you continue.</p></div><span class="bulk-save-badge">One at a time</span></div>
+            <div id="bulk-remap-layout" style="display:grid;grid-template-columns:minmax(0,1fr);gap:0;border-top:1px solid var(--border-light);margin-top:.8rem;">
+              <div style="min-width:0;">
+                <div style="display:flex;gap:.65rem;align-items:center;flex-wrap:wrap;padding:.8rem 1.1rem;border-bottom:1px solid var(--border-light);"><label style="font-size:.75rem;font-weight:750;color:var(--text-muted);">Sort suggestions</label><select id="bulk-remap-sort" style="min-height:2.25rem;padding:0 .55rem;border:1px solid var(--border-medium);border-radius:.55rem;background:var(--bg-input);color:var(--text-primary);"><option value="confidence_desc" selected>Confidence (highest first)</option><option value="date_desc">Newest first</option></select><label style="font-size:.75rem;font-weight:750;color:var(--text-muted);">Apply same action to all</label><select id="bulk-remap-global-mode" style="min-height:2.25rem;padding:0 .55rem;border:1px solid var(--border-medium);border-radius:.55rem;background:var(--bg-input);color:var(--text-primary);"><option value="enterprise">Enterprise</option><option value="auto">Auto Share / Distribution</option></select><select id="bulk-remap-global-enterprise" style="min-height:2.25rem;padding:0 .55rem;border:1px solid var(--border-medium);border-radius:.55rem;background:var(--bg-input);color:var(--text-primary);"><option value="">Select enterprise</option>${remapEnterpriseOptions(remapAction.enterpriseId)}</select><button type="button" id="bulk-remap-apply-all" class="bulk-toolbar-btn">Apply to all suggested</button></div>
+                <div id="bulk-remap-list" style="max-height:min(58vh,680px);overflow:auto;"></div>
+              </div>
+            </div>
           </section>
           <div id="bulk-multi-wrap">
             <div class="bulk-members-card">
@@ -607,6 +770,10 @@ export function showBulkRemittanceModal(deps) {
         });
     };
     const paintMembers = () => {
+        if (direction === 'remap_unclaimed') {
+            renderRemapRows();
+            return;
+        }
         overlay.querySelector('#bulk-member-list').innerHTML = memberRows();
         overlay.querySelectorAll('.bulk-member-chk').forEach(chk => {
             chk.addEventListener('change', () => {
@@ -627,6 +794,30 @@ export function showBulkRemittanceModal(deps) {
         applyOverrideState();
     };
     const syncDirectionUI = () => {
+        const isRemap = direction === 'remap_unclaimed';
+        overlay.querySelector('#bulk-remap-wrap').style.display = isRemap ? 'block' : 'none';
+        overlay.querySelector('#bulk-multi-wrap').style.display = isRemap ? 'none' : (showMultiList() ? 'block' : 'none');
+        overlay.querySelector('#bulk-enterprise-wrap').style.display = isRemap ? 'none' : (direction === 'deposit_varied' ? 'none' : 'flex');
+        overlay.querySelector('#bulk-creditent-wrap').style.display = isRemap ? 'none' : (isTransferDir() ? 'flex' : 'none');
+        overlay.querySelector('#bulk-fund-source-wrap').style.display = isRemap ? 'none' : ((direction === 'due' || direction === 'penalty') ? 'flex' : 'none');
+        overlay.querySelector('#bulk-amount-wrap').style.display = isRemap ? 'none' : 'flex';
+        overlay.querySelector('#bulk-duration-wrap').style.display = isRemap ? 'none' : (direction === 'loan' ? 'flex' : 'none');
+        overlay.querySelector('#bulk-charges-wrap').style.display = isRemap ? 'none' : (direction === 'loan' ? 'block' : 'none');
+        ['#bulk-date', '#bulk-bank', '#bulk-desc'].forEach(selector => {
+            const field = overlay.querySelector(selector)?.closest('.field');
+            if (field) field.style.display = isRemap ? 'none' : '';
+        });
+        const remapSummary = overlay.querySelector('#bulk-remap-summary');
+        if (remapSummary) remapSummary.style.display = isRemap ? 'block' : 'none';
+        overlay.querySelectorAll('#bulk-create').forEach(button => { button.style.display = isRemap ? 'none' : ''; });
+        if (isRemap) {
+            overlay.querySelector('#bulk-from-single-wrap').style.display = 'none';
+            overlay.querySelector('#bulk-to-wrap').style.display = 'none';
+            const globalEnterprise = overlay.querySelector('#bulk-remap-global-enterprise');
+            if (globalEnterprise) globalEnterprise.disabled = remapAction.mode === 'auto';
+            renderRemapRows();
+            return;
+        }
         refreshEntOptions();
         const list = entListFor();
         overlay.querySelector('#bulk-enterprise').innerHTML = entOptions(list, selectedEntId);
@@ -689,11 +880,30 @@ export function showBulkRemittanceModal(deps) {
         refreshCounts();
     };
 
-    overlay.querySelector('#bulk-direction').addEventListener('change', (e) => {
+    overlay.querySelector('#bulk-direction').addEventListener('change', async (e) => {
         direction = e.target.value;
         charges = direction === 'loan' ? defaultCharges() : [];
         syncDirectionUI();
         renderCharges();
+        if (direction === 'remap_unclaimed') {
+            const list = overlay.querySelector('#bulk-remap-list');
+            if (list) list.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-muted);">Finding unclaimed remittances…</div>';
+            try { await loadRemapRows(); renderRemapRows(); } catch (error) { if (list) list.innerHTML = `<div style="padding:2rem;color:var(--danger);">${escapeHtml(error.message || 'Unable to load unclaimed remittances.')}</div>`; }
+        }
+    });
+    overlay.querySelector('#bulk-remap-global-mode')?.addEventListener('change', event => {
+        remapAction.mode = event.target.value;
+        const enterprise = overlay.querySelector('#bulk-remap-global-enterprise');
+        if (enterprise) enterprise.disabled = remapAction.mode === 'auto';
+    });
+    overlay.querySelector('#bulk-remap-sort')?.addEventListener('change', event => {
+        remapSort = event.target.value || 'confidence_desc';
+        renderRemapRows();
+    });
+    overlay.querySelector('#bulk-remap-global-enterprise')?.addEventListener('change', event => { remapAction.enterpriseId = event.target.value; });
+    overlay.querySelector('#bulk-remap-apply-all')?.addEventListener('click', () => {
+        if (remapAction.mode !== 'auto' && !remapAction.enterpriseId) { showToast('Select an enterprise first.', 'warning'); return; }
+        applyRemapActionToAll();
     });
     overlay.querySelector('#bulk-enterprise').addEventListener('change', (e) => {
         selectedEntId = e.target.value;
@@ -918,6 +1128,56 @@ export function showBulkRemittanceModal(deps) {
     }).catch(() => {});
 
     overlay.querySelector('#bulk-create').addEventListener('click', async () => {
+        if (direction === 'remap_unclaimed') {
+            const approvedRows = remapRows.filter(row => row.memberId && (row.action || remapAction));
+            if (!approvedRows.length) { showToast('Select a member and action for at least one unclaimed remittance.', 'warning'); return; }
+            const button = overlay.querySelector('#bulk-create');
+            button.disabled = true;
+            button.textContent = 'Applying…';
+            let applied = 0;
+            const failures = [];
+            for (const row of approvedRows) {
+                try {
+                    const memberId = String(row.memberId);
+                    const action = remapActionFor(row);
+                    if (action.mode !== 'auto' && !action.enterpriseId) throw new Error('No enterprise selected.');
+                    let details = [];
+                    if (action.mode === 'auto') {
+                        const adviceRows = await fetchMemberPaymentAdvise(memberId).catch(() => []);
+                        const adviceByEnterprise = {};
+                        (adviceRows || []).forEach(advice => { if (!advice.is_deleted && advice.enterprise_id && Number(advice.amount) > 0) adviceByEnterprise[String(advice.enterprise_id)] = Number(advice.amount); });
+                        let balanceByEnterprise = {};
+                        try {
+                            const balance = await buildAccountBalance(String(user.cooperativeId), { ...user, memberId }, null);
+                            (balance.accountBalance || []).forEach(item => { balanceByEnterprise[String(item.id)] = Number(item.sum_of_amount || 0); });
+                        } catch (_) {}
+                        const allocation = allocateAutoShare({ remittanceAmount: Math.abs(Number(row.remittance.amount || 0)), enterprises: enterpriseData, adviceByEnterprise, balanceByEnterprise });
+                        details = (allocation.allocations || []).filter(item => Number(item.allocatedAmount || item.allocated_amount) > 0).map(item => ({ enterprise_id: String(item.enterpriseId || item.enterprise_id), amount: Number(item.allocatedAmount || item.allocated_amount), notes: 'Remap Unclaimed: Auto Share approved by user' }));
+                    } else {
+                        details = buildFixedRemapDetails(row.remittance, action.enterpriseId);
+                    }
+                    if (!details.length) throw new Error('The selected action produced no credit allocation.');
+                    await updateRemittance(row.remittance.id, { member_id: memberId, transaction_type: 'Member Deposit', category: 'Member Liability', details }, user.username || 'system');
+                    row.decision = 'applied';
+                    applied++;
+                } catch (error) {
+                    failures.push(`${row.remittance.id}: ${error.message || 'Failed'}`);
+                }
+            }
+            button.disabled = false;
+            button.textContent = 'Done';
+            showToast(`Remapped ${applied} unclaimed remittance${applied === 1 ? '' : 's'}.${failures.length ? ` ${failures.length} failed.` : ''}`, failures.length ? 'warning' : 'success');
+            if (!failures.length) {
+                await loadRemapRows();
+                renderRemapRows();
+                button.textContent = 'Apply remaps';
+            } else {
+                console.warn('[Bulk Remap] failures', failures);
+                renderRemapRows();
+                button.textContent = 'Apply remaps';
+            }
+            return;
+        }
         const amount = Math.abs(parseFloat(overlay.querySelector('#bulk-amount').value || 0) || 0);
         const date = overlay.querySelector('#bulk-date').value || today;
         const bank = overlay.querySelector('#bulk-bank').value || '';
