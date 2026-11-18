@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "784195056887",
+    "firebase_url": "https://cooplogng-default-rtdb.firebaseio.com",
+    "project_id": "cooplogng",
+    "storage_bucket": "cooplogng.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:784195056887:android:87020736aafc3957bc4ff2",
+        "android_client_info": {
+          "package_name": "com.imradexglobal.cooplogng"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "784195056887-e60g3ce9qcet1hcml8u18nv766tq2a5o.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKXyECt0s_0bxU30Vpif3swJSIH_ZEAic"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "784195056887-e60g3ce9qcet1hcml8u18nv766tq2a5o.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

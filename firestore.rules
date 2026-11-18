@@ -40,6 +40,22 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    // TEMPORARY Spark Android compatibility only. This does not authenticate
+    // the member: any client can decide any pending guarantor record. It is
+    // field-limited and must be replaced with member-claim authorization before
+    // production use. This local rule has not been deployed.
+    match /loan_guarantors/{guarantorId} {
+      allow update: if hasCooperativeId()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'guarantor_approval', 'approved_at', 'modified_at', 'modified_by'
+        ])
+        && request.resource.data.guarantor_approval in [0, 1]
+        && request.resource.data.modified_at is string
+        && request.resource.data.modified_by is string
+        && (!resource.data.keys().hasAny(['guarantor_approval'])
+          || resource.data.guarantor_approval == null);
+    }
+
     match /enterprise/{entId} {
       allow read: if true;
       allow create: if hasCooperativeId() && incomingData().keys().hasAny(['account_name']);

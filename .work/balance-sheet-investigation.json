@@ -1,0 +1,537 @@
+﻿{
+  "dbFile": "C:\\Users\\USER\\Downloads\\aaa.db",
+  "cooperativeId": "OGSC",
+  "from": "2026-01-01",
+  "to": "2026-11-17",
+  "trialBalanceTotals": {
+    "openingDr": 118501893,
+    "openingCr": 118501893,
+    "periodDr": 113063050.35,
+    "periodCr": 113063050.35,
+    "closingDr": 229722710.27,
+    "closingCr": 229722710.27,
+    "openingDiff": 0,
+    "periodDiff": 0,
+    "closingDiff": 0
+  },
+  "financialPosition": {
+    "assets": [
+      {
+        "label": "Cash and bank",
+        "lines": [
+          {
+            "code": "11101",
+            "account": "UBA",
+            "closing": 449998.11
+          },
+          {
+            "code": "11102",
+            "account": "Polaris Bank",
+            "closing": 3631660.25
+          }
+        ],
+        "total": 4081658.36
+      },
+      {
+        "label": "Loans receivable",
+        "lines": [
+          {
+            "code": "12101",
+            "account": "Consumer Loan",
+            "closing": 315400
+          },
+          {
+            "code": "12102",
+            "account": "Target Loan",
+            "closing": 2452000
+          },
+          {
+            "code": "12103",
+            "account": "Ordinary Loan",
+            "closing": 98032455.88
+          },
+          {
+            "code": "12104",
+            "account": "IOU Loan",
+            "closing": 4122300
+          },
+          {
+            "code": "12105",
+            "account": "RSA Loan",
+            "closing": 36832400
+          }
+        ],
+        "total": 141754555.88
+      },
+      {
+        "label": "Cooperative assets",
+        "lines": [
+          {
+            "code": "14101",
+            "account": "Bank/General Asset",
+            "closing": -12323483.19
+          }
+        ],
+        "total": -12323483.19
+      }
+    ],
+    "liabilities": [
+      {
+        "label": "Member savings",
+        "lines": [
+          {
+            "code": "21101",
+            "account": "Target Savings",
+            "closing": 980000
+          },
+          {
+            "code": "21102",
+            "account": "Ordinary Savings",
+            "closing": 144073035.08
+          },
+          {
+            "code": "21103",
+            "account": "Consumer Savings",
+            "closing": 44000
+          },
+          {
+            "code": "21104",
+            "account": "IOU Savings",
+            "closing": 10668150
+          },
+          {
+            "code": "21105",
+            "account": "RSA Savings",
+            "closing": 11435038
+          }
+        ],
+        "total": 167200223.08
+      },
+      {
+        "label": "Other liabilities (including unidentified payments)",
+        "lines": [
+          {
+            "code": "22102",
+            "account": "Coop Due",
+            "closing": 500
+          }
+        ],
+        "total": 500
+      }
+    ],
+    "equity": [
+      {
+        "label": "Retained earnings brought forward",
+        "lines": [
+          {
+            "code": "31101",
+            "account": "Retained Earnings",
+            "closing": 0
+          }
+        ],
+        "total": 0
+      },
+      {
+        "label": "Surplus / (deficit) for the period",
+        "lines": [
+          {
+            "code": "",
+            "account": "Net surplus / (deficit) for the period (see Income & Expenditure)",
+            "closing": 3494505.45
+          }
+        ],
+        "total": 3494505.45
+      }
+    ],
+    "assetsTotal": 133512731.05,
+    "liabilitiesTotal": 167200723.08,
+    "equityTotal": 3494505.45,
+    "liabilitiesAndEquity": 170695228.53,
+    "difference": -37182497.48
+  },
+  "periodResult": {
+    "income": 3754350,
+    "expense": 259844.55,
+    "surplus": 3494505.45,
+    "retainedEarningsOpening": 0
+  },
+  "controls": [
+    {
+      "id": "C1",
+      "name": "Trial Balance closing integrity",
+      "description": "Total closing Debits must equal total closing Credits.",
+      "valueA": 229722710.27,
+      "valueB": 229722710.27,
+      "difference": 0,
+      "status": "PASS",
+      "note": "The difference is the sum of every posting that could not be traced to a complete entry. It is disclosed, never plugged. See the Data Quality Exceptions sheet."
+    },
+    {
+      "id": "C5",
+      "name": "Member accounts vs trial balance",
+      "description": "Member credit balances less loan debit balances must equal the member-related lines in the trial balance.",
+      "valueA": 99035331.96,
+      "valueB": 308955278.96,
+      "difference": -209919947,
+      "status": "REVIEW",
+      "note": "Covers savings, dues and penalties, other liabilities, member equity, other assets and loans. Excludes cash, cooperative assets, income, expenditure and retained earnings, which are not member balances. The cooperative pseudo-member is included here and reported separately in C10."
+    },
+    {
+      "id": "C6",
+      "name": "Loan register vs loan accounts",
+      "description": "Sum of per-loan outstanding must equal the loan receivable balance in the trial balance.",
+      "valueA": 94843461.88,
+      "valueB": 141754555.88,
+      "difference": -46911094,
+      "status": "REVIEW",
+      "note": "A difference means loan-account postings exist that do not resolve to a loan record. Those are listed individually as LOAN_DETAIL_UNATTRIBUTED and quantified in C11."
+    },
+    {
+      "id": "C19",
+      "name": "Statement of Financial Position vs trial balance",
+      "description": "Assets less liabilities and equity on the statement of financial position must equal the trial balance control difference.",
+      "valueA": -37182497.48,
+      "valueB": 0,
+      "difference": -37182497.48,
+      "status": "REVIEW",
+      "note": "The statement is presented from the trial balance's own closing balances, so it must foot to the same figure. Agreement proves the statement was not built by a separate calculation that has drifted from the balances behind it. A non-zero difference on C1 appears identically here and is the source data imbalance, not a presentation error."
+    },
+    {
+      "id": "C20",
+      "name": "Income and Expenditure vs trial balance",
+      "description": "The surplus on the income and expenditure statement must equal income less expenditure per the trial balance.",
+      "valueA": 3494505.45,
+      "valueB": 3494505.45,
+      "difference": 0,
+      "status": "PASS",
+      "note": "The trial balance carries both income and expenditure as positive figures, so the comparison is income less expenditure. Both sides are the period movement only, which proves the statement reports the same period result the trial balance does and has not swept a prior-period balance into it."
+    }
+  ],
+  "byBucket": [
+    {
+      "bucket": "bank",
+      "type": "Asset",
+      "normal": "DR",
+      "closing": 4081658.36,
+      "count": 2
+    },
+    {
+      "bucket": "coopAsset",
+      "type": "Asset",
+      "normal": "DR",
+      "closing": -12323483.19,
+      "count": 1
+    },
+    {
+      "bucket": "due",
+      "type": "Liability",
+      "normal": "CR",
+      "closing": 0,
+      "count": 2
+    },
+    {
+      "bucket": "expense",
+      "type": "Expense",
+      "normal": "DR",
+      "closing": 259844.55,
+      "count": 4
+    },
+    {
+      "bucket": "income",
+      "type": "Income",
+      "normal": "CR",
+      "closing": 3754350,
+      "count": 2
+    },
+    {
+      "bucket": "liability",
+      "type": "Liability",
+      "normal": "CR",
+      "closing": 500,
+      "count": 1
+    },
+    {
+      "bucket": "loan",
+      "type": "Asset",
+      "normal": "DR",
+      "closing": 141754555.88,
+      "count": 5
+    },
+    {
+      "bucket": "openingEquity",
+      "type": "Equity",
+      "normal": "CR",
+      "closing": -25514640.59,
+      "count": 1
+    },
+    {
+      "bucket": "retained",
+      "type": "Equity",
+      "normal": "CR",
+      "closing": 0,
+      "count": 1
+    },
+    {
+      "bucket": "savings",
+      "type": "Liability",
+      "normal": "CR",
+      "closing": 167200223.08,
+      "count": 5
+    },
+    {
+      "bucket": "unallocatedPayment",
+      "type": "Asset",
+      "normal": "DR",
+      "closing": 58112010.89,
+      "count": 1
+    },
+    {
+      "bucket": "unidentifiedReceipt",
+      "type": "Liability",
+      "normal": "CR",
+      "closing": 46444154,
+      "count": 1
+    }
+  ],
+  "omitted": [
+    {
+      "code": "14102",
+      "account": "Unallocated Payment Clearing",
+      "bucket": "unallocatedPayment",
+      "type": "Asset",
+      "normal": "DR",
+      "closing": 58112010.89,
+      "opening": 0,
+      "period": 58112010.89
+    },
+    {
+      "code": "22101",
+      "account": "Unidentified Receipts Liability",
+      "bucket": "unidentifiedReceipt",
+      "type": "Liability",
+      "normal": "CR",
+      "closing": 46444154,
+      "opening": 0,
+      "period": 46444154
+    },
+    {
+      "code": "30101",
+      "account": "Opening Balance Equity",
+      "bucket": "openingEquity",
+      "type": "Equity",
+      "normal": "CR",
+      "closing": -25514640.59,
+      "opening": -25514640.59,
+      "period": 0
+    }
+  ],
+  "topAccounts": [
+    {
+      "code": "21102",
+      "account": "Ordinary Savings",
+      "bucket": "savings",
+      "normal": "CR",
+      "opening": 99109705,
+      "period": 44963330.08,
+      "closing": 144073035.08
+    },
+    {
+      "code": "12103",
+      "account": "Ordinary Loan",
+      "bucket": "loan",
+      "normal": "DR",
+      "opening": 65332454,
+      "period": 32700001.88,
+      "closing": 98032455.88
+    },
+    {
+      "code": "14102",
+      "account": "Unallocated Payment Clearing",
+      "bucket": "unallocatedPayment",
+      "normal": "DR",
+      "opening": 0,
+      "period": 58112010.89,
+      "closing": 58112010.89
+    },
+    {
+      "code": "22101",
+      "account": "Unidentified Receipts Liability",
+      "bucket": "unidentifiedReceipt",
+      "normal": "CR",
+      "opening": 0,
+      "period": 46444154,
+      "closing": 46444154
+    },
+    {
+      "code": "12105",
+      "account": "RSA Loan",
+      "bucket": "loan",
+      "normal": "DR",
+      "opening": 18545500,
+      "period": 18286900,
+      "closing": 36832400
+    },
+    {
+      "code": "30101",
+      "account": "Opening Balance Equity",
+      "bucket": "openingEquity",
+      "normal": "CR",
+      "opening": -25514640.59,
+      "period": 0,
+      "closing": -25514640.59
+    },
+    {
+      "code": "14101",
+      "account": "Bank/General Asset",
+      "bucket": "coopAsset",
+      "normal": "DR",
+      "opening": 0,
+      "period": -12323483.19,
+      "closing": -12323483.19
+    },
+    {
+      "code": "21105",
+      "account": "RSA Savings",
+      "bucket": "savings",
+      "normal": "CR",
+      "opening": 8931038,
+      "period": 2504000,
+      "closing": 11435038
+    },
+    {
+      "code": "21104",
+      "account": "IOU Savings",
+      "bucket": "savings",
+      "normal": "CR",
+      "opening": 10461150,
+      "period": 207000,
+      "closing": 10668150
+    },
+    {
+      "code": "12104",
+      "account": "IOU Loan",
+      "bucket": "loan",
+      "normal": "DR",
+      "opening": 5087600,
+      "period": -965300,
+      "closing": 4122300
+    },
+    {
+      "code": "4001",
+      "account": "Loan Charges",
+      "bucket": "income",
+      "normal": "CR",
+      "opening": 0,
+      "period": 3704350,
+      "closing": 3704350
+    },
+    {
+      "code": "11102",
+      "account": "Polaris Bank",
+      "bucket": "bank",
+      "normal": "DR",
+      "opening": 242767.22,
+      "period": 3388893.03,
+      "closing": 3631660.25
+    },
+    {
+      "code": "12102",
+      "account": "Target Loan",
+      "bucket": "loan",
+      "normal": "DR",
+      "opening": 2452000,
+      "period": 0,
+      "closing": 2452000
+    },
+    {
+      "code": "21101",
+      "account": "Target Savings",
+      "bucket": "savings",
+      "normal": "CR",
+      "opening": 0,
+      "period": 980000,
+      "closing": 980000
+    },
+    {
+      "code": "11101",
+      "account": "UBA",
+      "bucket": "bank",
+      "normal": "DR",
+      "opening": 1326931.19,
+      "period": -876933.08,
+      "closing": 449998.11
+    },
+    {
+      "code": "12101",
+      "account": "Consumer Loan",
+      "bucket": "loan",
+      "normal": "DR",
+      "opening": 0,
+      "period": 315400,
+      "closing": 315400
+    },
+    {
+      "code": "5002",
+      "account": "Admin Expenses",
+      "bucket": "expense",
+      "normal": "DR",
+      "opening": 0,
+      "period": 150000,
+      "closing": 150000
+    },
+    {
+      "code": "5001",
+      "account": "Financial & Banking Expenses",
+      "bucket": "expense",
+      "normal": "DR",
+      "opening": 0,
+      "period": 58030.79,
+      "closing": 58030.79
+    },
+    {
+      "code": "4002",
+      "account": "Other Income",
+      "bucket": "income",
+      "normal": "CR",
+      "opening": 0,
+      "period": 50000,
+      "closing": 50000
+    },
+    {
+      "code": "21103",
+      "account": "Consumer Savings",
+      "bucket": "savings",
+      "normal": "CR",
+      "opening": 0,
+      "period": 44000,
+      "closing": 44000
+    },
+    {
+      "code": "5003",
+      "account": "Staff & Management Expenses",
+      "bucket": "expense",
+      "normal": "DR",
+      "opening": 0,
+      "period": 40053.76,
+      "closing": 40053.76
+    },
+    {
+      "code": "5004",
+      "account": "AGM Expenses",
+      "bucket": "expense",
+      "normal": "DR",
+      "opening": 0,
+      "period": 11760,
+      "closing": 11760
+    },
+    {
+      "code": "22102",
+      "account": "Coop Due",
+      "bucket": "liability",
+      "normal": "CR",
+      "opening": 0,
+      "period": 500,
+      "closing": 500
+    }
+  ]
+}

@@ -1,0 +1,3031 @@
+{
+  "sourcePath": "C:/Users/USER/Downloads/cooperative_backup_2026-11-17T20-47.db",
+  "preparedPath": "C:/Users/USER/Documents/Imradex_Project/cooplogng/.work/prepared-new.db",
+  "openingDate": "2025-12-31",
+  "sourceSha256": "f817c836982de5233a078ac572346d68b602289e3153552113e4fa998d610581",
+  "preparedSha256": "af70a30fa7e436bcfb763ca037d7c0544a378151ae7503757a007e669889f1a2",
+  "changedRows": 332,
+  "typeCounts": {
+    "Opening Member Loan": 97,
+    "Opening Member Savings": 233,
+    "Opening Bank Balance": 2
+  },
+  "tableCounts": {
+    "app_settings": 0,
+    "bank": 2,
+    "bank_reconciliation_summary": 0,
+    "cooperatives": 1,
+    "enterprise": 12,
+    "feedback": 0,
+    "loan_guarantors": 0,
+    "loans": 154,
+    "members": 304,
+    "membership_request": 1,
+    "notifications": 0,
+    "payment_advise": 1258,
+    "remittance": 2499,
+    "remittance_detail": 1662,
+    "sync_queue": 1,
+    "sync_state": 1,
+    "transaction_types": 0,
+    "users": 2
+  },
+  "sourceIntegrity": {
+    "integrity_check": "ok"
+  },
+  "preparedIntegrity": {
+    "integrity_check": "ok"
+  },
+  "foreignKeyIssues": 0,
+  "verification": "All table schemas and row counts preserved; every database value is unchanged except transaction_type/category on the listed brought-forward remittance IDs.",
+  "changes": [
+    {
+      "id": "OGSC-13YjIJ1_0R1-lKEHZ0sm8hw",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000001",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000002",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000001",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000003",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000004",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000005",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000007",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000008",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000009",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000010",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000011",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000012",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000013",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000014",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000015",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000016",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000014",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000017",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000018",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000019",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000020",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000021",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000022",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000023",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000024",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000025",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000022",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000026",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000027",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000029",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000030",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000031",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000032",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000033",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000034",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000035",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000031",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000036",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000037",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000038",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000039",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000040",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000041",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000037",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000042",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000044",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000045",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000046",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000047",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000048",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000049",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000050",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000051",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000052",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000053",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000055",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000056",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000057",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000058",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000059",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000060",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000061",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000062",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000063",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000064",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000058",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000065",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000066",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000067",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000068",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000069",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000070",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000071",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000072",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000073",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000074",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000075",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000076",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000078",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000079",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000080",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000081",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000082",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000083",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000084",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000085",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000086",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000087",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000088",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000089",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000090",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000091",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000092",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000093",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000094",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000095",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000087",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000096",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000097",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000098",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000099",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000100",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000101",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000102",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000103",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000104",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000105",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000106",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000107",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000100",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000108",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000109",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000110",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000111",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000112",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000113",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000114",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000115",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000116",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000117",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000118",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000119",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000120",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000121",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000122",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000123",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000124",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000125",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000126",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000127",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000128",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000129",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000130",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000131",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000132",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000133",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000134",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000135",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000130",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000136",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000137",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000138",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000139",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000133",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000140",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000141",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000142",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000143",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000144",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000145",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000146",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000147",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000148",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000149",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000150",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000151",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000152",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000153",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000154",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000155",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000157",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000158",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000159",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000160",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000161",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000162",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000163",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000164",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000165",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000166",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000167",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000168",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000169",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000170",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000171",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000172",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000173",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000174",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000176",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000177",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000178",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000179",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000180",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000182",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000184",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000185",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000186",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000187",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000188",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000189",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000190",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000191",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000192",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000193",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000194",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000195",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F on Intrest for Loan_1kvkyfulig000000190",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000196",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000199",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000200",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000201",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000202",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000203",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000204",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000205",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000206",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000207",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000208",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000209",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-1kvkyfulig000000210",
+      "oldType": "Member Loan",
+      "oldCategory": "Loan Asset",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "Balance B/F from 2025",
+      "mappingReason": "legacy Member Loan brought forward -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-20261107053656",
+      "oldType": "Bank/General Asset",
+      "oldCategory": "General Asset",
+      "newType": "Opening Bank Balance",
+      "newCategory": "Equity",
+      "description": "Bank Balance_end of 2025(UBA Account)",
+      "mappingReason": "year-end bank balance -> app Opening Bank Balance / Equity"
+    },
+    {
+      "id": "OGSC-20261113085755-0001-244EEA37",
+      "oldType": "Bank/General Asset",
+      "oldCategory": "General Asset",
+      "newType": "Opening Bank Balance",
+      "newCategory": "Equity",
+      "description": "Bank Balance_end of 2025(Polaris Bank Account)",
+      "mappingReason": "year-end bank balance -> app Opening Bank Balance / Equity"
+    },
+    {
+      "id": "OGSC-SiD9m-20260814145720",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "bal bf adjusted",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-SiD9m-20260814150025",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260814150555",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal b/f 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260814154201",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal b/f 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260814155112",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-SiD9m-20260815115142",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted balance bf 2025 on rsa savings",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260815122655",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025 rsa",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260817154411",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "adjusted bf on rsa loan",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-SiD9m-20260817161517",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "adjusted bf rsa loan",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-SiD9m-20260817162219",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted rsa savings bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260820111934",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260820112702",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260820113012",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260820113227",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260820113952",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821103058",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821103328",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821104035",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821104805",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821105240",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821105757",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821110900",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821111951",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821112314",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821112644",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf commodity",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113056",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113226",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113347",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113754",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113943",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821114142",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821114549",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821114740",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260821115016",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827121137",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827124354",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827124959",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827125249",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827125624",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130120",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130256",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130510",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130713",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130942",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827131200",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827131445",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827131834",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827132403",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827133203",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827134028",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827134142",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827134352",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260827134438",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901090528",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901092450",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901092532",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf adjusted 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901093920",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901094505",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901094956",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bf ",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901095100",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901164154",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf adjusted",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901165941",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf adjusted",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901171451",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf adjusted",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901171832",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "adjusted bal bf on ord loan",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901171943",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901172057",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "ajusted loan bf ord",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901173825",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf ord savings",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901175252",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901183419",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "bal bf interest 2025 ord loan",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-SiD9m-20260901184148",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902113223",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted b/f ord savings",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902115815",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Loan",
+      "newCategory": "Loan Asset",
+      "description": "adjusted bal b/f on ord loan and savings",
+      "mappingReason": "legacy generic B/F with loan-only detail -> app Opening Member Loan"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902120510",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal b/f 2025 ord savings",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902160322",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal b/f 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902160435",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted b/f ord ",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902162430",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted b/f 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902163057",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted b/f 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902163247",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal b/f from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902163528",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "loan bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260902164350",
+      "oldType": "Member Deposit",
+      "oldCategory": "Member Liability",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf from 2025",
+      "mappingReason": "legacy Member Deposit brought forward -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905121712",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905122101",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905123056",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905123313",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905123520",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905130425",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905130838",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905131845",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905132754",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260905134103",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260906125430",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted loan bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260906132026",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf from 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260906133813",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 12025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260906134036",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260906134707",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260906135046",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "adjusted bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260906140745",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911094149",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095233",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095458",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2026",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095638",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095842",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095916",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911100131",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911100257",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911100357",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911100750",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911101127",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911132538",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911133907",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911134045",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911134303",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal  bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911134531",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911134721",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911135744",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911140029",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911140312",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911140652",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911140839",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911141622",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911141955",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911142111",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911142250",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911142404",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911150601",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911151251",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911152400",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911160016",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911160149",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    },
+    {
+      "id": "OGSC-SiD9m-20260911161401",
+      "oldType": "Internal Transfer",
+      "oldCategory": "Transfer",
+      "newType": "Opening Member Savings",
+      "newCategory": "Member Liability",
+      "description": "bal bf 2025",
+      "mappingReason": "legacy generic B/F with savings, mixed, or unresolved detail -> app Opening Member Savings"
+    }
+  ]
+}

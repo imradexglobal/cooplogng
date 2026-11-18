@@ -1,0 +1,1752 @@
+{
+  "targetPath": "C:/Users/USER/Downloads/new.db",
+  "rollbackCopyPath": "C:/Users/USER/Documents/Imradex_Project/cooplogng/.work/new-before-orphan-cleanup.db",
+  "preparedPath": "C:/Users/USER/Documents/Imradex_Project/cooplogng/.work/new-orphan-cleaned.db",
+  "openingDate": "2025-12-31",
+  "sourceSha256": "af70a30fa7e436bcfb763ca037d7c0544a378151ae7503757a007e669889f1a2",
+  "preparedSha256": "efae8628c16bf9a5af454f77a00e959fe007d017af2c47fdfa65d332583d2297",
+  "removedOrphanDetailCount": 113,
+  "removedRemittanceCount": 113,
+  "removedOrphanDetailRows": [
+    {
+      "detailId": "OGSC-SiD9mFKs6g-49dd77a7-6ede-481c-8b86-7a8f22b18251",
+      "remittanceId": "OGSC-SiD9m-20260820111934",
+      "enterpriseId": "",
+      "amount": "-300806"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-001f44a5-63e7-4a95-826d-1c6247374f00",
+      "remittanceId": "OGSC-SiD9m-20260820112702",
+      "enterpriseId": "",
+      "amount": "-75300"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-3dc9d743-6126-47de-8821-4d4466953fc5",
+      "remittanceId": "OGSC-SiD9m-20260820113012",
+      "enterpriseId": "",
+      "amount": "-5079"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-d453b349-6a9f-4100-b786-8a0bfe3124ba",
+      "remittanceId": "OGSC-SiD9m-20260820113227",
+      "enterpriseId": "",
+      "amount": "-95454"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-240849fa-3912-4a36-854b-fadbfe1debfb",
+      "remittanceId": "OGSC-SiD9m-20260820113952",
+      "enterpriseId": "",
+      "amount": "-20375"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-576e4f7d-fcb6-40e4-8c13-fe6d8e66e99b",
+      "remittanceId": "OGSC-SiD9m-20260821103058",
+      "enterpriseId": "",
+      "amount": "-105593"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-af03296b-fd64-40a7-a34e-fe2ba2c8365e",
+      "remittanceId": "OGSC-SiD9m-20260821103328",
+      "enterpriseId": "",
+      "amount": "-118366"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-5d3ac461-f8d3-45bb-aa0c-daaa0e8d7d3a",
+      "remittanceId": "OGSC-SiD9m-20260821104035",
+      "enterpriseId": "",
+      "amount": "-529162"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-f50239b8-312b-4c13-b6d8-922c192cfa28",
+      "remittanceId": "OGSC-SiD9m-20260821104805",
+      "enterpriseId": "",
+      "amount": "-100000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-c461bdc5-e952-4af0-9cd1-b36da782229b",
+      "remittanceId": "OGSC-SiD9m-20260821105240",
+      "enterpriseId": "",
+      "amount": "-92558"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-d9c84b25-3ef7-4ab3-b1b4-6414218d01bb",
+      "remittanceId": "OGSC-SiD9m-20260821105757",
+      "enterpriseId": "",
+      "amount": "-308369"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-6db2d69e-cd0d-469b-a76e-dfc19851403d",
+      "remittanceId": "OGSC-SiD9m-20260821110900",
+      "enterpriseId": "",
+      "amount": "-166718"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-c1979d77-7036-470f-bc5b-aefab0c007f2",
+      "remittanceId": "OGSC-SiD9m-20260821111951",
+      "enterpriseId": "",
+      "amount": "-206700"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-15143167-5978-480b-b1c6-f4ba040a1110",
+      "remittanceId": "OGSC-SiD9m-20260821112314",
+      "enterpriseId": "",
+      "amount": "-3500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-8c10d6ed-265a-40ca-b11d-89439c71d7bf",
+      "remittanceId": "OGSC-SiD9m-20260821112644",
+      "enterpriseId": "",
+      "amount": "-105750"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-ce1d4925-cbe7-4ffe-b00b-46854207c0ea",
+      "remittanceId": "OGSC-SiD9m-20260821113056",
+      "enterpriseId": "",
+      "amount": "-53000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-ae06c77d-ff6d-4ddc-a35a-0a61cb256377",
+      "remittanceId": "OGSC-SiD9m-20260821113226",
+      "enterpriseId": "",
+      "amount": "-38501"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-9302cb76-0566-410b-8d12-b210a8c7f8c2",
+      "remittanceId": "OGSC-SiD9m-20260821113347",
+      "enterpriseId": "",
+      "amount": "-130000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-e11c3c36-73e3-48fe-a7a7-3ac32d3f68bc",
+      "remittanceId": "OGSC-SiD9m-20260821113754",
+      "enterpriseId": "",
+      "amount": "-94300"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-459b1506-900d-41b6-8d4c-a59cbcdfa4a4",
+      "remittanceId": "OGSC-SiD9m-20260821113943",
+      "enterpriseId": "",
+      "amount": "-50000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-0199a374-3c7d-4a7d-a305-71671571a4d7",
+      "remittanceId": "OGSC-SiD9m-20260821114142",
+      "enterpriseId": "",
+      "amount": "-65000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-444f2a0e-0195-4a61-915e-aa399d1b2ca4",
+      "remittanceId": "OGSC-SiD9m-20260821114549",
+      "enterpriseId": "",
+      "amount": "-53200"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-ef1831c5-295b-449e-8a4b-553e3eea29bb",
+      "remittanceId": "OGSC-SiD9m-20260821114740",
+      "enterpriseId": "",
+      "amount": "-181480"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-8924c70c-11b3-4de2-a2d1-f13c45f5d2ce",
+      "remittanceId": "OGSC-SiD9m-20260821115016",
+      "enterpriseId": "",
+      "amount": "-100500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-d03e283f-ae4d-410c-a693-ca51aef7dc94",
+      "remittanceId": "OGSC-SiD9m-20260827121137",
+      "enterpriseId": "",
+      "amount": "-29251"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-514fe52f-1b6f-474b-bc1b-bb9c57ae966d",
+      "remittanceId": "OGSC-SiD9m-20260827124354",
+      "enterpriseId": "",
+      "amount": "-38850"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-16efc84d-e742-4538-952c-4d9f0888930c",
+      "remittanceId": "OGSC-SiD9m-20260827124959",
+      "enterpriseId": "",
+      "amount": "-32700"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-64606021-66b7-4881-b747-03b643be1024",
+      "remittanceId": "OGSC-SiD9m-20260827125249",
+      "enterpriseId": "",
+      "amount": "-65000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-5554bd7f-0fe5-41f8-9e3e-48f97b3f7209",
+      "remittanceId": "OGSC-SiD9m-20260827125624",
+      "enterpriseId": "",
+      "amount": "-177500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-47b521b7-3fd7-4283-818b-cbccecafbdc9",
+      "remittanceId": "OGSC-SiD9m-20260827130120",
+      "enterpriseId": "",
+      "amount": "-84450"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-a6065ad5-7c43-4794-914c-20e2f92bac53",
+      "remittanceId": "OGSC-SiD9m-20260827130256",
+      "enterpriseId": "",
+      "amount": "-188500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-e4e15788-ab68-46d4-9569-6ebef27787bc",
+      "remittanceId": "OGSC-SiD9m-20260827130510",
+      "enterpriseId": "",
+      "amount": "-46700"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-cd98aaf7-8fad-4c8c-8e69-af432575aead",
+      "remittanceId": "OGSC-SiD9m-20260827130713",
+      "enterpriseId": "",
+      "amount": "-109300"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-ac3ea3de-8431-4f8a-b950-33497bd91185",
+      "remittanceId": "OGSC-SiD9m-20260827130942",
+      "enterpriseId": "",
+      "amount": "-30750"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-70606768-242e-41de-b0ed-964ad19c4ad8",
+      "remittanceId": "OGSC-SiD9m-20260827131200",
+      "enterpriseId": "",
+      "amount": "-15000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-4cd7ac66-7067-4858-aba4-363335d2124a",
+      "remittanceId": "OGSC-SiD9m-20260827131445",
+      "enterpriseId": "",
+      "amount": "-50750"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-b5f944a2-e0d1-4d90-9aa5-0ce07cf52ce9",
+      "remittanceId": "OGSC-SiD9m-20260827131834",
+      "enterpriseId": "",
+      "amount": "-57500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-b37defaf-0fbd-433a-a1e0-1a363c3f6a30",
+      "remittanceId": "OGSC-SiD9m-20260827132403",
+      "enterpriseId": "",
+      "amount": "-47300"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-1f17dd16-17b6-4af5-8e19-186883dae643",
+      "remittanceId": "OGSC-SiD9m-20260827133203",
+      "enterpriseId": "",
+      "amount": "-52500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-776d01da-a78d-4d2f-9f6d-6298f206c52b",
+      "remittanceId": "OGSC-SiD9m-20260827134028",
+      "enterpriseId": "",
+      "amount": "-50000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-b7cbcc23-fb64-4756-b8b7-a86c2184b028",
+      "remittanceId": "OGSC-SiD9m-20260827134142",
+      "enterpriseId": "",
+      "amount": "-30000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-baee1c64-f091-411b-96b2-9e6d7f02a8db",
+      "remittanceId": "OGSC-SiD9m-20260827134352",
+      "enterpriseId": "",
+      "amount": "-51250"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-30bd9c88-0c70-4d63-a5a7-948fea58b868",
+      "remittanceId": "OGSC-SiD9m-20260827134438",
+      "enterpriseId": "",
+      "amount": "-3500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-e48a6a14-37b4-4078-b13d-ce8ea873dc6e",
+      "remittanceId": "OGSC-SiD9m-20260901090528",
+      "enterpriseId": "",
+      "amount": "134500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-bea91449-b81e-4d3c-924b-f0c49f79cbda",
+      "remittanceId": "OGSC-SiD9m-20260901092450",
+      "enterpriseId": "",
+      "amount": "70000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-9b18ac97-d7d7-486d-ab5c-84e0e46da601",
+      "remittanceId": "OGSC-SiD9m-20260901092532",
+      "enterpriseId": "",
+      "amount": "-1050000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-b6e6c352-9308-4c1e-bcc5-f82e964a0f03",
+      "remittanceId": "OGSC-SiD9m-20260901093920",
+      "enterpriseId": "",
+      "amount": "30000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-270615e6-31a9-4c26-bb9b-6bd3d4e694de",
+      "remittanceId": "OGSC-SiD9m-20260901094505",
+      "enterpriseId": "",
+      "amount": "400"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-49e65c66-961c-42a1-92f8-9d9c7af763fc",
+      "remittanceId": "OGSC-SiD9m-20260901094956",
+      "enterpriseId": "",
+      "amount": "7000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-d831385d-e2ef-4acd-b3ec-1d55156b7b7c",
+      "remittanceId": "OGSC-SiD9m-20260901095100",
+      "enterpriseId": "",
+      "amount": "525000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-985d4a26-a97d-483f-94ac-caa5fd4f5c54",
+      "remittanceId": "OGSC-SiD9m-20260901164154",
+      "enterpriseId": "",
+      "amount": "-1090000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-11833438-091e-4542-b5f1-7d7d9b806719",
+      "remittanceId": "OGSC-SiD9m-20260901165941",
+      "enterpriseId": "",
+      "amount": "5000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-cb877251-1c84-4d68-a25d-242eedff67d3",
+      "remittanceId": "OGSC-SiD9m-20260901171451",
+      "enterpriseId": "",
+      "amount": "750"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-208879c9-3b63-4d9e-9972-1bcd43b8557c",
+      "remittanceId": "OGSC-SiD9m-20260901171943",
+      "enterpriseId": "",
+      "amount": "22500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-f9cd2556-3398-41cd-8fd4-1a0a4c623630",
+      "remittanceId": "OGSC-SiD9m-20260901172057",
+      "enterpriseId": "",
+      "amount": "157000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-77bb1c01-3acf-4018-ab45-856f24540381",
+      "remittanceId": "OGSC-SiD9m-20260901175252",
+      "enterpriseId": "",
+      "amount": "-5000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-7ed03281-e95c-490b-8ac7-a4232d620ae8",
+      "remittanceId": "OGSC-SiD9m-20260901184148",
+      "enterpriseId": "",
+      "amount": "25000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-c26ca5a8-671c-42b3-871b-e960d6e3081d",
+      "remittanceId": "OGSC-SiD9m-20260902160322",
+      "enterpriseId": "",
+      "amount": "15000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-b3e2f502-fbbd-454e-adf2-40ab6bfdffa7",
+      "remittanceId": "OGSC-SiD9m-20260902160435",
+      "enterpriseId": "",
+      "amount": "-9700"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-57718ff3-e298-4a3e-9a44-f59e4271fbcc",
+      "remittanceId": "OGSC-SiD9m-20260902162430",
+      "enterpriseId": "",
+      "amount": "5000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-61fb40b5-5909-49aa-864e-6ad8a43e08b3",
+      "remittanceId": "OGSC-SiD9m-20260902163057",
+      "enterpriseId": "",
+      "amount": "-200"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-73cffe95-72ce-44c4-aa6a-1dde1034459d",
+      "remittanceId": "OGSC-SiD9m-20260902163247",
+      "enterpriseId": "",
+      "amount": "-210000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-2a2392aa-ae36-44f6-8577-2871dfc194d4",
+      "remittanceId": "OGSC-SiD9m-20260902163528",
+      "enterpriseId": "",
+      "amount": "-600000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-58ebb9b5-ce94-417b-a778-b299858a783c",
+      "remittanceId": "OGSC-SiD9m-20260905121712",
+      "enterpriseId": "",
+      "amount": "75000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-632c956c-cd5e-4d73-bc92-80e536bc74db",
+      "remittanceId": "OGSC-SiD9m-20260905122101",
+      "enterpriseId": "",
+      "amount": "8000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-0acf4899-dd40-44e7-b601-d63123cc9fd7",
+      "remittanceId": "OGSC-SiD9m-20260905123056",
+      "enterpriseId": "",
+      "amount": "127000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-81743518-2ec6-43de-8f7f-4840962b7e03",
+      "remittanceId": "OGSC-SiD9m-20260905123313",
+      "enterpriseId": "",
+      "amount": "3000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-de58bda5-d93e-41e4-9961-9d9061df65ec",
+      "remittanceId": "OGSC-SiD9m-20260905123520",
+      "enterpriseId": "",
+      "amount": "30000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-457bb8a1-7c2d-42da-bf27-f24e5228ecd5",
+      "remittanceId": "OGSC-SiD9m-20260905130425",
+      "enterpriseId": "",
+      "amount": "10000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-bcb40269-7c1d-48c6-bab4-e32be2a8d964",
+      "remittanceId": "OGSC-SiD9m-20260905130838",
+      "enterpriseId": "",
+      "amount": "30000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-62cd3606-5c65-4155-92c2-07153c950662",
+      "remittanceId": "OGSC-SiD9m-20260905131845",
+      "enterpriseId": "",
+      "amount": "147500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-27815bdf-02ad-4bea-b233-c60641513f7a",
+      "remittanceId": "OGSC-SiD9m-20260905132754",
+      "enterpriseId": "",
+      "amount": "82500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-1080dfa3-23ff-45a8-928c-8cdd023d5f4d",
+      "remittanceId": "OGSC-SiD9m-20260905134103",
+      "enterpriseId": "",
+      "amount": "10000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-aa3c4e4e-9336-46e1-8ab5-94a4353c3b38",
+      "remittanceId": "OGSC-SiD9m-20260906125430",
+      "enterpriseId": "",
+      "amount": "42750"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-d6a250bd-299c-42e7-8191-43fbc54a292a",
+      "remittanceId": "OGSC-SiD9m-20260906132026",
+      "enterpriseId": "",
+      "amount": "-45000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-6cab2013-2ad1-41f9-be41-dbab7a8d50c0",
+      "remittanceId": "OGSC-SiD9m-20260906133813",
+      "enterpriseId": "",
+      "amount": "-35000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-0dbe0cd6-1b15-4b56-83f5-b3d66c65875d",
+      "remittanceId": "OGSC-SiD9m-20260906134036",
+      "enterpriseId": "",
+      "amount": "-240000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-0966ae1a-bfee-4135-a707-21f3ee14e933",
+      "remittanceId": "OGSC-SiD9m-20260906134707",
+      "enterpriseId": "",
+      "amount": "-590000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-0e4af504-04c9-4b0d-be7b-969464c42af2",
+      "remittanceId": "OGSC-SiD9m-20260906135046",
+      "enterpriseId": "",
+      "amount": "450000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-8004d7d1-b396-4a4e-94b0-287757324380",
+      "remittanceId": "OGSC-SiD9m-20260906140745",
+      "enterpriseId": "",
+      "amount": "5000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-6790f9ea-b2c0-4dcb-bd7a-5c5661f5c391",
+      "remittanceId": "OGSC-SiD9m-20260911094149",
+      "enterpriseId": "",
+      "amount": "-9500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-e76768df-175e-49f1-9810-2420cbf16096",
+      "remittanceId": "OGSC-SiD9m-20260911095233",
+      "enterpriseId": "",
+      "amount": "-25550"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-b3e6d4d4-0851-4ad4-85a2-8bd8fdde15f8",
+      "remittanceId": "OGSC-SiD9m-20260911095458",
+      "enterpriseId": "",
+      "amount": "-206328"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-6f9589e8-538a-4aea-a05a-6f60f9417aba",
+      "remittanceId": "OGSC-SiD9m-20260911095638",
+      "enterpriseId": "",
+      "amount": "-33500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-dea9afaa-1f4f-4ca6-9d3c-f29968cc4e63",
+      "remittanceId": "OGSC-SiD9m-20260911095842",
+      "enterpriseId": "",
+      "amount": "-62500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-a319c9e6-7548-489d-a8a8-bc5fd5170117",
+      "remittanceId": "OGSC-SiD9m-20260911095916",
+      "enterpriseId": "",
+      "amount": "-114500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-4005d3a5-2c02-4371-a2e9-56be263f4b46",
+      "remittanceId": "OGSC-SiD9m-20260911100131",
+      "enterpriseId": "",
+      "amount": "-15125"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-39e79646-444f-41ee-8c39-2ec77c05969a",
+      "remittanceId": "OGSC-SiD9m-20260911100257",
+      "enterpriseId": "",
+      "amount": "-69095"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-01580005-62a1-41e4-87a1-7121143c535b",
+      "remittanceId": "OGSC-SiD9m-20260911100357",
+      "enterpriseId": "",
+      "amount": "-133600"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-d5156efb-268a-43b3-9b1a-c4a8f681d3d9",
+      "remittanceId": "OGSC-SiD9m-20260911100750",
+      "enterpriseId": "",
+      "amount": "-6750"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-e8abf66e-5ae3-48c1-832a-e592e5f1304a",
+      "remittanceId": "OGSC-SiD9m-20260911101127",
+      "enterpriseId": "",
+      "amount": "-15404"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-d3bfc195-ec84-4c6a-a963-c1e9126bac55",
+      "remittanceId": "OGSC-SiD9m-20260911132538",
+      "enterpriseId": "",
+      "amount": "-29800"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-c15bc279-d7dc-4e01-b56f-a431b3a9afbb",
+      "remittanceId": "OGSC-SiD9m-20260911133907",
+      "enterpriseId": "",
+      "amount": "-42000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-cae990b9-77d8-4366-b95b-d8c4c66c7948",
+      "remittanceId": "OGSC-SiD9m-20260911134045",
+      "enterpriseId": "",
+      "amount": "-45401"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-99a654d5-561e-4394-84ed-c905fa30b514",
+      "remittanceId": "OGSC-SiD9m-20260911134303",
+      "enterpriseId": "",
+      "amount": "-145843"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-742fcea6-a073-4b98-9c17-86557df8b822",
+      "remittanceId": "OGSC-SiD9m-20260911134531",
+      "enterpriseId": "",
+      "amount": "-35350"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-600b3a31-6718-4ef1-b5af-62d5611c6a74",
+      "remittanceId": "OGSC-SiD9m-20260911134721",
+      "enterpriseId": "",
+      "amount": "-9500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-382c5077-e17d-4b0f-b037-588c6728c7b3",
+      "remittanceId": "OGSC-SiD9m-20260911135744",
+      "enterpriseId": "",
+      "amount": "-13000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-348b469d-91b7-44e8-a7cc-a49dc0df1332",
+      "remittanceId": "OGSC-SiD9m-20260911140029",
+      "enterpriseId": "",
+      "amount": "-65000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-9271b9d9-ac09-47c5-ac19-d573a00667ee",
+      "remittanceId": "OGSC-SiD9m-20260911140312",
+      "enterpriseId": "",
+      "amount": "-20000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-a5b1003e-945d-4f13-8c32-b882b3f53eff",
+      "remittanceId": "OGSC-SiD9m-20260911140652",
+      "enterpriseId": "",
+      "amount": "-68000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-523a9612-bd4a-4f40-8e82-ce796c66e6e2",
+      "remittanceId": "OGSC-SiD9m-20260911140839",
+      "enterpriseId": "",
+      "amount": "-47000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-2d93ca80-dc63-4e14-b6e5-06be3e33c52b",
+      "remittanceId": "OGSC-SiD9m-20260911141622",
+      "enterpriseId": "",
+      "amount": "-7000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-57fb6892-3289-4177-a02b-1629d8b71619",
+      "remittanceId": "OGSC-SiD9m-20260911141955",
+      "enterpriseId": "",
+      "amount": "-35000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-4eae71e8-8877-486c-9bc0-34f4015c3c88",
+      "remittanceId": "OGSC-SiD9m-20260911142111",
+      "enterpriseId": "",
+      "amount": "-10000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-43435f4f-be32-45ba-8df7-7ed18072dd86",
+      "remittanceId": "OGSC-SiD9m-20260911142250",
+      "enterpriseId": "",
+      "amount": "-25250"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-093293bb-e931-4a96-96e1-7a7f1d2fa358",
+      "remittanceId": "OGSC-SiD9m-20260911142404",
+      "enterpriseId": "",
+      "amount": "-20000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-f8e5a876-e331-440d-ac00-0923ca30b824",
+      "remittanceId": "OGSC-SiD9m-20260911150601",
+      "enterpriseId": "",
+      "amount": "-32500"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-fb4a6bf8-953b-440c-86e9-929d71b49de6",
+      "remittanceId": "OGSC-SiD9m-20260911151251",
+      "enterpriseId": "",
+      "amount": "-57000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-1bc58bcd-7ec3-4e06-8ff3-622ff3039864",
+      "remittanceId": "OGSC-SiD9m-20260911152400",
+      "enterpriseId": "",
+      "amount": "-35000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-50ad4f2f-22b9-4235-a9c7-76bcb016faea",
+      "remittanceId": "OGSC-SiD9m-20260911160016",
+      "enterpriseId": "",
+      "amount": "-51100"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-cfc88f8f-e6b6-4707-92dc-75e222633fb1",
+      "remittanceId": "OGSC-SiD9m-20260911160149",
+      "enterpriseId": "",
+      "amount": "-7000"
+    },
+    {
+      "detailId": "OGSC-SiD9mFKs6g-073abb34-8f74-45fa-8300-cccfad287473",
+      "remittanceId": "OGSC-SiD9m-20260911161401",
+      "enterpriseId": "",
+      "amount": "-28500"
+    }
+  ],
+  "removedRemittances": [
+    {
+      "id": "OGSC-SiD9m-20260820111934",
+      "memberId": "OGSC-1f64F5Hs0000000125",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-300806",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260820112702",
+      "memberId": "OGSC-SiD9m-ec16b52b-3a5b-4979-9a28-389cdbadb1c0",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-75300",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260820113012",
+      "memberId": "OGSC-SiD9m-42998cd4-bc4b-4a7f-9b44-0422dc83f6eb",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-5079",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260820113227",
+      "memberId": "OGSC-1f64F5Hs0000000055",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-95454",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260820113952",
+      "memberId": "OGSC-SiD9m-1972d5e5-78d7-45b2-a40c-17f47e029949",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-20375",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821103058",
+      "memberId": "OGSC-SiD9m-cb8f106d-004b-43ac-929b-54eeffc58468",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-105593",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821103328",
+      "memberId": "OGSC-1f64F5Hs0000000165",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-118366",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821104035",
+      "memberId": "OGSC-1f64F5Hs0000000162",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-529162",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821104805",
+      "memberId": "OGSC-SiD9m-2597d4bd-7e8c-47f4-ad60-0f07b9683007",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-100000",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821105240",
+      "memberId": "OGSC-SiD9m-b8eaaab8-47d1-41ef-874e-dcf2508e04e7",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-92558",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821105757",
+      "memberId": "OGSC-SiD9m-8f841728-98f6-49ca-bbcc-78fd28c575f1",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-308369",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821110900",
+      "memberId": "OGSC-1f64F5Hs0000000010",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-166718",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821111951",
+      "memberId": "OGSC-1f64F5Hs0000000119",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-206700",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821112314",
+      "memberId": "OGSC-SiD9m-72838417-14e0-436c-8070-349f4c83a66a",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-3500",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821112644",
+      "memberId": "OGSC-1f64F5Hs0000000059",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-105750",
+      "description": "bal bf commodity",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113056",
+      "memberId": "OGSC-1f64F5Hs0000000068",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-53000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113226",
+      "memberId": "OGSC-SiD9m-a40950a1-6f1f-4563-9b00-a57a8bbada70",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-38501",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113347",
+      "memberId": "OGSC-1f64F5Hs0000000022",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-130000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113754",
+      "memberId": "OGSC-SiD9m-f7471b67-5347-4771-87e4-bdb2cf3b4214",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-94300",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821113943",
+      "memberId": "OGSC-1f64F5Hs0000000087",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-50000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821114142",
+      "memberId": "OGSC-1f64F5Hs0000000031",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-65000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821114549",
+      "memberId": "OGSC-SiD9m-e941e78c-9b1d-4796-b84e-cf7c1454bb2c",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-53200",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821114740",
+      "memberId": "OGSC-SiD9m-8144c797-38d6-40b3-9cb2-b3d50ccbdb4e",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-181480",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260821115016",
+      "memberId": "OGSC-SiD9m-093eb53f-d81a-46ed-81d6-37f375b63410",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-100500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827121137",
+      "memberId": "OGSC-1f64F5Hs0000000035",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-29251",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827124354",
+      "memberId": "OGSC-SiD9m-a28f3890-6341-48d5-a2f5-68638440b7f9",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-38850",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827124959",
+      "memberId": "OGSC-1f64F5Hs0000000151",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-32700",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827125249",
+      "memberId": "OGSC-1f64F5Hs0000000054",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-65000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827125624",
+      "memberId": "OGSC-SiD9m-1cb77679-66ee-4b84-8c6a-7159b492f2f9",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-177500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130120",
+      "memberId": "OGSC-1f64F5Hs0000000065",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-84450",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130256",
+      "memberId": "OGSC-1f64F5Hs0000000037",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-188500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130510",
+      "memberId": "OGSC-SiD9m-d5df3d25-c0a2-4c49-a2a0-480728a484bc",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-46700",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130713",
+      "memberId": "OGSC-SiD9m-de54db84-5449-4e4f-9d7b-6b4a471727e6",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-109300",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827130942",
+      "memberId": "OGSC-SiD9m-e990ee52-3ff2-4d68-a779-7b9a260159e6",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-30750",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827131200",
+      "memberId": "OGSC-SiD9m-ef14f0db-8517-41b6-8b19-fe3f985014a0",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-15000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827131445",
+      "memberId": "OGSC-1f64F5Hs0000000075",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-50750",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827131834",
+      "memberId": "OGSC-SiD9m-540d640a-6b08-4254-829f-6275bf403cc7",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-57500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827132403",
+      "memberId": "OGSC-SiD9m-d3e1f95c-3242-45ec-a59d-3931ede09c6e",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-47300",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827133203",
+      "memberId": "OGSC-SiD9m-3f212bac-77b0-4d39-a546-b0a544a78077",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-52500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827134028",
+      "memberId": "OGSC-SiD9m-d3048ef4-9994-444c-88b1-25aff8a02fab",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-50000",
+      "description": "bal bf",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827134142",
+      "memberId": "OGSC-SiD9m-b6b2facf-6c21-42b3-ac82-ddedde22ddcf",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-30000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827134352",
+      "memberId": "OGSC-SiD9m-38a3cd28-fb48-4998-8544-61375e727947",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-51250",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260827134438",
+      "memberId": "OGSC-1f64F5Hs0000000154",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-3500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901090528",
+      "memberId": "OGSC-1f64F5Hs0000000009",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "134500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901092450",
+      "memberId": "OGSC-1f64F5Hs0000000014",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "70000",
+      "description": "bal bf",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901092532",
+      "memberId": "OGSC-1f64F5Hs0000000014",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-1050000",
+      "description": "bal bf adjusted 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901093920",
+      "memberId": "OGSC-1f64F5Hs0000000021",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "30000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901094505",
+      "memberId": "OGSC-1f64F5Hs0000000026",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "400",
+      "description": "adjusted bf",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901094956",
+      "memberId": "OGSC-1f64F5Hs0000000025",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "7000",
+      "description": "adjusted bf ",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901095100",
+      "memberId": "OGSC-1f64F5Hs0000000025",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "525000",
+      "description": "adjusted bf",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901164154",
+      "memberId": "OGSC-1f64F5Hs0000000034",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-1090000",
+      "description": "bal bf adjusted",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901165941",
+      "memberId": "OGSC-1f64F5Hs0000000047",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "5000",
+      "description": "bal bf adjusted",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901171451",
+      "memberId": "OGSC-1f64F5Hs0000000051",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "750",
+      "description": "bal bf adjusted",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901171943",
+      "memberId": "OGSC-1f64F5Hs0000000059",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "22500",
+      "description": "adjusted bal bf",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901172057",
+      "memberId": "OGSC-1f64F5Hs0000000059",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "157000",
+      "description": "ajusted loan bf ord",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901175252",
+      "memberId": "OGSC-1f64F5Hs0000000073",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-5000",
+      "description": "adjusted bal bf",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260901184148",
+      "memberId": "OGSC-1f64F5Hs0000000078",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "25000",
+      "description": "adjusted bal bf",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260902160322",
+      "memberId": "OGSC-1f64F5Hs0000000112",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "15000",
+      "description": "bal b/f 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260902160435",
+      "memberId": "OGSC-1f64F5Hs0000000114",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-9700",
+      "description": "adjusted b/f ord ",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260902162430",
+      "memberId": "OGSC-1f64F5Hs0000000125",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "5000",
+      "description": "adjusted b/f 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260902163057",
+      "memberId": "OGSC-1f64F5Hs0000000131",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-200",
+      "description": "adjusted b/f 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260902163247",
+      "memberId": "OGSC-1f64F5Hs0000000132",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-210000",
+      "description": "bal b/f from 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260902163528",
+      "memberId": "OGSC-1f64F5Hs0000000134",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-600000",
+      "description": "loan bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905121712",
+      "memberId": "OGSC-1f64F5Hs0000000153",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "75000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905122101",
+      "memberId": "OGSC-1f64F5Hs0000000154",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "8000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905123056",
+      "memberId": "OGSC-1f64F5Hs0000000157",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "127000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905123313",
+      "memberId": "OGSC-1f64F5Hs0000000166",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "3000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905123520",
+      "memberId": "OGSC-1f64F5Hs0000000174",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "30000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905130425",
+      "memberId": "OGSC-1f64F5Hs0000000164",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "10000",
+      "description": "adjusted bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905130838",
+      "memberId": "OGSC-1f64F5Hs0000000171",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "30000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905131845",
+      "memberId": "OGSC-1f64F5Hs0000000178",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "147500",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905132754",
+      "memberId": "OGSC-1f64F5Hs0000000182",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "82500",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260905134103",
+      "memberId": "OGSC-1f64F5Hs0000000190",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "10000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260906125430",
+      "memberId": "OGSC-1f64F5Hs0000000201",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "42750",
+      "description": "adjusted loan bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260906132026",
+      "memberId": "OGSC-1f64F5Hs0000000071",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-45000",
+      "description": "bal bf from 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260906133813",
+      "memberId": "OGSC-1f64F5Hs0000000068",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-35000",
+      "description": "bal bf 12025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260906134036",
+      "memberId": "OGSC-1f64F5Hs0000000063",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-240000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260906134707",
+      "memberId": "OGSC-1f64F5Hs0000000162",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-590000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260906135046",
+      "memberId": "OGSC-1f64F5Hs0000000173",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "450000",
+      "description": "adjusted bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260906140745",
+      "memberId": "OGSC-1f64F5Hs0000000190",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "5000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911094149",
+      "memberId": "OGSC-SiD9m-2e71b3ec-529a-4de5-a84f-bd3ae64ccb0e",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-9500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095233",
+      "memberId": "OGSC-SiD9m-310e2646-64e2-489f-845d-d69328856967",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-25550",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095458",
+      "memberId": "OGSC-SiD9m-5e7924e7-0aa3-43a8-8a70-640e9448552e",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-206328",
+      "description": "bal bf 2026",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095638",
+      "memberId": "OGSC-SiD9m-7bf992fa-ec77-40a3-a467-38792ac3cd06",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-33500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095842",
+      "memberId": "OGSC-SiD9m-d85f3616-3a6f-4a8d-8312-9014dae260df",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-62500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911095916",
+      "memberId": "OGSC-1f64F5Hs0000000051",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-114500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911100131",
+      "memberId": "OGSC-SiD9m-b8db6405-23d2-427c-9130-0a8b1e18f0e1",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-15125",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911100257",
+      "memberId": "OGSC-SiD9m-88303c7e-e86d-4eac-bd79-314de3577632",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-69095",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911100357",
+      "memberId": "OGSC-SiD9m-d5e7683c-9ff8-4706-81cf-5bc5fdf6dbb0",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-133600",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911100750",
+      "memberId": "OGSC-1f64F5Hs0000000108",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-6750",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911101127",
+      "memberId": "OGSC-1f64F5Hs0000000049",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-15404",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911132538",
+      "memberId": "OGSC-1f64F5Hs0000000100",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-29800",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911133907",
+      "memberId": "OGSC-SiD9m-a02bb0ba-7ffa-41ea-a63f-26c530066515",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-42000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911134045",
+      "memberId": "OGSC-SiD9m-f47277f9-a099-4d48-8d64-feb884abb946",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-45401",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911134303",
+      "memberId": "OGSC-SiD9m-3d90a8fe-a150-4d57-b533-d0afa1fecbe9",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-145843",
+      "description": "bal  bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911134531",
+      "memberId": "OGSC-SiD9m-9d04b3b6-b32d-4849-9fb0-cbabf96ac637",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-35350",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911134721",
+      "memberId": "OGSC-1f64F5Hs0000000164",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-9500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911135744",
+      "memberId": "OGSC-SiD9m-c6936f7a-ce54-4a05-8135-204b0b306d7b",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-13000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911140029",
+      "memberId": "OGSC-SiD9m-c2c79349-a69a-4c1b-90a5-d4d7d21b5e16",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-65000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911140312",
+      "memberId": "OGSC-SiD9m-b05796e0-2cdd-46ff-9a6c-69cf79332341",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-20000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911140652",
+      "memberId": "OGSC-SiD9m-76c0e0cb-d3fb-49f9-886d-d97f59b4c398",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-68000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911140839",
+      "memberId": "OGSC-1f64F5Hs0000000109",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-47000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911141622",
+      "memberId": "OGSC-SiD9m-91d09407-d210-4e2a-9bd5-efce9b15c6f8",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-7000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911141955",
+      "memberId": "OGSC-1f64F5Hs0000000181",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-35000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911142111",
+      "memberId": "OGSC-1f64F5Hs0000000137",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-10000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911142250",
+      "memberId": "OGSC-SiD9m-74490639-b460-4978-ba23-e731f2f46693",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-25250",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911142404",
+      "memberId": "OGSC-SiD9m-76b4139f-6d29-4378-84b1-e3e1228890a5",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-20000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911150601",
+      "memberId": "OGSC-SiD9m-b1795422-1690-4a15-ba08-4a9f0df14ab4",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-32500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911151251",
+      "memberId": "OGSC-SiD9m-8ff734a9-3992-4c3a-bac2-5ed8c6d46150",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-57000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911152400",
+      "memberId": "OGSC-SiD9m-b81cecdd-cae4-438b-bdd7-20b25738d7fa",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-35000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911160016",
+      "memberId": "OGSC-1f64F5Hs0000000045",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-51100",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911160149",
+      "memberId": "OGSC-SiD9m-57e09ad6-21ed-4808-b991-63c9d20eb932",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-7000",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    },
+    {
+      "id": "OGSC-SiD9m-20260911161401",
+      "memberId": "OGSC-SiD9m-4149ab11-0ff8-4a71-8756-29e5c2286ae7",
+      "transactionType": "Opening Member Savings",
+      "headerAmount": "-28500",
+      "description": "bal bf 2025",
+      "remainingDetailCountAfterOrphanRemoval": 0,
+      "remainingDetailTotalAfterOrphanRemoval": 0
+    }
+  ],
+  "tableCountsBefore": {
+    "app_settings": 0,
+    "bank": 2,
+    "bank_reconciliation_summary": 0,
+    "cooperatives": 1,
+    "enterprise": 12,
+    "feedback": 0,
+    "loan_guarantors": 0,
+    "loans": 154,
+    "members": 304,
+    "membership_request": 1,
+    "notifications": 0,
+    "payment_advise": 1258,
+    "remittance": 2499,
+    "remittance_detail": 1662,
+    "sync_queue": 1,
+    "sync_state": 1,
+    "transaction_types": 0,
+    "users": 2
+  },
+  "tableCountsAfter": {
+    "app_settings": 0,
+    "bank": 2,
+    "bank_reconciliation_summary": 0,
+    "cooperatives": 1,
+    "enterprise": 12,
+    "feedback": 0,
+    "loan_guarantors": 0,
+    "loans": 154,
+    "members": 304,
+    "membership_request": 1,
+    "notifications": 0,
+    "payment_advise": 1258,
+    "remittance": 2386,
+    "remittance_detail": 1549,
+    "sync_queue": 1,
+    "sync_state": 1,
+    "transaction_types": 0,
+    "users": 2
+  },
+  "integrity": "ok",
+  "foreignKeyIssues": 0,
+  "verification": "Only the listed orphan brought-forward detail rows and their listed zero-net nonzero-member-header remittances were removed. All remaining table rows and schema are byte-value equivalent."
+}

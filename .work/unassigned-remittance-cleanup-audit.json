@@ -1,0 +1,138 @@
+{
+  "targetPath": "C:/Users/USER/Downloads/new.db",
+  "rollbackPath": "C:/Users/USER/Documents/Imradex_Project/cooplogng/.work/new-before-unassigned-cleanup.db",
+  "preparedPath": "C:/Users/USER/Documents/Imradex_Project/cooplogng/.work/new-without-unassigned-remittances.db",
+  "sourceSha256": "efae8628c16bf9a5af454f77a00e959fe007d017af2c47fdfa65d332583d2297",
+  "preparedSha256": "91fcedbb29bb0a76630532177cd6c0dba778b4d6d78d0fe552dd16f6c6da2ae9",
+  "deletedRemittanceCount": 4,
+  "deletedDetailRowCount": 4,
+  "remittances": [
+    {
+      "id": "OGSC-SiD9m-20260817185113",
+      "date": "2025-12-31T00:00:00.000Z",
+      "memberId": "OGSC-1f64F5Hs0000000030",
+      "headerAmount": "150000",
+      "description": "loan repayment",
+      "transactionType": "Internal Transfer",
+      "category": "Transfer",
+      "removedDetails": [
+        {
+          "id": "OGSC-SiD9mFKs6g-3d430a05-d815-411c-a44f-759596b25267",
+          "enterpriseId": "",
+          "amount": "150000"
+        }
+      ],
+      "dependentReferences": {
+        "loans": 0,
+        "children": 0,
+        "loanIdRefs": 0
+      }
+    },
+    {
+      "id": "OGSC-SiD9m-20260901183655",
+      "date": "2025-12-31T00:00:00.000Z",
+      "memberId": "OGSC-1f64F5Hs0000000077",
+      "headerAmount": "89000",
+      "description": "adjusted savings bal",
+      "transactionType": "Internal Transfer",
+      "category": "Transfer",
+      "removedDetails": [
+        {
+          "id": "OGSC-SiD9mFKs6g-16fc72bc-809b-4ad8-8991-178e2bd04d74",
+          "enterpriseId": "",
+          "amount": "89000"
+        }
+      ],
+      "dependentReferences": {
+        "loans": 0,
+        "children": 0,
+        "loanIdRefs": 0
+      }
+    },
+    {
+      "id": "OGSC-SiD9m-20260901184312",
+      "date": "2025-12-31T00:00:00.000Z",
+      "memberId": "OGSC-1f64F5Hs0000000078",
+      "headerAmount": "73800",
+      "description": "adjusted loan bal ord 2025",
+      "transactionType": "Internal Transfer",
+      "category": "Transfer",
+      "removedDetails": [
+        {
+          "id": "OGSC-SiD9mFKs6g-9e5f468a-5196-4cbf-a34f-dbd2b83f15f6",
+          "enterpriseId": "",
+          "amount": "73800"
+        }
+      ],
+      "dependentReferences": {
+        "loans": 0,
+        "children": 0,
+        "loanIdRefs": 0
+      }
+    },
+    {
+      "id": "OGSC-SiD9m-20260905123146",
+      "date": "2025-12-31T00:00:00.000Z",
+      "memberId": "OGSC-1f64F5Hs0000000165",
+      "headerAmount": "50000",
+      "description": "adjusted loan bal 2025",
+      "transactionType": "Internal Transfer",
+      "category": "Transfer",
+      "removedDetails": [
+        {
+          "id": "OGSC-SiD9mFKs6g-e169400a-e931-4c0f-8995-4797d49721a2",
+          "enterpriseId": "",
+          "amount": "50000"
+        }
+      ],
+      "dependentReferences": {
+        "loans": 0,
+        "children": 0,
+        "loanIdRefs": 0
+      }
+    }
+  ],
+  "tableCountsBefore": {
+    "app_settings": 0,
+    "bank": 2,
+    "bank_reconciliation_summary": 0,
+    "cooperatives": 1,
+    "enterprise": 12,
+    "feedback": 0,
+    "loan_guarantors": 0,
+    "loans": 154,
+    "members": 304,
+    "membership_request": 1,
+    "notifications": 0,
+    "payment_advise": 1258,
+    "remittance": 2386,
+    "remittance_detail": 1549,
+    "sync_queue": 1,
+    "sync_state": 1,
+    "transaction_types": 0,
+    "users": 2
+  },
+  "tableCountsAfter": {
+    "app_settings": 0,
+    "bank": 2,
+    "bank_reconciliation_summary": 0,
+    "cooperatives": 1,
+    "enterprise": 12,
+    "feedback": 0,
+    "loan_guarantors": 0,
+    "loans": 154,
+    "members": 304,
+    "membership_request": 1,
+    "notifications": 0,
+    "payment_advise": 1258,
+    "remittance": 2382,
+    "remittance_detail": 1545,
+    "sync_queue": 1,
+    "sync_state": 1,
+    "transaction_types": 0,
+    "users": 2
+  },
+  "integrity": "ok",
+  "foreignKeyIssues": 0,
+  "verification": "Deleted only approved, nonzero-header member remittances whose active nonzero detail legs had no valid enterprise assignment; all other records and schema preserved."
+}
