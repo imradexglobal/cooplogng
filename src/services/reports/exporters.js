@@ -72,7 +72,7 @@ export async function exportToExcel(cooperativeName, title, headers, data) {
                 } else {
                     cell.value = val;
                 }
-            } else if (val !== undefined && (header === 'Amount' || header === 'Total' || header === 'Principal' || header === 'Bal B/F' || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].includes(header))) {
+            } else if (val !== undefined && (header === 'Amount' || header === 'Total' || header === 'Principal' || header === 'Bal B/F' || ['Opening Dr', 'Opening Cr', 'Period Dr', 'Period Cr', 'Closing Dr', 'Closing Cr'].includes(header) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].includes(header))) {
                 const numVal = (val === null || val === undefined || val === '') ? 0 : Number(val);
                 cell.value = numVal;
                 cell.numFmt = numVal % 1 === 0 ? '#,##0;[Red]-#,##0' : '#,##0.00;[Red]-#,##0.00';
@@ -154,7 +154,7 @@ export async function exportToPDF(cooperativeName, title, headers, data, orienta
                 return rowArray.map((val, idx) => {
                     const header = headers[idx];
                     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                    const commonAmountHeaders = ['Amount', 'Total', 'Principal', 'Bal B/F', 'DR', 'CR', 'BL', 'Balance'];
+                    const commonAmountHeaders = ['Amount', 'Total', 'Principal', 'Bal B/F', 'Opening Dr', 'Opening Cr', 'Period Dr', 'Period Cr', 'Closing Dr', 'Closing Cr', 'DR', 'CR', 'BL', 'Balance'];
                     const isAmount = typeof val === 'number' || commonAmountHeaders.includes(header) || monthNames.includes(header);
 
                     if (isAmount) {
@@ -186,7 +186,7 @@ export async function exportToPDF(cooperativeName, title, headers, data, orienta
                     acc[idx] = { cellWidth: 'auto', overflow: 'visible' };
                     return acc;
                 }
-                const noWrapHeaders = ["ID", "Date", "Amount", "Total", "Principal", "Bal B/F", "Status", "Reg No", "Member ID", "Mobile", "Sex"];
+                const noWrapHeaders = ["ID", "Date", "Amount", "Total", "Principal", "Bal B/F", "Opening Dr", "Opening Cr", "Period Dr", "Period Cr", "Closing Dr", "Closing Cr", "Status", "Reg No", "Member ID", "Mobile", "Sex"];
                 if (noWrapHeaders.includes(header)) {
                     acc[idx] = { cellWidth: 'wrap' };
                 } else if (header === 'Member Name' || header === 'Full Name') {

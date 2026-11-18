@@ -99,5 +99,11 @@ export const DEFAULT_TRANSACTION_TYPES = [
     { name: "Savings Withdrawal", classification: "Member Liability", is_locked: true },
     { name: "Internal Transfer", classification: "Transfer", is_locked: true },
     { name: "Other Income", classification: "Other Income" },
-    { name: "Other Expenses", classification: "Other Expenses" }
+    { name: "Other Expenses", classification: "Other Expenses" },
+    // Opening balances are conversion entries, not cash movements or internal
+    // transfers. The accounting pack uses the transaction type to add the
+    // corresponding Opening Balance Equity leg.
+    { name: "Opening Bank Balance", classification: "Equity", is_locked: true },
+    { name: "Opening Member Savings", classification: "Member Liability", is_locked: true },
+    { name: "Opening Member Loan", classification: "Loan Asset", is_locked: true }
 ];

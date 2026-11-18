@@ -34,11 +34,12 @@ export async function getPaymentAdviseData(cooperativeId, user = null, filters =
     const isAdmin = !user || user.role === 'admin' || (user.permissions || '').includes('admin');
 
     const enterprises = await fetchEnterprises(cooperativeId, true);
-    const byName = (a, b) => String(a.account_name || '').localeCompare(String(b.account_name || ''));
-    const loans = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'loan').sort(byName);
-    const savings = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'savings').sort(byName);
-    const others = enterprises.filter(e => !loans.includes(e) && !savings.includes(e)).sort(byName);
-    let orderedEnts = [...loans, ...savings, ...others];
+    const byName = (a, b) => String(a.account_name || '').localeCompare(
+        String(b.account_name || ''), undefined, { numeric: true, sensitivity: 'base' }
+    );
+    // Enterprise names are report columns, so use a predictable alphabetical
+    // order rather than account type or database insertion order.
+    let orderedEnts = [...enterprises].sort(byName);
     if (enterpriseFilter) orderedEnts = orderedEnts.filter(e => String(e.id) === String(enterpriseFilter));
 
     // The roster is read in JS rather than through a members join: the local
@@ -354,7 +355,9 @@ export async function getGeneralNetworthData(cooperativeId, user, dateTo) {
     const enterprises = allEnterprises.filter(e => {
         const isRevenue = e.revenue == 1 || e.revenue === '1' || e.revenue === 'true' || e.revenue === true;
         return (!isRevenue || _isDuePenalty(e)) && !e.is_deleted;
-    });
+    }).sort((a, b) => String(a.account_name || '').localeCompare(
+        String(b.account_name || ''), undefined, { numeric: true, sensitivity: 'base' }
+    ));
 
     let sql = `
         SELECT r.member_id as id, m.registration_no, m.special_id,

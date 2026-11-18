@@ -89,10 +89,9 @@ export async function getRemittanceScheduleData(cooperativeId, user, month, year
     const dTo = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     const enterprises = await fetchEnterprises(cooperativeId, true);
-    const loans = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'loan').sort((a, b) => a.account_name.localeCompare(b.account_name));
-    const savings = enterprises.filter(e => (e.account_type || '').toLowerCase() === 'savings').sort((a, b) => a.account_name.localeCompare(b.account_name));
-    const others = enterprises.filter(e => !loans.includes(e) && !savings.includes(e)).sort((a, b) => a.account_name.localeCompare(b.account_name));
-    const orderedEnts = [...loans, ...savings, ...others];
+    const orderedEnts = [...enterprises].sort((a, b) => String(a.account_name || '').localeCompare(
+        String(b.account_name || ''), undefined, { numeric: true, sensitivity: 'base' }
+    ));
 
     const useSpecialId = localStorage.getItem('useSpecialIdInReports') === 'true';
     const headers = [

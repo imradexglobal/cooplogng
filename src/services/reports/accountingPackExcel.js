@@ -505,11 +505,13 @@ function trialBalanceSheet(wb, pack) {
     ]);
     r += 1;
     totalRow(ws, r, headers.length, 'CONTROL DIFFERENCE (Dr less Cr)', [
-        [6, t.openingDiff], [10, t.closingDiff]
+        [6, t.openingDiff], [8, t.periodDiff], [10, t.closingDiff]
     ]);
-    const diffCell = ws.getCell(r, 10);
-    diffCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: Math.abs(t.closingDiff) < 0.01 ? PASS : BAD } };
-    diffCell.font = { bold: true, color: { argb: Math.abs(t.closingDiff) < 0.01 ? 'FF375623' : 'FF9C0006' } };
+    for (const [col, difference] of [[8, t.periodDiff], [10, t.closingDiff]]) {
+        const diffCell = ws.getCell(r, col);
+        diffCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: Math.abs(difference) < 0.01 ? PASS : BAD } };
+        diffCell.font = { bold: true, color: { argb: Math.abs(difference) < 0.01 ? 'FF375623' : 'FF9C0006' } };
+    }
     r += 2;
 
     noteRow(ws, r, headers.length, 'Basis: opening balances are cumulative at ' + pack.meta.openingDate + '; period movement covers ' + pack.meta.periodLabel + ' inclusive of both dates; closing balances are cumulative at ' + pack.meta.endDate + '. Only Approved, non-deleted remittances are included. Cash and member balances come from the remittance header and detail records respectively; income and expenditure come from the header category. Income and expenditure lines show the movement for the period only, because their cumulative result is already carried in Retained Earnings — showing both would count the same result twice.');

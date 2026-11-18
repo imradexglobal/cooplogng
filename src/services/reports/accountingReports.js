@@ -1,6 +1,7 @@
 import { queryRows } from '../sqliteService.js';
 import { fetchEnterprises } from '../dataService.js';
 import { formatDate } from '../../utils/formatters.js';
+import { buildAccountingPack } from './accountingPack.js';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -24,6 +25,87 @@ function nextDaySql(dateStr) {
 
 function sum(values) {
     return round2(values.reduce((s, v) => s + v, 0));
+}
+
+// The standalone Trial Balance intentionally delegates to the accounting-pack
+// builder. That keeps the preview, Excel and PDF report on exactly the same
+// approved-row population, double-entry posting rules, retained-earnings
+// treatment and control-difference calculation as the audited workbook.
+export async function getTrialBalanceData(cooperativeId, user, options = {}) {
+    const { dateFrom, dateTo, cooperativeName } = options;
+    const pack = await buildAccountingPack({
+        cooperativeId,
+        startDate: dateFrom,
+        endDate: dateTo,
+        cooperativeName,
+        generatedBy: user?.username || user?.fullName || 'System'
+    });
+
+    const headers = [
+        'Code', 'Account', 'Type', 'Normal', 'Classification',
+        'Opening Dr', 'Opening Cr', 'Period Dr', 'Period Cr', 'Closing Dr', 'Closing Cr'
+    ];
+    const rows = pack.trialBalance.map(row => [
+        row.code, row.account, row.type, row.normal, row.classification,
+        row.openingDr, row.openingCr, row.periodDr, row.periodCr, row.closingDr, row.closingCr
+    ]);
+    const totals = pack.trialBalanceTotals;
+    rows.push([
+        'TOTALS', '', '', '', '',
+        totals.openingDr, totals.openingCr, totals.periodDr, totals.periodCr,
+        totals.closingDr, totals.closingCr
+    ]);
+    rows.push([
+        'CONTROL DIFFERENCE (Dr less Cr)', '', '', '', '',
+        totals.openingDiff, '', totals.periodDiff, '', totals.closingDiff, ''
+    ]);
+
+    return {
+        data: rows,
+        headers,
+        title: `Trial Balance (${formatDate(dateFrom)} - ${formatDate(dateTo)})`,
+        footerCount: 2
+    };
+}
+
+// The standalone Balance Sheet is presented from the accounting pack's
+// Statement of Financial Position so the preview, Excel and PDF exports use
+// the same closing balances, retained-earnings treatment and control logic as
+// the audited Accounting Pack workbook.
+export async function getBalanceSheetData(cooperativeId, user, options = {}) {
+    const { dateFrom, dateTo, cooperativeName } = options;
+    const pack = await buildAccountingPack({
+        cooperativeId,
+        startDate: dateFrom,
+        endDate: dateTo,
+        cooperativeName,
+        generatedBy: user?.username || user?.fullName || 'System'
+    });
+
+    const headers = ['Section', 'Code', 'Account', 'Amount'];
+    const rows = [];
+    const addGroup = (group, totalLabel) => {
+        if (!group?.lines?.length) return;
+        rows.push([group.label, '', '', '']);
+        group.lines.forEach(line => rows.push([group.label, line.code, line.account, line.closing]));
+        rows.push([totalLabel, '', '', group.total]);
+    };
+
+    pack.financialPosition.assets.forEach(group => addGroup(group, `Total ${group.label}`));
+    rows.push(['TOTAL ASSETS', '', '', pack.financialPosition.assetsTotal]);
+    pack.financialPosition.liabilities.forEach(group => addGroup(group, `Total ${group.label}`));
+    rows.push(['TOTAL LIABILITIES', '', '', pack.financialPosition.liabilitiesTotal]);
+    pack.financialPosition.equity.forEach(group => addGroup(group, `Total ${group.label}`));
+    rows.push(['TOTAL EQUITY', '', '', pack.financialPosition.equityTotal]);
+    rows.push(['TOTAL LIABILITIES & EQUITY', '', '', pack.financialPosition.liabilitiesAndEquity]);
+    rows.push(['BALANCE CHECK (Assets less Liabilities & Equity)', '', '', pack.financialPosition.difference]);
+
+    return {
+        data: rows,
+        headers,
+        title: `Balance Sheet as at ${formatDate(dateTo)}`,
+        footerCount: 5
+    };
 }
 
 export async function getEnterpriseAccountData(cooperativeId, user, options = {}) {

@@ -44,6 +44,7 @@ export {
     initializeDefaultTransactionTypes, getTransactionTypes,
     isTransactionTypeUsed,
     migrateExistingRemittancesToAddCategory, migrateTransactionClassifications,
+    backfillUnknownPaymentsToSuspense,
     createTransactionType, updateTransactionType, deleteTransactionType
 } from './transactionTypes.js'
 export {

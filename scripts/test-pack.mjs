@@ -85,6 +85,12 @@ check('a single-day range posts only that day, not the whole history',
 check('a single-day range still carries the correct opening balances',
     Math.abs(firstDay.trialBalanceTotals.openingDiff - wide.trialBalanceTotals.openingDiff) < 0.01,
     `opening difference ${firstDay.trialBalanceTotals.openingDiff} vs ${wide.trialBalanceTotals.openingDiff}`);
+check('trial-balance period difference equals period debits less credits',
+    Math.abs(wide.trialBalanceTotals.periodDiff - (wide.trialBalanceTotals.periodDr - wide.trialBalanceTotals.periodCr)) < 0.01,
+    `period difference ${wide.trialBalanceTotals.periodDiff}, Dr-Cr ${wide.trialBalanceTotals.periodDr - wide.trialBalanceTotals.periodCr}`);
+check('opening plus period difference reconciles to closing difference',
+    Math.abs(wide.trialBalanceTotals.openingDiff + wide.trialBalanceTotals.periodDiff - wide.trialBalanceTotals.closingDiff) < 0.01,
+    `opening ${wide.trialBalanceTotals.openingDiff} + period ${wide.trialBalanceTotals.periodDiff} vs closing ${wide.trialBalanceTotals.closingDiff}`);
 
 const before = await built('2000-01-01', '2000-01-02');
 check('a range before all data produces no postings', before.meta.postedRows === 0, `posted ${before.meta.postedRows}`);

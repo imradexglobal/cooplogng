@@ -30,6 +30,9 @@ const INCOME_CATS = ['Revenue', 'Operating Income', 'Loan Income', 'Other Income
 const EXPENSE_CATS = ['Expense', 'Expenses', 'Operating Expense', 'Administrative Expense', 'Finance Expense', 'Welfare Expense', 'Other Operating Expense', 'Other Expenses'];
 const COOP_ASSET_CATS = ['Asset', 'Fixed Asset', 'General Asset'];
 const NON_POSTING_CATS = ['Transfer', 'Suspense'];
+const OPENING_BANK_TYPE = 'Opening Bank Balance';
+const OPENING_MEMBER_SAVINGS_TYPE = 'Opening Member Savings';
+const OPENING_MEMBER_LOAN_TYPE = 'Opening Member Loan';
 // Categories the app itself uses to route a transaction to a member account
 // rather than to the profit and loss account. They are recognised, so they
 // must not be reported as unknown classifications.
@@ -114,7 +117,10 @@ const BUCKETS = {
     expense: { base: '5', type: 'Expense', normal: 'DR', cls: 'Expense' },
     expenseEnt: { base: '5', type: 'Expense', normal: 'DR', cls: 'Expense' },
     revenueEnt: { base: '431', type: 'Income', normal: 'CR', cls: 'Member-Side Revenue (memo)' },
-    retained: { base: '311', type: 'Equity', normal: 'CR', cls: 'Retained Earnings' }
+    retained: { base: '311', type: 'Equity', normal: 'CR', cls: 'Retained Earnings' },
+    unidentifiedReceipt: { base: '221', type: 'Liability', normal: 'CR', cls: 'Unidentified Receipts' },
+    unallocatedPayment: { base: '141', type: 'Asset', normal: 'DR', cls: 'Unallocated Payments' },
+    openingEquity: { base: '301', type: 'Equity', normal: 'CR', cls: 'Opening Balance Equity' }
 };
 
 class AccountRegistry {
@@ -275,6 +281,10 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         return classAccountByType.get(key);
     };
 
+    const getUnidentifiedReceiptAccount = () => reg.get('unidentifiedReceipt', 'Unidentified Receipts Liability');
+    const getUnallocatedPaymentAccount = () => reg.get('unallocatedPayment', 'Unallocated Payment Clearing');
+    const getOpeningEquityAccount = () => reg.get('openingEquity', 'Opening Balance Equity');
+
     // --- Walk the remittances ------------------------------------------------
     const toDate = remittances
         .filter(r => !truthy(r.is_deleted) && T(r.status) === 'Approved')
@@ -354,6 +364,10 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         const isBank = !!bankName && bankName !== INTERNAL_TRANSFER;
         const cat = T(r.category);
         const txType = T(r.transaction_type);
+        const isOpeningBank = txType === OPENING_BANK_TYPE;
+        const isOpeningMemberSavings = txType === OPENING_MEMBER_SAVINGS_TYPE;
+        const isOpeningMemberLoan = txType === OPENING_MEMBER_LOAN_TYPE;
+        const isOpeningMember = isOpeningMemberSavings || isOpeningMemberLoan;
         const rdets = detByRem.get(String(r.id)) || [];
         const detailSum = rdets.reduce((s, x) => s + num(x.amount), 0);
         const inPeriod = d >= from;
@@ -366,6 +380,12 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         if (isBank && Math.abs(H) >= EPS) {
             addPosting(getBankAccount(bankName), { date: d, debit: H > 0, amount: Math.abs(H), meta: { remittanceId: String(r.id), leg: 'Cash', detailId: '' } });
             trackEntry(r.id, H > 0 ? Math.abs(H) : -Math.abs(H), Math.abs(H));
+            if (isOpeningBank) {
+                // A brought-forward bank balance is not a receipt or payment;
+                // balance it against conversion equity.
+                addPosting(getOpeningEquityAccount(), { date: d, debit: H < 0, amount: Math.abs(H), meta: { remittanceId: String(r.id), leg: 'Opening Balance Equity', detailId: '' } });
+                trackEntry(r.id, H < 0 ? Math.abs(H) : -Math.abs(H), Math.abs(H));
+            }
             if (inPeriod) {
                 cashTxRows.push({
                     date: d, remittanceId: String(r.id), family, bank: bankName,
@@ -410,6 +430,12 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
 
             addPosting(acc, { date: d, debit: isDebit, amount: Math.abs(amt), meta: { remittanceId: String(r.id), leg: 'Member', detailId: String(det.id), memberId: memId, enterpriseId: entId } });
             trackEntry(r.id, isDebit ? Math.abs(amt) : -Math.abs(amt), Math.abs(amt));
+            if (isOpeningMember) {
+                // Opening member positions are balanced by conversion equity,
+                // not by an internal-transfer header.
+                addPosting(getOpeningEquityAccount(), { date: d, debit: !isDebit, amount: Math.abs(amt), meta: { remittanceId: String(r.id), leg: 'Opening Balance Equity', detailId: String(det.id), memberId: memId, enterpriseId: entId } });
+                trackEntry(r.id, !isDebit ? Math.abs(amt) : -Math.abs(amt), Math.abs(amt));
+            }
 
             if (acc.bucket === 'loan' && !loanIdForRow) {
                 unattributedLoan.push({ remittanceId: String(r.id), detailId: String(det.id), amount: round2(amt), transactionType: txType, member: isPseudo ? PSEUDO_MEMBER : memberName(mem) });
@@ -439,9 +465,24 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
          // needs an offsetting liability posting so the trial balance
          // does not show a control difference. Only add when there are
          // no detail legs (no known enterprise/member to credit).
-         const classAccForLiab = (!classAcc && isMemberLiab && !hasDetails)
-             ? reg.get('liability', type) : null;
-         const effectiveClassAcc = classAcc || classAccForLiab;
+        const classAccForLiab = (!classAcc && isMemberLiab && !hasDetails)
+            ? reg.get('liability', type) : null;
+        const effectiveClassAcc = classAcc || classAccForLiab;
+        const isUnknownBank = cat === 'Suspense' && isBank && rdets.length === 0 && Math.abs(H) >= EPS && !isOpeningBank;
+        if (isUnknownBank) {
+            // Unknown positive receipts credit a temporary liability; unknown
+            // negative payments debit a temporary clearing asset. Both retain
+            // the original bank remittance and can later be reclassified.
+            const clearingAcc = H > 0 ? getUnidentifiedReceiptAccount() : getUnallocatedPaymentAccount();
+            const clearingDebit = H < 0;
+            addPosting(clearingAcc, { date: d, debit: clearingDebit, amount: Math.abs(H), meta: { remittanceId: String(r.id), leg: 'Unknown Clearing', detailId: '' } });
+            trackEntry(r.id, clearingDebit ? Math.abs(H) : -Math.abs(H), Math.abs(H));
+        }
+        if (isOpeningMember && rdets.length === 0 && Math.abs(H) >= EPS) {
+            const equityDebit = isOpeningMemberSavings;
+            addPosting(getOpeningEquityAccount(), { date: d, debit: equityDebit, amount: Math.abs(H), meta: { remittanceId: String(r.id), leg: 'Opening Balance Equity', detailId: '' } });
+            trackEntry(r.id, equityDebit ? Math.abs(H) : -Math.abs(H), Math.abs(H));
+        }
         if (effectiveClassAcc && Math.abs(H) >= EPS) {
             addPosting(effectiveClassAcc, { date: d, debit: H < 0, amount: Math.abs(H), meta: { remittanceId: String(r.id), leg: 'Classification', detailId: '' } });
             trackEntry(r.id, H < 0 ? Math.abs(H) : -Math.abs(H), Math.abs(H));
@@ -479,7 +520,7 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
              const legs = (isBank && Math.abs(H) >= EPS ? 1 : 0) + rdets.filter(x => Math.abs(num(x.amount)) >= EPS).length + (effectiveClassAcc && Math.abs(H) >= EPS ? 1 : 0);
              const oneLegged = !isBank && rdets.length <= 1 && !effectiveClassAcc && Math.abs(H) >= EPS;
              const bankNoDetails = isBank && rdets.length === 0 && !effectiveClassAcc && Math.abs(H) >= EPS;
-            const transferWithBank = isBank && NON_POSTING_CATS.includes(cat) && rdets.length === 0;
+            const transferWithBank = isBank && cat === 'Transfer' && rdets.length === 0;
 
             if (transferWithBank) {
                 addException('High', 'TRANSFER_WITH_BANK', 'Internal transfer posted against a real bank account', String(r.id), H,
@@ -489,7 +530,7 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
                 addException('Medium', 'ONE_LEGGED_NON_CASH', 'Non-cash posting with no counter-leg', String(r.id), H,
                     `Non-cash header of ${round2(H).toLocaleString()} with ${rdets.length} detail leg(s) and no Income/Expense/Asset classification. The entry is its own family, so there is no related row to balance it. It is included in the control difference quantified by C13.`);
             }
-            if (bankNoDetails && !transferWithBank) {
+            if (bankNoDetails && !transferWithBank && !isUnknownBank) {
                 addException('High', 'CASH_POSTING_NO_DETAIL', 'Cash movement with no member or classification leg', String(r.id), H,
                     `Bank "${bankName}" movement of ${round2(H).toLocaleString()} with no detail rows and no Income/Expense/Asset category.`);
             }
@@ -1093,13 +1134,15 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         group('Cash and bank', a => a.bucket === 'bank'),
         group('Loans receivable', a => a.bucket === 'loan'),
         group('Other assets', a => a.bucket === 'asset'),
-        group('Cooperative assets', a => a.bucket === 'coopAsset')
+        group('Cooperative assets', a => a.bucket === 'coopAsset'),
+        group('Unallocated payment clearing', a => a.bucket === 'unallocatedPayment')
     ].filter(g => g.lines.length);
     const fpLiabilities = [
         group('Member savings', a => a.bucket === 'savings'),
         group('Member dues and penalties', a => a.bucket === 'due'),
         group('Other liabilities (including unidentified payments)', a => a.bucket === 'liability'),
-        group('Member equity accounts', a => a.bucket === 'equityEnt')
+        group('Member equity accounts', a => a.bucket === 'equityEnt'),
+        group('Unidentified receipts liability', a => a.bucket === 'unidentifiedReceipt')
     ].filter(g => g.lines.length);
     // Equity. Two things belong here and they are not always in the same place.
     //
@@ -1132,6 +1175,8 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
             .reduce((s, a) => s + (a.normal === 'CR' ? -1 : 1) * a.periodNet, 0)
     );
     const fpEquity = [];
+    const fpOpeningEquity = group('Opening balance equity', a => a.bucket === 'openingEquity');
+    if (fpOpeningEquity.lines.length) fpEquity.push(fpOpeningEquity);
     if (reAcc) {
         fpEquity.push({
             label: 'Retained earnings brought forward',
@@ -1264,6 +1309,7 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
     const postingResidual = round2(postings.reduce((s, p) => s + p.netDr, 0));
     const tbCloseDiff = round2(tbCloseDr - tbCloseCr);
     const tbOpenDiff = round2(tbOpenDr - tbOpenCr);
+    const tbPeriodDiff = round2(tbPerDr - tbPerCr);
     const cashCheck = round2(cashOpTotal + cashRecTotal - cashPayTotal - cashCloseTotal);
 
     // The general ledger's own debit and credit columns, totalled from the
@@ -1401,7 +1447,7 @@ export async function buildAccountingPack({ cooperativeId, startDate, endDate, c
         trialBalanceTotals: {
             openingDr: tbOpenDr, openingCr: tbOpenCr, periodDr: tbPerDr, periodCr: tbPerCr,
             closingDr: tbCloseDr, closingCr: tbCloseCr,
-            openingDiff: tbOpenDiff, closingDiff: tbCloseDiff
+            openingDiff: tbOpenDiff, periodDiff: tbPeriodDiff, closingDiff: tbCloseDiff
         },
         periodResult: { income: periodIncome, expense: periodExpense, surplus: round2(periodIncome - periodExpense), retainedEarningsOpening: reOpening },
         generalLedger: glRows,

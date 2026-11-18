@@ -192,13 +192,15 @@ export async function addRemittance(data, createdBy) {
     }
 
     if (String(doc.member_id || '') !== '0000000000' &&
-        String(doc.bank_name || '').trim().toLowerCase() === 'internal transfer' &&
-        doc.details?.length) {
+        String(doc.bank_name || '').trim().toLowerCase() === 'internal transfer') {
         const enterpriseData = await queryRows(
             'SELECT * FROM enterprise WHERE cooperative_id = ? AND is_deleted = 0',
             [doc.cooperative_id]
         ).catch(() => [])
-        const mapped = classifyMemberInternalTransfer(doc.details, enterpriseData)
+        const mapped = classifyMemberInternalTransfer(doc.details || [], enterpriseData, {
+            description: doc.description || data.notes || '',
+            amount: doc.amount
+        })
         if (mapped) {
             doc.transaction_type = mapped.transaction_type
             doc.category = mapped.category
@@ -368,13 +370,15 @@ export async function updateRemittance(id, data, modifiedBy) {
         }))
     }
     if (String(doc.member_id || '') !== '0000000000' &&
-        String(doc.bank_name || '').trim().toLowerCase() === 'internal transfer' &&
-        doc.details?.length) {
+        String(doc.bank_name || '').trim().toLowerCase() === 'internal transfer') {
         const enterpriseData = await queryRows(
             'SELECT * FROM enterprise WHERE cooperative_id = ? AND is_deleted = 0',
             [doc.cooperative_id]
         ).catch(() => [])
-        const mapped = classifyMemberInternalTransfer(doc.details, enterpriseData)
+        const mapped = classifyMemberInternalTransfer(doc.details || [], enterpriseData, {
+            description: doc.description || data.notes || '',
+            amount: doc.amount
+        })
         if (mapped) {
             doc.transaction_type = mapped.transaction_type
             doc.category = mapped.category

@@ -10,6 +10,7 @@ import { hasPermission } from '../../services/permissionService.js';
 import { showToast } from '../../services/toastService.js';
 import { fetchEnterprises, fetchAllMembers, fetchBanks, fetchTransactionTypes } from '../../services/dataService.js';
 import { getUnclaimedRemittances, suggestUnclaimedMember, buildFixedRemapDetails, buildRemapLearningPattern, learnedPatternSimilarity, HOUSE_MEMBER_ID, memberLabel } from '../../services/remapUnclaimed.js';
+import { isBroughtForwardNote } from '../../services/data/memberTransactionClassification.js';
 
 let _excelJS = null;
 async function loadExcelJS() {
@@ -52,6 +53,15 @@ function excelDateText(value, fallback) {
         if (!Number.isNaN(date.getTime())) return formatDateForInput(date);
     }
     return excelCellText(value) || fallback;
+}
+
+function isZeroOpeningBalanceEntry(row) {
+    const rawAmount = row?.amt ?? row?.amount;
+    const amount = Number(rawAmount);
+    return rawAmount !== '' && rawAmount !== null && rawAmount !== undefined &&
+        Number.isFinite(amount) && Math.abs(amount) < 0.005 &&
+        String(row?.bank || '').trim().toLowerCase() === 'internal transfer' &&
+        isBroughtForwardNote(row?.desc || row?.description || '');
 }
 
 async function downloadVariedDepositTemplate(members) {
@@ -435,7 +445,7 @@ export function showBulkRemittanceModal(deps) {
                 return rows.map((entry, index) => `<div class="bulk-varied-row">
                     <input type="checkbox" class="bulk-member-chk bulk-varied-chk bulk-select-checkbox" value="${escapeHtml(id)}" data-row-key="${escapeHtml(entry.key)}" ${checkedIds.has(id) ? 'checked' : ''} aria-label="Select ${escapeHtml(label)}">
                     <span class="bulk-member-name">${escapeHtml(label)}${index ? ` <small>(${index + 1})</small>` : ''}</span>
-                    <input type="number" step="0.01" min="0" class="bulk-amt-input" data-row-key="${escapeHtml(entry.key)}" value="${entry.amount || ''}" placeholder="0.00" aria-label="Amount">
+                    <input type="number" step="0.01" min="0" class="bulk-amt-input" data-row-key="${escapeHtml(entry.key)}" value="${entry.amount ?? ''}" placeholder="0.00" aria-label="Amount">
                     <input type="date" class="bulk-row-date" data-row-key="${escapeHtml(entry.key)}" value="${escapeHtml(entry.date || today)}" aria-label="Date">
                     <select class="bulk-row-bank" data-row-key="${escapeHtml(entry.key)}" aria-label="Bank">
                         <option value="">Select bank</option>
@@ -466,7 +476,7 @@ export function showBulkRemittanceModal(deps) {
             variedRows.forEach(row => {
                 if (!checkedIds.has(row.memberId)) return;
                 const v = parseFloat(row.amount || 0) || 0;
-                if (v > 0) { n++; sum += v; }
+                if (v > 0 || isZeroOpeningBalanceEntry(row)) { n++; sum += v; }
             });
             el.innerHTML = `<strong>${n}</strong> row${n === 1 ? '' : 's'} with amounts = <strong>${formatCurrency(sum)}</strong>`;
             return;
@@ -937,6 +947,7 @@ export function showBulkRemittanceModal(deps) {
             const byReg = byField('registration_no');
             const byMobile = byField('mobile');
             let imported = 0;
+            let zeroOpeningImported = 0;
             const errors = [];
             sheet.eachRow((row, rowNumber) => {
                 if (rowNumber < 5) return;
@@ -944,22 +955,33 @@ export function showBulkRemittanceModal(deps) {
                 const reg = excelCellText(row.getCell(2).value);
                 const mobile = excelCellText(row.getCell(3).value);
                 const special = excelCellText(row.getCell(4).value);
-                const amount = parseFloat(excelCellText(row.getCell(5).value)) || 0;
+                const amountText = excelCellText(row.getCell(5).value);
+                const amount = amountText === '' ? null : Number(amountText.replace(/,/g, ''));
                 const importedDate = excelDateText(row.getCell(6).value, today);
                 const importedBank = excelCellText(row.getCell(7).value);
                 const importedDesc = excelCellText(row.getCell(8).value);
-                if (!fullName && !reg && !mobile && !special && !amount && !importedBank && !importedDesc) return;
+                if (!fullName && !reg && !mobile && !special && amountText === '' && !importedBank && !importedDesc) return;
+                // An empty template amount is an unused row; numeric zero is
+                // meaningful only for a recognized opening-balance entry.
+                if (amountText === '') return;
+                if (!Number.isFinite(amount) || amount < 0) { errors.push(`Row ${rowNumber}: amount must be zero or greater.`); return; }
+                const zeroOpeningBalance = isZeroOpeningBalanceEntry({ amount, bank: importedBank, desc: importedDesc });
+                if (!(amount > 0) && !zeroOpeningBalance) {
+                    errors.push(`Row ${rowNumber}: zero is allowed only for an Internal Transfer with a brought-forward note.`);
+                    return;
+                }
                 const member = (special && bySpecial.get(special.toLowerCase())) || (reg && byReg.get(reg.toLowerCase())) || (mobile && byMobile.get(mobile.toLowerCase()));
                 if (!member) { errors.push(`Row ${rowNumber}: member identity was not found.`); return; }
-                const entry = { key: `${member.id}-import-${rowNumber}`, memberId: String(member.id), amount: amount || '', date: importedDate, bank: importedBank, desc: importedDesc };
+                const entry = { key: `${member.id}-import-${rowNumber}`, memberId: String(member.id), amount, date: importedDate, bank: importedBank, desc: importedDesc };
                 variedRows.push(entry);
                 checkedIds.add(String(member.id));
                 if (amount > 0) imported++;
+                else zeroOpeningImported++;
             });
             paintMembers();
             refreshCounts();
             scheduleDraftSave();
-            showToast(`Imported ${imported} amount${imported === 1 ? '' : 's'}.${errors.length ? ` ${errors.length} row${errors.length === 1 ? '' : 's'} skipped.` : ''}`, errors.length ? 'warning' : 'success');
+            showToast(`Imported ${imported} amount${imported === 1 ? '' : 's'}${zeroOpeningImported ? ` and ${zeroOpeningImported} zero opening-balance row${zeroOpeningImported === 1 ? '' : 's'}` : ''}.${errors.length ? ` ${errors.length} row${errors.length === 1 ? '' : 's'} skipped.` : ''}`, errors.length ? 'warning' : 'success');
         } catch (err) {
             showToast(`Excel import failed: ${err.message}`, 'error');
         } finally {
@@ -1014,8 +1036,16 @@ export function showBulkRemittanceModal(deps) {
         const rowKey = inp?.dataset.rowKey;
         if (rowKey) {
             const row = variedRows.find(r => r.key === rowKey);
-            if (row) row.amount = parseFloat(inp.value || 0) || '';
-            if (row?.amount > 0) checkedIds.add(row.memberId);
+            if (row) {
+                const rawAmount = inp.value.trim();
+                const parsedAmount = rawAmount === '' ? '' : Number(rawAmount);
+                row.amount = Number.isFinite(parsedAmount) ? parsedAmount : '';
+            }
+            if (row && (row.amount > 0 || isZeroOpeningBalanceEntry(row))) {
+                checkedIds.add(row.memberId);
+                const checkbox = inp.closest('.bulk-varied-row')?.querySelector('.bulk-varied-chk');
+                if (checkbox) checkbox.checked = true;
+            }
             refreshCounts();
             scheduleDraftSave();
             return;
@@ -1054,6 +1084,12 @@ export function showBulkRemittanceModal(deps) {
         if (!field) return;
         const row = variedRows.find(r => r.key === field.dataset.rowKey);
         if (row) row[field.classList.contains('bulk-row-date') ? 'date' : field.classList.contains('bulk-row-bank') ? 'bank' : 'desc'] = field.value;
+        if (row && isZeroOpeningBalanceEntry(row)) {
+            checkedIds.add(row.memberId);
+            const checkbox = field.closest('.bulk-varied-row')?.querySelector('.bulk-varied-chk');
+            if (checkbox) checkbox.checked = true;
+        }
+        refreshCounts();
         scheduleDraftSave();
     });
     overlay.querySelector('#bulk-member-list').addEventListener('click', (e) => {
@@ -1208,10 +1244,10 @@ export function showBulkRemittanceModal(deps) {
                     amt: applyAmount ? amount : (parseFloat(row.amount || 0) || 0),
                     date: applyDate ? date : row.date,
                     bank: applyBank ? bank : row.bank,
-                    desc: applyDesc ? desc : row.desc,
+                    desc: applyDesc ? desc : (row.desc || desc),
                     rowKey: row.key
                 }))
-                .filter(x => x.amt > 0);
+                .filter(x => x.amt > 0 || isZeroOpeningBalanceEntry(x));
         }
 
         if (!isVaried && !ent) { showToast('Select an enterprise.', 'error'); return; }
@@ -1219,13 +1255,20 @@ export function showBulkRemittanceModal(deps) {
         if (!isVaried && !bank) { showToast('Select a bank.', 'error'); return; }
         if (direction === 'loan' && !(duration > 0)) { showToast('Enter loan duration in months.', 'error'); return; }
         if (!memberIds.length) { showToast('Select at least one member.', 'error'); return; }
-        if (isVaried && applyAmount && !(amount > 0)) { showToast('Enter a shared amount greater than zero.', 'error'); return; }
+        const everySelectedMemberHasZeroOpening = checkedIds.size > 0 && [...checkedIds].every(memberId =>
+            variedList.some(row => String(row.id) === String(memberId) && isZeroOpeningBalanceEntry(row))
+        );
+        if (isVaried && applyAmount && !(amount > 0) && !everySelectedMemberHasZeroOpening) {
+            showToast('A shared zero amount is allowed only when every selected member has an Internal Transfer and a brought-forward note.', 'error');
+            return;
+        }
         if (isVaried && applyDate && !date) { showToast('Select the shared date.', 'error'); return; }
         if (isVaried && applyBank && !bank) { showToast('Select the shared cooperative bank.', 'error'); return; }
         if (isVaried && !variedList.length) { showToast('Enter an amount for at least one member.', 'error'); return; }
         if (isVaried) {
-            const incomplete = variedList.find(row => !row.date || !row.bank);
-            if (incomplete) { showToast('Every varied-deposit row must have an amount, date, and bank before proceeding.', 'error'); return; }
+            const incomplete = variedList.find(row => !row.date || !row.bank ||
+                (String(row.bank).trim().toLowerCase() === 'internal transfer' && !String(row.desc || '').trim()));
+            if (incomplete) { showToast('Every varied-deposit row must have an amount, date, and bank; Internal Transfer rows also need a note.', 'error'); return; }
         }
         if (isTransferDir()) {
             if (isToAdminMode) {

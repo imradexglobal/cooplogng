@@ -140,6 +140,9 @@ export async function renderReports(container, user) {
             }
             #preview-toolbar button:disabled { opacity: 0.4; cursor: default; }
             .styled-table thead th[data-sort-idx] { cursor: pointer; user-select: none; }
+            .styled-table thead th[data-column-idx] { cursor: grab; }
+            .styled-table thead th[data-column-idx]:active { cursor: grabbing; }
+            .styled-table thead th.column-drag-over { outline: 2px dashed var(--accent-primary); outline-offset: -3px; }
 
             .styled-table { 
                 width: auto !important;
@@ -205,6 +208,14 @@ export async function renderReports(container, user) {
             .styled-table tbody tr.report-total-row td.report-total-column {
                 background: var(--bg-secondary) !important;
                 color: var(--accent-primary);
+            }
+            .styled-table tbody tr.report-section-row td {
+                background: var(--bg-input) !important;
+                color: var(--accent-primary);
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                border-top: 1px solid var(--border-medium);
             }
             .styled-table thead th.report-total-column {
                 position: sticky;
@@ -1172,7 +1183,7 @@ export async function renderReports(container, user) {
         return sa.localeCompare(sb, undefined, { numeric: true, sensitivity: 'base' });
     };
 
-    const isTotalRow = (cells) => typeof cells[0] === 'string' && /^total\b/i.test(cells[0].trim());
+    const isTotalRow = (cells) => typeof cells[0] === 'string' && /^(?:total\b|balance check\b)/i.test(cells[0].trim());
 
     function renderPreviewTable(headers, data, footerCount = 0) {
         previewView.page = 1;
@@ -1213,6 +1224,7 @@ export async function renderReports(container, user) {
                         <input id="preview-search" type="search" placeholder="Search rows..." autocomplete="off">
                         <span id="preview-count" style="font-size: 0.75rem; color: var(--text-muted);"></span>
                     </div>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">Drag column headers to rearrange; Total stays fixed</span>
                     <div id="preview-pager" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--text-muted);">
                         <button id="preview-prev" type="button" aria-label="Previous page">&#8249;</button>
                         <span id="preview-page-info"></span>
@@ -1266,7 +1278,8 @@ export async function renderReports(container, user) {
                             const h = headers[i];
                             const arrow = previewView.sortIdx === i ? (previewView.sortDir === 1 ? ' &#9650;' : ' &#9660;') : '';
                             const totalClass = i === trailingTotalIndex ? ' class="report-total-column"' : '';
-                            return `<th${totalClass} data-sort-idx="${i}" title="Click to sort" style="white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important;">${escapeHtml(h).replace(/ /g, '&nbsp;')}${arrow}</th>`;
+                            const dragAttrs = i === trailingTotalIndex ? '' : ` draggable="true" data-column-idx="${i}" title="Drag to rearrange; click to sort"`;
+                            return `<th${totalClass} data-sort-idx="${i}"${dragAttrs} style="white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important;">${escapeHtml(h).replace(/ /g, '&nbsp;')}${arrow}</th>`;
                         }).join('')}
                     </tr>
                 </thead>
@@ -1275,7 +1288,8 @@ export async function renderReports(container, user) {
 
         const renderRows = (rows) => rows.map(row => {
             const rowArray = Array.isArray(row) ? row : headers.map(h => row[h]);
-            const totalRowClass = isTotalRow(rowArray) ? ' class="report-total-row"' : '';
+            const isSectionRow = rowArray.length > 1 && rowArray[0] && rowArray.slice(1).every(v => v === '' || v === null || v === undefined);
+            const totalRowClass = isTotalRow(rowArray) ? ' class="report-total-row"' : (isSectionRow ? ' class="report-section-row"' : '');
             return `
                 <tr${totalRowClass}>
                     ${displayColumnIndexes.map((idx) => {
@@ -1332,6 +1346,58 @@ export async function renderReports(container, user) {
         wrap.querySelectorAll('th[data-sort-idx]').forEach(th => {
             th.addEventListener('click', () => sortPreview(parseInt(th.dataset.sortIdx, 10)));
         });
+        wrap.querySelectorAll('th[data-column-idx]').forEach(th => {
+            th.addEventListener('dragstart', (event) => {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', th.dataset.columnIdx);
+            });
+            th.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+                th.classList.add('column-drag-over');
+            });
+            th.addEventListener('dragleave', () => th.classList.remove('column-drag-over'));
+            th.addEventListener('drop', (event) => {
+                event.preventDefault();
+                th.classList.remove('column-drag-over');
+                const fromIdx = Number(event.dataTransfer.getData('text/plain'));
+                const toIdx = Number(th.dataset.columnIdx);
+                if (Number.isInteger(fromIdx) && Number.isInteger(toIdx) && fromIdx !== toIdx) {
+                    rearrangePreviewColumns(fromIdx, toIdx);
+                }
+            });
+        });
+    }
+
+    // Reorder headers and every row together. Total is deliberately excluded
+    // from dragging and remains the final exported column.
+    function rearrangePreviewColumns(fromIdx, toIdx) {
+        const { headers, data, footerCount } = previewSource;
+        const totalIdx = headers.findIndex((header, index) =>
+            index === headers.length - 1 && /^total(?:\s|$)/i.test(String(header).trim())
+        );
+        if (fromIdx === totalIdx || toIdx === totalIdx || fromIdx < 0 || toIdx < 0) return;
+
+        const order = headers.map((_, index) => index);
+        const [moved] = order.splice(fromIdx, 1);
+        order.splice(toIdx, 0, moved);
+        if (totalIdx !== -1) {
+            const withoutTotal = order.filter(index => index !== totalIdx);
+            withoutTotal.push(totalIdx);
+            order.splice(0, order.length, ...withoutTotal);
+        }
+
+        const nextHeaders = order.map(index => headers[index]);
+        const nextData = data.map(row => {
+            const cells = previewCells(row, headers);
+            const reordered = order.map(index => cells[index]);
+            return Array.isArray(row)
+                ? reordered
+                : Object.fromEntries(nextHeaders.map((header, index) => [header, reordered[index]]));
+        });
+        previewSource = { headers: nextHeaders, data: nextData, footerCount };
+        currentReportData = { ...currentReportData, headers: nextHeaders, data: nextData };
+        renderPreviewGrid(nextHeaders, nextData, footerCount);
     }
 
     // Sorting reorders the stored result so Excel/PDF exports match what the

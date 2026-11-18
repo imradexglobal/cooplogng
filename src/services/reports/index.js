@@ -1,6 +1,6 @@
 export { getMemberListData, getPaymentAdviseData, getMemberPerformanceAgingData, getGeneralNetworthData, getMemberMonthlyTransactionSummaryData } from './memberReports.js';
 export { getRemittanceListData, getRemittanceScheduleData, getEODReportData } from './remittanceReports.js';
-export { getEnterpriseAccountData, getPersonalLedgerData } from './accountingReports.js';
+export { getEnterpriseAccountData, getPersonalLedgerData, getTrialBalanceData, getBalanceSheetData } from './accountingReports.js';
 export { exportToExcel, exportToPDF } from './exporters.js';
 export { buildAccountingPack } from './accountingPack.js';
 export { buildAccountingPackWorkbook, exportAccountingPack } from './accountingPackExcel.js';

@@ -6,7 +6,7 @@ import {
     getMemberMonthlyTransactionSummaryData
 } from './memberReports.js';
 import { getRemittanceListData, getRemittanceScheduleData, getEODReportData } from './remittanceReports.js';
-import { getEnterpriseAccountData, getPersonalLedgerData } from './accountingReports.js';
+import { getEnterpriseAccountData, getPersonalLedgerData, getTrialBalanceData, getBalanceSheetData } from './accountingReports.js';
 import { formatDate } from '../../utils/formatters.js';
 
 // Single source of truth for the report types: the Report Type dropdown, the
@@ -170,6 +170,42 @@ export const REPORT_TYPES = {
             ctx.el('#monthly-summary-fy').selectedOptions[0].textContent,
             ctx.read('#monthly-summary-type')
         )
+    },
+    trial_balance: {
+        label: 'Trial Balance',
+        title: null,
+        filterGroups: ['.filter-date'],
+        prefill: prefillDateRange,
+        validate: (ctx) => {
+            const from = ctx.read('#date-from');
+            const to = ctx.read('#date-to');
+            if (!from || !to) return 'Please select both a start and an end date';
+            if (from > to) return 'Start date must not be after end date';
+            return null;
+        },
+        build: (ctx) => getTrialBalanceData(ctx.cooperativeId, ctx.user, {
+            dateFrom: ctx.read('#date-from'),
+            dateTo: ctx.read('#date-to'),
+            cooperativeName: ctx.cooperativeFullName
+        })
+    },
+    balance_sheet: {
+        label: 'Balance Sheet',
+        title: null,
+        filterGroups: ['.filter-date'],
+        prefill: prefillDateRange,
+        validate: (ctx) => {
+            const from = ctx.read('#date-from');
+            const to = ctx.read('#date-to');
+            if (!from || !to) return 'Please select both a start and an end date';
+            if (from > to) return 'Start date must not be after end date';
+            return null;
+        },
+        build: (ctx) => getBalanceSheetData(ctx.cooperativeId, ctx.user, {
+            dateFrom: ctx.read('#date-from'),
+            dateTo: ctx.read('#date-to'),
+            cooperativeName: ctx.cooperativeFullName
+        })
     },
     accounting_pack: {
         label: 'Accounting Pack (Excel workbook)',

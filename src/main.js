@@ -31,7 +31,7 @@ import { renderJoinCooperative } from './screens/JoinCooperative.jsx'
 import { fetchAllMembers, fetchMembersBySearch, isNotDeleted } from './services/dataService.js'
 import { hashPassword, escapeHtml, escapeAttribute, generateId, getInitials, wrapDateInput, getTimestampMs } from './utils/formatters.js'
 import { initializeSyncService, syncCooperativeData, performHardRestore } from './services/syncService.js'
-import { getAllForCoop, loadDoc, isSynced, queryOne, getLocalDateString } from './services/sqliteService.js'
+import { getAllForCoop, loadDoc, isSynced, queryOne, getLocalDateString, backfillUnknownPaymentsToSuspense } from './services/sqliteService.js'
 import { validateLogin } from './services/authService.js'
 
 import { attemptOfflineLogin, saveSessionLocally as saveSession, loadSavedSession, clearSavedSession, clearOfflineSession, clearAllOfflineSessions, recordActivity, startInactivityWatcher, persistActiveTab, sessionRequiresPasswordChange, maybeCountMemberReturnVisit, restoreSessionFromIndexedDB } from './services/offlineAuthService.js'
@@ -58,6 +58,18 @@ import { syncBus, SyncEvents } from './services/syncEventBus.js'
 
 
 const app = document.querySelector('#app')
+
+// Production-safe background repair. It scans the local cache for legacy
+// Unknown Payments rows and updates only their category, yielding between
+// batches. It does not block login/rendering and is safe to retry on every
+// app start because already-Suspense rows are ignored.
+setTimeout(() => {
+  backfillUnknownPaymentsToSuspense().then(result => {
+    if (result?.migrated) console.info('[Backfill] Unknown Payments classified as Suspense:', result)
+  }).catch(error => {
+    console.warn('[Backfill] Unknown Payments migration deferred:', error?.message || error)
+  })
+}, 0)
 
 // Keep numeric inputs numeric across the app while allowing negative values
 // by default. A nonnegative min (or data-allow-negative="false") opts out.

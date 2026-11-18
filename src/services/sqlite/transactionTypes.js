@@ -15,8 +15,70 @@ function getDefaultTypesAsDocs() {
     }))
 }
 
+let unknownPaymentsBackfillPromise = null
+
+const waitForBackgroundTurn = () => new Promise(resolve => {
+    if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+        window.setTimeout(resolve, 0)
+    } else {
+        setTimeout(resolve, 0)
+    }
+})
+
+/**
+ * One-time, idempotent data repair for legacy Unknown Payments rows.
+ *
+ * It intentionally updates the existing remittance row rather than creating
+ * another remittance or detail row. The accounting layer can then derive the
+ * Unknown Payments clearing entry from category = Suspense. Rows already
+ * classified as Suspense, deleted rows, and all other transaction types are
+ * untouched.
+ */
+export async function backfillUnknownPaymentsToSuspense({ batchSize = 50 } = {}) {
+    if (unknownPaymentsBackfillPromise) return unknownPaymentsBackfillPromise
+
+    unknownPaymentsBackfillPromise = (async () => {
+        const all = await getAllItems('remittance')
+        const candidates = all.filter(row =>
+            !row.is_deleted &&
+            String(row.transaction_type || '').trim().toLowerCase() === 'unknown payments' &&
+            String(row.category || '').trim().toLowerCase() !== 'suspense'
+        )
+
+        let migrated = 0
+        for (let i = 0; i < candidates.length; i += Math.max(1, Number(batchSize) || 50)) {
+            const batch = candidates.slice(i, i + Math.max(1, Number(batchSize) || 50))
+            const now = new Date().toISOString()
+            for (const row of batch) {
+                await saveDoc('remittance', {
+                    ...row,
+                    category: 'Suspense',
+                    modified_at: now,
+                    modified_by: 'system:unknown-payments-backfill',
+                    is_synced: 0
+                })
+                migrated++
+            }
+            // Yield between batches so an active production session remains
+            // responsive and queued sync writes can make progress.
+            await waitForBackgroundTurn()
+        }
+
+        return { scanned: all.length, candidates: candidates.length, migrated }
+    })().finally(() => {
+        unknownPaymentsBackfillPromise = null
+    })
+
+    return unknownPaymentsBackfillPromise
+}
+
 export async function initializeDefaultTransactionTypes() {
-    return { created: 0 }
+    // Do not delay app startup for this repair. It is safe to retry after an
+    // interruption because only rows still needing the classification match.
+    void backfillUnknownPaymentsToSuspense().catch(error => {
+        console.warn('[backfillUnknownPaymentsToSuspense] Deferred migration failed; it will retry on the next startup.', error)
+    })
+    return { created: 0, unknownPaymentsBackfillScheduled: true }
 }
 
 async function getCustomTypes(cooperativeId) {

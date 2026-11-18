@@ -1,7 +1,3 @@
-<?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">CoopLog</string>
-    <string name="title_activity_main">CoopLog</string>
-    <string name="package_name">com.cooplog.app</string>
-    <string name="custom_url_scheme">com.cooplog.app</string>
+    <string name="app_name">CoopLogNg</string>
 </resources>
